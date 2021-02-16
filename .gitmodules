@@ -1,0 +1,3 @@
+[submodule "SARS-CoV-2-network-analysis"]
+	path = SARS-CoV-2-network-analysis
+	url = https://github.com/Murali-group/SARS-CoV-2-network-analysis.git

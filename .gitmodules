@@ -1,3 +1,6 @@
 [submodule "SARS-CoV-2-network-analysis"]
 	path = sars2net
 	url = https://github.com/Murali-group/SARS-CoV-2-network-analysis.git
+[submodule "code/submodules/decagon"]
+	path = code/submodules/decagon
+	url = https://github.com/mims-harvard/decagon.git

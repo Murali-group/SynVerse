@@ -66,3 +66,62 @@ dataset_settings:
             # keep all of the columns
             #columns_to_keep: []
             sep: " "
+            
+string_network_preparation_settings:
+    string_cutoff: 700
+    string_nets: "combined_score"
+    weight_method: add
+    string_net_files: "9606-uniprot-links-full-v11.txt.gz"
+    string_dir: "datasets/networks/stringv11/" 
+    
+    
+ml_models_settings:
+    algs:
+        decagon:
+            should_run: True
+            neg_sample_size: 1
+            batch_size: 512
+            learning_rate: 0.001
+            epochs: 1
+            weight_decay: 0
+            dropout: 0.1
+            max_margin: 0.1
+            bias: True
+            
+        svm:
+            should_run: False
+        
+        gbr:
+            should_run: False
+    cross_val:
+        folds: 5
+        #1. Leave drug combination out in all cell line (leave_comb) 2. Random Cross Validation (random)
+        #                  3. Leave one-drug out (lod) 4.Leave one-cell line out(loc)
+#        types: ['leave_comb', 'leave_drug', 'leave_cell', 'stratified']
+        types: ['stratified']
+    test_frac: 0.1
+    minibatch_size: 256
+
+synergy_data_settings:
+    min_pairs: 500
+    threshold:
+      should_apply: True
+      val: 0
+      net_create_val: 0
+      performance_eval_val: 0
+    
+        
+    
+project_dir: '/home/tasnina/Projects/SynVerse/'
+inputs: 
+    ppi: 'inputs/networks/'
+        # mat: /c"+str(string_cutoff)+"_combined_score_sparse_net.mat"
+        # nodes: "inputs/networks/c"+str(string_cutoff)+"_combined_score_node_ids.txt"
+    drug:
+        target: "inputs/drugs/drug_target_map.tsv"
+
+    synergy_dir: "inputs/synergy/"
+    synergy: "inputs/synergy/synergy_labels.tsv"
+
+output_dir:
+    "outputs/"

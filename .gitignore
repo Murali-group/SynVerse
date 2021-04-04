@@ -7,6 +7,8 @@ outputs/
 # # Jupyter Notebook
 .ipynb_checkpoints
 
+gitpass.txt
+
 # # IPython
 # profile_default/
 # ipython_config.py
@@ -23,6 +25,7 @@ outputs/
 
 # # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
+__pycache__/
 
 # # Celery stuff
 # celerybeat-schedule

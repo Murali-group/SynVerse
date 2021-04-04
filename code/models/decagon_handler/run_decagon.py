@@ -95,7 +95,7 @@ def compute_drug_drug_link_probability(cell_line_specific_edges_pos, cell_line_s
         return pos_df, neg_df
 
 
-# def save_drug_drug_link_probability(pos_df, neg_df, run_, out_dir):
+# def save_drug_drug_link_probability(pos_df, neg_df, iter, out_dir):
 def save_drug_drug_link_probability(pos_df, neg_df, run_, use_drug_feat_option, FLAGS, out_dir):
     lr = FLAGS.learning_rate
     epochs = FLAGS.epochs
@@ -141,6 +141,8 @@ def get_accuracy_scores(edges_pos, edges_neg, edge_type, adj_mats_orig, rec):
     for u, v in edges_neg[edge_type[:2]][edge_type[2]]:
         score = sigmoid(rec[u, v])
         preds_neg.append(score)
+        if (adj_mats_orig[edge_type[:2]][edge_type[2]][u, v] != 0):
+            print(edge_type, u, v)
         assert adj_mats_orig[edge_type[:2]][edge_type[2]][u, v] == 0, 'Problem 0'
 
         predicted.append((score, edge_ind))
@@ -161,6 +163,7 @@ def get_accuracy_scores(edges_pos, edges_neg, edge_type, adj_mats_orig, rec):
 def construct_placeholders(edge_types):
     placeholders = {
         'batch': tf.placeholder(tf.int32, name='batch'),
+        'neg_batch': tf.placeholder(tf.int32, name='neg_batch'),
         'batch_edge_type_idx': tf.placeholder(tf.int32, shape=(), name='batch_edge_type_idx'),
         'batch_row_edge_type': tf.placeholder(tf.int32, shape=(), name='batch_row_edge_type'),
         'batch_col_edge_type': tf.placeholder(tf.int32, shape=(), name='batch_col_edge_type'),
@@ -216,7 +219,7 @@ def create_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_orig,no
         edges_set = set(map(tuple, edges_all))
         if edge_type == (0, 0):
             # keep only (x,y) pair and get rid of (y,x) pair
-            edges_directed_set = set([(idx_1, idx_2) for idx_1, idx_2 in edges_set if idx_1 > idx_2])
+            edges_directed_set = set([(max(idx_1, idx_2), min(idx_1, idx_2)) for idx_1, idx_2 in edges_set])
             num_half_val = int(len(edges_directed_set)/number_of_folds + 1)
             for i in range(number_of_folds):
                 # print('gene gene cross val: ',i)
@@ -229,7 +232,7 @@ def create_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_orig,no
                 val_edges_2_1 = set([(idx_2, idx_1) for idx_1, idx_2 in val_edges_1_2])
                 val_edges = val_edges_1_2.union(val_edges_2_1)
 
-                val_edges = np.array(list(val_edges))
+                val_edges = list(val_edges)
                 cross_val_folds_non_drug_drug_edges[i][edge_type] = val_edges
 
         elif (edge_type == (0, 1))|(edge_type == (1, 0)):
@@ -246,18 +249,103 @@ def create_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_orig,no
 
                 #if edge type == (0,1) also fill up the cross_val_splits for (1,0) type edges
                 #if edge type == (1,0) also fill up the cross_val_splits for (0,1) type edges
-                val_edges_2_1 = [[idx_2, idx_1] for idx_1, idx_2 in val_edges_1_2]
+                val_edges_2_1 = [(idx_2, idx_1) for idx_1, idx_2 in val_edges_1_2]
 
-                val_edges_1_2 = np.array(list(val_edges_1_2))
-                val_edges_2_1 = np.array(val_edges_2_1)
+                val_edges_1_2 = list(val_edges_1_2)
+                val_edges_2_1 = list(val_edges_2_1)
                 cross_val_folds_non_drug_drug_edges[i][edge_type] = val_edges_1_2
                 cross_val_folds_non_drug_drug_edges[i] [(edge_type[1],edge_type[0])]= val_edges_2_1
 
     return cross_val_folds_non_drug_drug_edges
 
+def create_neg_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_orig, non_drug_drug_edge_types):
+    neg_cross_val_folds_non_drug_drug_edges = {i: {} for i in range(number_of_folds)}
+    for edge_type in non_drug_drug_edge_types:
+        edges_all, _, _ = preprocessing.sparse_to_tuple(adj_mats_orig[edge_type][0])
+        edges_set = set(map(tuple, edges_all))
+        total_edges = len(edges_set)
+        edges_per_fold = int(total_edges/number_of_folds + 1)
+        val_edges_false=set()
+        if (edge_type == (0,0)):
+            while True:
+                # print("Constructing val edges=", "%04d/%04d" % (len(val_edges_false), len(val_edges)))
+                # sample #num_val  indexes at a time
+                idx_i = np.random.randint(0, adj_mats_orig[edge_type][0].shape[0], size=int(total_edges / 2))
+                idx_j = np.random.randint(0, adj_mats_orig[edge_type][0].shape[1], size=int(total_edges / 2))
 
-def run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_maccs_keys_feature_df, synergy_df, \
-                      cross_validation_folds_drug_drug_edges, run_, out_dir, config_map):
+                new_val_edges = set(zip(idx_i, idx_j))
+                #sort so that either  (x,y) or (y,x) remains
+                new_val_edges = set([(max(idx_1, idx_2), min(idx_1, idx_2)) for idx_1, idx_2 in \
+                                      new_val_edges])
+                new_false_val_edges = new_val_edges.difference(edges_set)
+                val_edges_false = val_edges_false.union(new_false_val_edges)
+
+
+                if len(val_edges_false) >= int(total_edges / 2):
+                    # print('Val false edges done')
+                    val_edges_false_1_2 = list(val_edges_false)[0:int(total_edges / 2)]
+                    # val_edges_false_2_1 = [(idx_2, idx_1) for idx_1, idx_2 in val_edges_false_1_2]
+                    # val_edges_false = np.array(val_edges_false_1_2 + val_edges_false_2_1)
+
+                    #now split into 5 folds
+                    start=0
+                    for ith_fold in range(number_of_folds):
+                        end = start + int(edges_per_fold/2)
+                        neg_cross_val_folds_non_drug_drug_edges[ith_fold][edge_type] = val_edges_false_1_2[start:end]
+                        start = end
+                    if end < len(val_edges_false_1_2):
+                        fold_no = random.randint(0,number_of_folds-1)
+                        neg_cross_val_folds_non_drug_drug_edges[fold_no][edge_type]+= val_edges_false_1_2[end:len(val_edges_false_1_2)]
+
+                    #now add the (y,x) pair with every (x,y) pairs present in each fold
+                    for ith_fold in range(number_of_folds):
+                        l1 = neg_cross_val_folds_non_drug_drug_edges[ith_fold][edge_type]
+                        neg_cross_val_folds_non_drug_drug_edges[ith_fold][edge_type] = l1 + [(idx_2, idx_1) for idx_1, idx_2 in  l1]
+                    break
+
+
+        elif (edge_type == (0, 1)) | (edge_type == (1, 0)):
+            while True:
+                # print("Constructing val edges=", "%04d/%04d" % (len(val_edges_false), len(val_edges)))
+                # sample #num_val  indexes at a time
+                idx_i = np.random.randint(0, adj_mats_orig[edge_type][0].shape[0], size=total_edges)
+                idx_j = np.random.randint(0, adj_mats_orig[edge_type][0].shape[1], size=total_edges)
+
+                new_val_edges = set(zip(idx_i, idx_j))
+                new_false_val_edges = new_val_edges.difference(edges_set)
+                val_edges_false = val_edges_false.union(new_false_val_edges)
+
+
+                if len(val_edges_false) >= total_edges:
+                    # print('Val false edges done')
+                    val_edges_false_x_y = list(val_edges_false)[0:total_edges]
+
+                    # if this is (0,1) edge type, then set negative validation edge sampling for (1,0) type edge as well.
+                    val_edges_false_y_x = [(idx_2, idx_1) for idx_1, idx_2 in val_edges_false_x_y]
+
+                    # now split into 5 folds
+                    start = 0
+                    for ith_fold in range(number_of_folds):
+                        end = start + edges_per_fold
+                        neg_cross_val_folds_non_drug_drug_edges[ith_fold][edge_type] = val_edges_false_x_y[start:end]
+                        neg_cross_val_folds_non_drug_drug_edges[ith_fold][(edge_type[1],edge_type[0])] =\
+                            val_edges_false_y_x[start:end]
+                        start = end
+                    if end < len(val_edges_false_x_y):
+                        fold_no = random.randint(0, number_of_folds - 1)
+                        neg_cross_val_folds_non_drug_drug_edges[fold_no][edge_type] += val_edges_false_x_y[end:len(val_edges_false_x_y)]
+
+                        neg_cross_val_folds_non_drug_drug_edges[fold_no][(edge_type[1], edge_type[0])] +=\
+                            val_edges_false_y_x[end:len(val_edges_false_y_x)]
+                    break
+
+    return neg_cross_val_folds_non_drug_drug_edges
+
+
+
+def run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_maccs_keys_feature_df, synergy_df, non_synergy_df,\
+                      cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges,\
+                      run_, out_dir, config_map):
 
 
     number_of_folds = config_map['ml_models_settings']['cross_val']['folds']
@@ -293,6 +381,15 @@ def run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_m
     synergy_df['Drug1_idx'] = synergy_df['Drug1_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
     synergy_df['Drug2_idx'] = synergy_df['Drug2_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
     synergy_df['Cell_line_idx'] = synergy_df['Cell_line'].astype(str).apply(lambda x: cell_line_2_idx[x])
+
+    # investigate/analyse result
+    # pairs_per_cell_line_idx_df = synergy_df.groupby(by =['Cell_line_idx'], as_index=False).count()
+    # pairs_per_cell_line_idx_df.to_csv('pairs_per_cell_line.tsv', sep='\t')
+    # print('pairs_per_cell_line',pairs_per_cell_line_idx_df)
+
+    non_synergy_df['Drug1_idx'] = non_synergy_df['Drug1_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
+    non_synergy_df['Drug2_idx'] = non_synergy_df['Drug2_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
+    non_synergy_df['Cell_line_idx'] = non_synergy_df['Cell_line'].astype(str).apply(lambda x: cell_line_2_idx[x])
 
     # create drug-drug synergy network for each cell line separately
     total_cell_lines = len(cell_line_2_idx.values())
@@ -341,15 +438,26 @@ def run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_m
     edges_all_cell_line = list(zip(synergy_df['Drug1_idx'], synergy_df['Drug2_idx'], synergy_df['Cell_line_idx']))
     # print('all cell line  edges index length: ', len(edges_all_cell_line))
     temp_cross_validation_folds = {}
-    for fold in cross_validation_folds_drug_drug_edges:
+    for fold in cross_validation_folds_pos_drug_drug_edges:
         # print('test: ', fold, len(cross_validation_folds[fold]), cross_validation_folds[fold])
-        temp_cross_validation_folds[fold] = [edges_all_cell_line[x] for x in cross_validation_folds_drug_drug_edges[fold]]
-        # print(temp_cross_validation_folds[fold][0:10], cross_validation_folds_drug_drug_edges[fold][0:10])
-    cross_validation_folds_drug_drug_edges = temp_cross_validation_folds
+        temp_cross_validation_folds[fold] = [edges_all_cell_line[x] for x in cross_validation_folds_pos_drug_drug_edges[fold]]
+        # print(temp_cross_validation_folds[fold][0:10], cross_validation_folds_pos_drug_drug_edges[fold][0:10])
+    cross_validation_folds_pos_drug_drug_edges = temp_cross_validation_folds
 
+    # cross validation folds contain only drug_pair index from non_synergy_df. Convert validation folds into list of (drug-idx, drug-idx) pairs.
+    temp_cross_validation_folds = {}
+    neg_edges_all_cell_line = list(zip(non_synergy_df['Drug1_idx'], non_synergy_df['Drug2_idx'], non_synergy_df['Cell_line_idx']))
+    for fold in cross_validation_folds_neg_drug_drug_edges:
+        # print('test: ', fold, len(cross_validation_folds[fold]), cross_validation_folds[fold])
+        temp_cross_validation_folds[fold] = [neg_edges_all_cell_line[x] for x in cross_validation_folds_neg_drug_drug_edges[fold]]
+        # print(temp_cross_validation_folds[fold][0:10], cross_validation_folds_pos_drug_drug_edges[fold][0:10])
+    cross_validation_folds_neg_drug_drug_edges = temp_cross_validation_folds
 
     non_drug_drug_edge_types = [(0,0),(0,1)]
     cross_validation_folds_non_drug_drug_edges = create_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_orig,\
+                                                                                            non_drug_drug_edge_types)
+    neg_cross_validation_folds_non_drug_drug_edges = create_neg_cross_val_split_non_drug_drug_edges(number_of_folds,
+                                                                                            adj_mats_orig, \
                                                                                             non_drug_drug_edge_types)
 
 
@@ -443,9 +551,10 @@ def run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_m
         performace_metric_file_path = out_dir + 'run_' +str(run_) +'/'+ 'performance_metric' +'_drugfeat_'+\
                                       str(use_drug_feat_option)+'_e_'+str(epochs) +'_lr_'+str(lr) +'_batch_'+ str(batch_size) +'_dr_'+\
                                       str(dr)+'.txt'
+        os.makedirs(os.path.dirname(performace_metric_file_path), exist_ok=True)
         performance_metric_file = open(performace_metric_file_path, 'w')
 
-        for i in range(number_of_folds) :
+        for i in range(number_of_folds):
             os.makedirs(os.path.dirname(performace_metric_file_path), exist_ok=True)
             performance_metric_file = open(performace_metric_file_path, 'a')
             performance_metric_file.write('\nVALIDATION FOLD NO: '+str(i))
@@ -455,18 +564,13 @@ def run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_m
                 adj_mats=adj_mats_orig,
                 feat=feat,
                 edge_types=edge_types,
-                drug_drug_validation_fold = cross_validation_folds_drug_drug_edges[i],
-                non_drug_drug_validation_fold = cross_validation_folds_non_drug_drug_edges[i],
+                pos_drug_drug_validation_all_folds = cross_validation_folds_pos_drug_drug_edges,
+                neg_drug_drug_validation_all_folds =  cross_validation_folds_neg_drug_drug_edges,
+                non_drug_drug_validation_all_folds = cross_validation_folds_non_drug_drug_edges,
+                neg_non_drug_drug_validation_all_folds=neg_cross_validation_folds_non_drug_drug_edges,
+                current_val_fold_no=i,
                 batch_size=FLAGS.batch_size,
             )
-
-            # minibatch = EdgeMinibatchIterator(
-            #     adj_mats=adj_mats_orig,
-            #     feat=feat,
-            #     edge_types=edge_types,
-            #     validation_fold=cross_validation_folds_drug_drug_edges[i],
-            #     batch_size=FLAGS.batch_size,
-            # )
             print("Create model")
             model = DecagonModel(
                 placeholders=placeholders,
@@ -490,9 +594,6 @@ def run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_m
                     margin=FLAGS.max_margin
                 )
 
-            # check_neg_sample = opt.neg_samples
-            # neg_sample_array = opt.neg_samples.eval(session=tf.compat.v1.Session())
-            # print('neg_sample_array',neg_sample_array)
 
             print("Initialize session")
             sess = tf.Session()
@@ -519,8 +620,6 @@ def run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_m
                         dropout=FLAGS.dropout,
                         placeholders=placeholders)
                     # print('Minibatch current edge type:', minibatch.idx2edge_type[minibatch.current_edge_type_idx])
-
-
 
 
                     outs = sess.run([opt.opt_op, opt.cost, opt.batch_edge_type_idx], feed_dict=feed_dict)
@@ -582,6 +681,6 @@ def run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_m
 
         save_drug_drug_link_probability(pos_df_all, neg_df_all, run_,use_drug_feat_option, FLAGS, out_dir)
 
-        output_df = preprocess_output_for_performance_evaluation(pos_df_all, neg_df_all)
+        # output_df = preprocess_output_for_performance_evaluation(pos_df_all, neg_df_all)
     FLAGS.remove_flag_values(FLAGS.flag_values_dict())
-    return output_df
+    # return output_df

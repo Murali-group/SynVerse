@@ -16,7 +16,8 @@ class EdgeMinibatchIterator(object):
     placeholders -- tensorflow placeholders object
     batch_size -- size of the minibatches
     """
-    def __init__(self, adj_mats, feat, edge_types, validation_fold, batch_size=100):
+    def __init__(self, adj_mats, feat, edge_types, pos_drug_drug_validation_all_folds, neg_drug_drug_validation_all_folds,\
+                 non_drug_drug_validation_all_folds,neg_non_drug_drug_validation_all_folds, current_val_fold_no, batch_size=100):
         self.adj_mats = adj_mats
         self.feat = feat
         self.edge_types = edge_types
@@ -38,21 +39,28 @@ class EdgeMinibatchIterator(object):
                 r += 1
 
         self.train_edges = {edge_type: [None]*n for edge_type, n in self.edge_types.items()}
+        self.train_edges_false = {edge_type: [None] * n for edge_type, n in self.edge_types.items()}
+
         self.val_edges = {edge_type: [None]*n for edge_type, n in self.edge_types.items()}
         self.val_edges_false = {edge_type: [None] * n for edge_type, n in self.edge_types.items()}
         # self.test_edges = {edge_type: [None]*n for edge_type, n in self.edge_types.items()}
         # self.test_edges_false = {edge_type: [None]*n for edge_type, n in self.edge_types.items()}
 
 
-        # Function to build test and val sets with val_test_size positive links
+
         self.adj_train = {edge_type: [None]*n for edge_type, n in self.edge_types.items()}
         for i, j in self.edge_types:
             for k in range(self.edge_types[i,j]):
-                print("Minibatch edge type:", "(%d, %d, %d)" % (i, j, k))
-                self.mask_test_edges((i, j), k,validation_fold)
-                print("Train edges=", "%04d" % len(self.train_edges[i,j][k]))
-                print("Val edges=", "%04d" % len(self.val_edges[i,j][k]))
+                # print("Minibatch edge type:", "(%d, %d, %d)" % (i, j, k))
+                self.new_mask_test_edges((i, j), k, pos_drug_drug_validation_all_folds,neg_drug_drug_validation_all_folds,\
+                                         non_drug_drug_validation_all_folds,neg_non_drug_drug_validation_all_folds, current_val_fold_no )
+                # self.mask_test_edges((i, j), k, validation_fold)
+                # print("Train edges=", "%04d" % len(self.train_edges[i,j][k]))
+                # print("Val edges=", "%04d" % len(self.val_edges[i,j][k]))
+
                 # print("Test edges=", "%04d" % len(self.test_edges[i,j][k]))
+
+        self.assert_train_val_non_overlapping()
 
     def preprocess_graph(self, adj):
         adj = sp.coo_matrix(adj)
@@ -75,94 +83,126 @@ class EdgeMinibatchIterator(object):
         rows_close = np.all(a - b == 0, axis=1)
         return np.any(rows_close)
 
-    def mask_test_edges(self, edge_type, type_idx,validation_fold):
+    def is_overlapping(self, data_1, data_2):
+        #data_1 and data_2 are 2D numpy array i.e. [[1,2],[2,4]]
+        data_1_set = set([(max(idx_1, idx_2), min(idx_1, idx_2)) for idx_1, idx_2 in data_1])
+        data_2_set = set([(max(idx_1, idx_2), min(idx_1, idx_2)) for idx_1, idx_2 in data_2])
 
+
+        # print('data_1, data_2', list(data_1_set)[0:5], list(data_2_set)[0:5])
+        common = data_1_set.intersection(data_2_set)
+        if len(common) == 0:
+            return False
+        else:
+            print(len(data_1_set), len(data_2_set), len(common))
+            return True
+
+    def assert_train_val_non_overlapping(self):
+        for i, j in self.edge_types:
+            for k in range(self.edge_types[i,j]):
+                print(i,j,k)
+                print(self.train_edges[(i,j)][k].shape,self.val_edges[(i,j)][k].shape, \
+                    self.train_edges[(i, j)][k].shape, self.val_edges_false[(i, j)][k].shape)
+
+                assert self.is_overlapping (self.train_edges[(i, j)][k], self.val_edges[(i, j)][k]) == False,\
+                    'problem: pos train-vel overlap'
+                assert self.is_overlapping(self.train_edges_false[(i, j)][k], self.val_edges_false[(i, j)][k]) == False,\
+                    'problem: neg train val overlap'
+
+
+    def new_mask_test_edges(self, edge_type, type_idx, pos_drug_drug_validation_all_folds, neg_drug_drug_validation_all_folds, \
+                            non_drug_drug_validation_all_folds, neg_non_drug_drug_validation_all_folds, current_val_fold):
+        pos_drug_drug_validation_fold = pos_drug_drug_validation_all_folds[current_val_fold]
+        neg_drug_drug_validation_fold  = neg_drug_drug_validation_all_folds[current_val_fold]
+        non_drug_drug_validation_fold = non_drug_drug_validation_all_folds[current_val_fold]
+        neg_non_drug_drug_validation_fold = neg_non_drug_drug_validation_all_folds[current_val_fold]
         #create train, val_edges
         edges_all, _, _ = preprocessing.sparse_to_tuple(self.adj_mats[edge_type][type_idx])
+        # print('investigate into edges all: ', edge_type, len(edges_all))
         edges_set = set(map(tuple, edges_all))
 
+        #for drug-drug edges
         if edge_type == (1,1):
-            cell_line_specific_val_fold = \
-                [[idx_1, idx_2] for idx_1, idx_2, idx_3 in validation_fold if idx_3 ==type_idx]
-
-            val_edges_1_2 = [[idx_1, idx_2] for idx_1, idx_2 in cell_line_specific_val_fold]
-            val_edges_2_1 = [[idx_2, idx_1] for idx_1, idx_2 in cell_line_specific_val_fold]
+            #setup postive drug-drug edges
+            # for drug-drug edges only (x, y) is present ((y,x) is not )in passed cross-validation folds
+            cell_line_specific_pos_val_fold = \
+                [[idx_1, idx_2] for idx_1, idx_2, idx_3 in pos_drug_drug_validation_fold if idx_3 == type_idx]
+            val_edges_1_2 = [[idx_1, idx_2] for idx_1, idx_2 in cell_line_specific_pos_val_fold]
+            val_edges_2_1 = [[idx_2, idx_1] for idx_1, idx_2 in cell_line_specific_pos_val_fold]
             val_edges = val_edges_1_2 + val_edges_2_1
             val_edges_set = set(map(tuple, val_edges))
             val_edges = np.array(val_edges)
             num_val = val_edges.shape[0]
-        elif edge_type == (0,0):
-            #keep only (x,y) pair and get rid of (y,x) pair
-            edges_directed = [[idx_1, idx_2] if idx_1>idx_2 else None for idx_1, idx_2 in edges_set ]
-            edges_directed = list(filter(None, edges_directed))
 
-            #use 10% (in turns 20%) edges for validation
-            val_frac = 0.1
-            num_val = int(len(edges_directed)*val_frac)
 
-            val_edges_1_2 =  random.sample (edges_directed, num_val)
-            val_edges_2_1 = [[idx_2, idx_1] for idx_1, idx_2 in val_edges_1_2]
-            val_edges = val_edges_1_2 + val_edges_2_1
-            val_edges_set = set(map(tuple, val_edges))
-            val_edges = np.array(val_edges)
-            num_val = val_edges.shape[0]
+            #setup negative drug-drug edges
+            cell_line_specific_neg_val_fold = \
+                [[idx_1, idx_2] for idx_1, idx_2, idx_3 in neg_drug_drug_validation_fold if idx_3 == type_idx]
+            neg_val_edges_1_2 = [[idx_1, idx_2] for idx_1, idx_2 in cell_line_specific_neg_val_fold]
+            neg_val_edges_2_1 = [[idx_2, idx_1] for idx_1, idx_2 in cell_line_specific_neg_val_fold]
+            val_edges_false = neg_val_edges_1_2 + neg_val_edges_2_1
+            val_edges_false = np.array(val_edges_false)
+            # self.val_edges_false[edge_type][type_idx] = val_edges_false
+
+        #for other type of edges e.g. drug-target, target-target
         else:
-            val_frac = 0.1
-            num_val = int(len(edges_set) * val_frac)
-            print('edges all type: ',type(edges_all))
-            val_edges = random.sample(list(edges_all), num_val)
-            val_edges_set = set(map(tuple, val_edges))
-            val_edges = np.array(val_edges)
+            #for gene-gene edges both (x,y) and (y,x) pairs are present in passed cross-validation folds
+            val_edges = np.array(non_drug_drug_validation_fold[edge_type]) #list of tuples
+            val_edges_set = set(map(tuple,val_edges))
+            num_val = val_edges.shape[0]
 
+            # setup negative samples as well
+            val_edges_false = np.array(neg_non_drug_drug_validation_fold[edge_type])
+            # self.val_edges_false[edge_type][type_idx] = val_edges_false
 
+        #positive train edges set
         train_edges_set = edges_set.difference(val_edges_set)
         train_edges = [[idx_1,idx_2] for idx_1,idx_2 in train_edges_set]
         train_edges = np.array(train_edges)
 
-        print('number of val edges: ', num_val)
-        val_edges_false = set()
-        count = 0
-        while True:
-            print("Constructing val edges=", "%04d/%04d" % (len(val_edges_false), len(val_edges)))
-            # create num_val  indexes at a time
-            idx_i = np.random.randint(0, self.adj_mats[edge_type][type_idx].shape[0], size = num_val)
-            idx_j = np.random.randint(0, self.adj_mats[edge_type][type_idx].shape[1], size = num_val)
-
-            new_val_edges = set(zip(idx_i, idx_j))
-            new_false_val_edges = new_val_edges.difference(edges_set)
-
-            val_edges_false = val_edges_false.union(new_false_val_edges)
-
-            count += 1
-            print("Constructing val edges=", "%04d/%04d" % (len(val_edges_false), len(val_edges)))
-            print('count: ', count)
-
-            if len(val_edges_false) >= num_val:
-                print('Val false edges done')
-                val_edges_false = np.array(list(val_edges_false)[0:num_val])
-                break
+        #negative train edges set
+        train_edges_false_set = set()
+        # train_folds = list(range(len(neg_drug_drug_validation_all_folds))) - [current_val_fold]
+        if edge_type==(1,1):
+            for i in range(len(neg_drug_drug_validation_all_folds)):
+                if i != current_val_fold:
+                    # neg_drug_drug_validation_all_folds[i] is a list of tuples (drug1_idx, drug2_idx, cell_line_idx)
+                    train_edges_false_set = train_edges_false_set.union(set(neg_drug_drug_validation_all_folds[i]))
+            # keep only the tuples where cell_line_idx == current cell_line index under consideration i.e. type_idx
+            train_edges_false = [[idx_1, idx_2] for idx_1, idx_2, idx_3 in train_edges_false_set if idx_3 == type_idx]
+            train_edges_false = train_edges_false + [[idx_2,idx_1] for idx_1, idx_2 in train_edges_false]
+            train_edges_false = np.array(train_edges_false)
+            # self.train_edges_false[edge_type][type_idx] = train_edges_false
+        else:
+            for i in range(len(neg_non_drug_drug_validation_all_folds)):
+                if i != current_val_fold:
+                    # neg_drug_drug_validation_all_folds[i] is a list of tuples (drug1_idx, drug2_idx, cell_line_idx)
+                    train_edges_false_set = train_edges_false_set.union\
+                        (set([(idx_1, idx_2) for idx_1, idx_2 in neg_non_drug_drug_validation_all_folds[i][edge_type]]))
+            train_edges_false = np.array(list(train_edges_false_set))
 
 
-
-        # Re-build adj matrices
+        #rebuild adjacency matrices
         data = np.ones(train_edges.shape[0])
         adj_train = sp.csr_matrix(
             (data, (train_edges[:, 0], train_edges[:, 1])),
             shape=self.adj_mats[edge_type][type_idx].shape)
         self.adj_train[edge_type][type_idx] = self.preprocess_graph(adj_train)
 
+        #set values
         self.train_edges[edge_type][type_idx] = train_edges
         self.val_edges[edge_type][type_idx] = val_edges
-        self.val_edges_false[edge_type][type_idx] = np.array(val_edges_false)
+        self.val_edges_false[edge_type][type_idx] = val_edges_false
+        self.train_edges_false[edge_type][type_idx] = train_edges_false
 
-        for u,v in val_edges:
-            if (self.adj_mats[edge_type[:2]][type_idx][u, v] != 1):
-                print(self.adj_mats[edge_type[:2]][type_idx][u, v], self.adj_mats[edge_type[:2]][type_idx][v,u])
-            assert self.adj_mats[edge_type[:2]][type_idx][u, v] == 1, 'Problem in validation set creation'
-        for u,v in train_edges:
-            assert self.adj_mats[edge_type[:2]][type_idx][u, v] == 1, 'Problem in train edge creation'
-        # self.test_edges[edge_type][type_idx] = test_edges
-        # self.test_edges_false[edge_type][type_idx] = np.array(test_edges_false)
+        # print('decagon minibatch: train edges, train edges false')
+        # print(edge_type)
+        # print(type(train_edges), train_edges.shape)
+        # print(type(train_edges_false), train_edges_false.shape)
+        # print(type(val_edges), val_edges.shape)
+        # print(type(val_edges_false), val_edges_false.shape)
+
+
 
     def end(self):
         finished = len(self.freebatch_edge_types) == 0
@@ -178,9 +218,10 @@ class EdgeMinibatchIterator(object):
 
         return feed_dict
 
-    def batch_feed_dict(self, batch_edges, batch_edge_type, placeholders):
+    def batch_feed_dict(self, batch_edges, neg_batch_edges, batch_edge_type, placeholders):
         feed_dict = dict()
         feed_dict.update({placeholders['batch']: batch_edges})
+        feed_dict.update({placeholders['neg_batch']: neg_batch_edges})
         feed_dict.update({placeholders['batch_edge_type_idx']: batch_edge_type})
         feed_dict.update({placeholders['batch_row_edge_type']: self.idx2edge_type[batch_edge_type][0]})
         feed_dict.update({placeholders['batch_col_edge_type']: self.idx2edge_type[batch_edge_type][1]})
@@ -200,7 +241,7 @@ class EdgeMinibatchIterator(object):
                 # drug-gene relation
                 self.current_edge_type_idx = self.edge_type2idx[1, 0, 0]
             else:
-                # random side effect relation
+                # random cell line specific drug-drug relation
                 if len(self.freebatch_edge_types) > 0:
                     self.current_edge_type_idx = np.random.choice(self.freebatch_edge_types)
                 else:
@@ -221,12 +262,13 @@ class EdgeMinibatchIterator(object):
         start = self.batch_num[self.current_edge_type_idx] * self.batch_size
         self.batch_num[self.current_edge_type_idx] += 1
         batch_edges = self.train_edges[i,j][k][start: start + self.batch_size]
-        return self.batch_feed_dict(batch_edges, self.current_edge_type_idx, placeholders)
+        neg_batch_edges = self.train_edges_false[i, j][k][start: start + self.batch_size]
+        return self.batch_feed_dict(batch_edges, neg_batch_edges, self.current_edge_type_idx, placeholders)
 
     def num_training_batches(self, edge_type, type_idx):
         return len(self.train_edges[edge_type][type_idx]) // self.batch_size + 1
 
-    def val_feed_dict(self, edge_type, type_idx, placeholders, size=None):
+    def val_feed_dict(self, edge_type, type_idx, placeholders, size=None): # Nure: no usage found for this function
         edge_list = self.val_edges[edge_type][type_idx]
         if size is None:
             return self.batch_feed_dict(edge_list, edge_type, placeholders)
@@ -242,10 +284,13 @@ class EdgeMinibatchIterator(object):
         for edge_type in self.edge_types:
             for k in range(self.edge_types[edge_type]):
                 self.train_edges[edge_type][k] = np.random.permutation(self.train_edges[edge_type][k])
+                self.train_edges_false[edge_type][k] = np.random.permutation(self.train_edges_false[edge_type][k])
                 self.batch_num[self.edge_type2idx[edge_type[0], edge_type[1], k]] = 0
+
         self.current_edge_type_idx = 0
         self.freebatch_edge_types = list(range(self.num_edge_types))
         self.freebatch_edge_types.remove(self.edge_type2idx[0, 0, 0])
         self.freebatch_edge_types.remove(self.edge_type2idx[0, 1, 0])
         self.freebatch_edge_types.remove(self.edge_type2idx[1, 0, 0])
         self.iter = 0
+

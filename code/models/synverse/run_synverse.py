@@ -21,6 +21,9 @@ import models.synverse.cross_validation as cross_val
 import models.synverse.minibatch as minibatch
 from minibatch import MinibatchHandler
 import random
+import copy
+
+from collections import defaultdict
 
 
 import os.path as osp
@@ -229,24 +232,70 @@ class SynverseModel(torch.nn.Module):
 
 
 class Encoder(torch.nn.Module):
-    def __init__(self, h_sizes):
+    #h_sizes is an array. containing the gardual node number decrease from inital input_dim to final output_dim
+    def __init__(self, h_sizes, node_feat_dict,train_pos_edges_dict,  edge_types):
         super(Encoder, self).__init__()
 
-        self.hidden = nn.ModuleList()
+        self.edge_types = edge_types
+        self.node_feat_dict = node_feat_dict
+        self.train_pos_edges_dict = train_pos_edges_dict
+        self.h_sizes = h_sizes
         self.num_hidden = len(h_sizes) - 1
-        for k in range(self.num_hidden):
-            self.hidden.append(GCNConv(h_sizes[k], h_sizes[k + 1], cached=False))
+        self.hidden={} #dict of dict. self.hidden[0]=> contains a dictionary for first hidden layer. In this dictionary, keys = edge_type,
+        # value = GCN layer dedicated to it.
+        for hid_layer_no in range(self.num_hidden):
+            self.hidden[hid_layer_no]= {}
+            for edge_type in edge_types:
+                self.hidden[hid_layer_no][edge_type] = \
+                    (EdgeTypeSpecGCNLayer(h_sizes[hid_layer_no], h_sizes[hid_layer_no + 1], edge_type))
 
-    def forward(self, x, edge_index):
-        for k in range(self.num_hidden):
-            # x = F.relu(F.dropout(self.hidden[k](x, edge_index), p=0.2, training=self.training))
-            x = F.relu(self.hidden[k](x, edge_index))
-            x = F.dropout(x, p=0.2, training=self.training)
-        return x
 
-class GCNLayer(torch.nn.Module):
+        #
+        #
+        #
+        # #write code for one layer first
+        # self.hidden0 = {}
+        # hid_layer_no=0
+        # for edge_type in edge_types:
+        #     self.hidden0[edge_type] = (EdgeTypeSpecGCNLayer(h_sizes[hid_layer_no], h_sizes[hid_layer_no + 1], edge_type))
+
+
+    def forward(self):
+        # for one input layer
+        # this will contain the output  i.e. embedding after hidden layer 1
+        hidden_output = {}
+        current_node_feat_dict = copy.deepcopy(self.node_feat_dict)
+        for hid_layer_no in range(self.num_hidden):
+            hidden_output[hid_layer_no] = {}  # hidden_output[1]={'drug': final_drug_embedding_from_hidden_layer_1, 'gene':final_gene_embedding_from_hidden_layer_1}
+            # self.hidden1_output['drug'].append()
+            for edge_type in self.edge_types:
+                if edge_type in ['drug_drug', 'target_drug']:
+                    #target_node = drug in both type of edges i.e.
+                    # drug embedding is being computed. Hence, put under 'drug' key.
+                    self.hidden_output[hid_layer_no]['drug'].append(
+                        self.hidden[hid_layer_no][edge_type](current_node_feat_dict, self.train_pos_edges_dict, edge_type))
+                else:
+                    self.hidden_output[hid_layer_no]['gene'].append(
+                        self.hidden[hid_layer_no][edge_type](current_node_feat_dict, self.train_pos_edges_dict,
+                                                             edge_type))
+
+            for node_type in self.hidden_output[hid_layer_no]:
+                output = 0
+                for i in self.hidden_output[hid_layer_no][node_type]:
+                    output+=self.hidden_output[hid_layer_no][node_type][i]
+                self.hidden_output[hid_layer_no][node_type] = output
+
+            current_node_feat_dict = hidden_output[hid_layer_no]
+
+        return current_node_feat_dict
+
+
+
+
+
+class EdgeTypeSpecGCNLayer(torch.nn.Module):
     def __init__(self, in_channel, out_channel, edge_type):
-        super(GCNLayer, self).__init__()
+        super(EdgeTypeSpecGCNLayer, self).__init__()
         self.in_channel = in_channel
         self.out_channel = out_channel
         if edge_type in ['gene_gene','drug_drug']:
@@ -254,12 +303,18 @@ class GCNLayer(torch.nn.Module):
         else:
             self.gcn = GCNConv(self.in_channel, self.out_channel, add_self_loops=True, cached=False)
 
-    def forward(self, train_pos_edges_list, node_feat):
-        output = [0]*self.out_channel
-        for i in range(len(train_pos_edges_list)):
-            x = F.relu(self.gcn(node_feat, train_pos_edges_list[i]))
+    def forward(self, node_feat_dict, train_pos_edges_dict, edge_type):
+        if edge_type in ['drug_drug', 'drug_target']: #source node = 'drug' in both type of edges. hence take 'drug_feat' in x
+            x = node_feat_dict['drug']
+        else:
+            x = node_feat_dict['gene']
+        adj_mat_list = train_pos_edges_dict[edge_type]
+
+        output = 0
+        for adj_mat in adj_mat_list:
+            x = F.relu(self.gcn(x, adj_mat))
             x = F.dropout(x, p=0.2, training=self.training)
-            output+=x
+            output += x
         return output
 
 

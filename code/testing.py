@@ -16,14 +16,19 @@ import copy
 # x['a'].append(1000)
 # print(data_dict)
 # print(x)
+
+print(torch.randn(1))
 x = np.array([1,2,3,4,5])
 y = np.array([10,11,12,13,6])
 z = torch.stack([torch.LongTensor(x), torch.LongTensor(y)], dim=0)
 w = torch.LongTensor([x,y])
 print(z)
 print(w)
-
+m = 0
+m+=z
+m+=w
 print(z+w)
+print(m)
 # c=torch.randperm(4)
 # r=[0,1]
 # z=z[r][:,c]

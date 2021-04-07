@@ -77,8 +77,20 @@ string_network_preparation_settings:
     
 ml_models_settings:
     algs:
-        decagon:
+
+        synverse:
             should_run: False
+            batch_size: 512
+            learning_rate: 0.01
+            epochs: 2
+            weight_decay: 0
+            dropout: 0.1
+            max_margin: 0.1
+            bias: True
+            use_drug_feat: [ True ]
+
+        decagon:
+            should_run: True
             neg_sample_size: 1
             batch_size: 512
             learning_rate: 0.01
@@ -90,7 +102,7 @@ ml_models_settings:
             use_drug_feat: [True]
 
         deepsynergy:
-            should_run: True
+            should_run: False
             layers: [ [ 4096, 2048, 1 ],[ 4096, 2048, 1024, 1 ]]
 #                   [4096,4096,1], [ 2048, 2048,1 ], [ 4096, 4096, 4096,1 ], [ 2048, 2048, 2048, 1 ]]
             lr: [0.001]
@@ -111,7 +123,7 @@ ml_models_settings:
         test_frac: 0.1
         neg_fact: 1
         folds: 5
-        runs: 2
+        runs: 1
         #1. Leave drug combination out in all cell line (leave_comb) 2. Random Cross Validation (random)
         #                  3. Leave one-drug out (lod) 4.Leave one-cell line out(loc)
 #        types: ['leave_comb', 'leave_drug', 'leave_cell', 'random']

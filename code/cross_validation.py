@@ -74,6 +74,7 @@ def is_neg_pos_dataset_non_overlapping(synergy_df, non_synergy_df):
 def create_cross_val_folds(synergy_df, cross_val_type, number_of_folds, neg_fact):
     #this function will split the indexes in synergy_df into 'number_of_folds' according to\
     # the cross_val_type
+    #return a dictionary of folds. key = fold_no, value= list of indices
     cell_lines = synergy_df['Cell_line'].unique()
     drugs = set(synergy_df['Drug1_pubchem_cid']).union(set(synergy_df['Drug2_pubchem_cid']))
     #find degree of durg in each cell_line

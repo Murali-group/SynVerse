@@ -23,10 +23,14 @@ import  time
 #import subprocess
 # sys.path.insert(0, '/home/tasnina/Projects/Synverse/')
 import cross_validation as cross_val
-import models.deepsynergy as deepsynergy
+# import models.synverse.run_synverse as synverse
+#
+# import models.deepsynergy as deepsynergy
+#
+import models.decagon_handler.run_decagon as decagon
+import evaluation.performance_metric_plot as metric_plot
 
-# import models.decagon_handler.run_decagon as decagon
-# import evaluation.performance_metric_plot as metric_plot
+
 
 def parse_args():
     parser = setup_opts()
@@ -250,12 +254,20 @@ def main(config_map, **kwargs):
         for alg in should_run_algs:
             out_dir = config_map['project_dir'] + config_map['output_dir'] + alg + '/' + \
                       'pairs_' + str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line)+'_th_'+str(threshold)+'_'+'neg_'+str(neg_fact)+'/'
+            if alg=='synverse':
+                    print('Model running: ', alg)
+                    synverse.run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_maccs_keys_feature_df,
+                               synergy_df, non_synergy_df, \
+                               type_wise_pos_cross_val_folds['random'], type_wise_neg_cross_val_folds['random'], \
+                               i, out_dir, config_map)
+
             if alg=='decagon':
                     print('Model running: ', alg)
                     decagon.run_decagon_model(ppi_sparse_matrix,gene_node_2_idx,\
                                                                       drug_target_df, drug_maccs_keys_feature_df,\
                         synergy_df, non_synergy_df, type_wise_pos_cross_val_folds['random'], type_wise_neg_cross_val_folds['random'],\
                                                                       i,out_dir, config_map)
+
             if alg=='deepsynergy':
                     print('Model running: ', alg)
                     # deepsynergy.run_deepsynergy_model(drug_maccs_keys_targets_feature_df,\

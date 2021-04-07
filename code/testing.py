@@ -8,6 +8,35 @@ import scipy.sparse as sp
 import matplotlib.pyplot as plt
 import re
 import statistics
+import torch
+import copy
+
+# data_dict = {'a': [1,2,3,4], 'b': [1,2,3,12], 'c': [2,45,67,3]}
+# x = copy.deepcopy(data_dict)
+# x['a'].append(1000)
+# print(data_dict)
+# print(x)
+x = np.array([1,2,3,4,5])
+y = np.array([10,11,12,13,6])
+z = torch.stack([torch.LongTensor(x), torch.LongTensor(y)], dim=0)
+w = torch.LongTensor([x,y])
+print(z)
+print(w)
+
+print(z+w)
+# c=torch.randperm(4)
+# r=[0,1]
+# z=z[r][:,c]
+# print(z.size()[1])
+
+# idx = torch.randperm(z.nelement())
+# print(idx)
+# print(z.view)
+# # print(z.view(-1)[idx])
+# z = z.view(-1)[idx].view(z.size())
+# print(z)
+
+# print(sp)
 
 # x=[0, 0, 1, 3, 3,5,6,7,8, 20]
 # y=[1,2]
@@ -220,8 +249,10 @@ import statistics
 # print(train_posIdx)
 # print(test_posIdx)
 
-x = [1,2,3,4]
-y=[1,2,3,4, 7,8,9,10]
-# print(random.choices(x, weights=[1,5,1,1],k=10))
-z = list(zip(x,y))
-print(z)
+#x = [1,2,3,4]
+# y=[1,2,3,4, 7,8,9,10]
+# # print(random.choices(x, weights=[1,5,1,1],k=10))
+# z = list(zip(x,y))
+# print(z)
+# data_dict = {'a': [1,2,3,4], 'b': [1,2,3], 'c': [2,45,67]}
+# print(data_dict.items())

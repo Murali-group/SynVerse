@@ -623,6 +623,7 @@ def run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_m
 
 
                     outs = sess.run([opt.opt_op, opt.cost, opt.batch_edge_type_idx], feed_dict=feed_dict)
+
                     train_cost = outs[1]
                     batch_edge_type = outs[2]
 

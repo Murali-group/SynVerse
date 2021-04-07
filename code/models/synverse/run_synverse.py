@@ -18,6 +18,8 @@ import pandas as pd
 import sys
 import models.synverse.utils as utils
 import models.synverse.cross_validation as cross_val
+import models.synverse.minibatch as minibatch
+from minibatch import MinibatchHandler
 import random
 
 
@@ -60,15 +62,21 @@ from torch_geometric.nn.models import InnerProductDecoder
 from torch_geometric.nn.inits import reset
 
 
-def parse_arguments():
-    '''
-    Initialize a parser and use it to parse the command line arguments
-    :return: parsed dictionary of command line arguments
-    '''
-    parser = get_parser()
-    opts = parser.parse_args()
+EPS = 1e-15
+MAX_LOGVAR = 10
 
-    return opts
+
+
+
+# def parse_arguments():
+#     '''
+#     Initialize a parser and use it to parse the command line arguments
+#     :return: parsed dictionary of command line arguments
+#     '''
+#     parser = get_parser()
+#     opts = parser.parse_args()
+#
+#     return opts
 
 
 def sigmoid(x):
@@ -139,177 +147,10 @@ def compute_drug_drug_link_probability(cell_line_specific_edges_pos, cell_line_s
 #     return placeholders
 
 
-# def initial_model_setting(config_map):
-#     flags = tf.app.flags
-#     FLAGS = flags.FLAGS
-#     decagon_settings = config_map['ml_models_settings']['algs']['decagon']
-#     flags.DEFINE_integer('neg_sample_size', decagon_settings['neg_sample_size'], 'Negative sample size.')
-#     flags.DEFINE_float('learning_rate', decagon_settings['learning_rate'], 'Initial learning rate.')
-#     flags.DEFINE_integer('epochs', decagon_settings['epochs'], 'Number of epochs to train.')
-#     flags.DEFINE_integer('hidden1', 64, 'Number of units in hidden layer 1.')
-#     flags.DEFINE_integer('hidden2', 32, 'Number of units in hidden layer 2.')
-#     flags.DEFINE_float('weight_decay', decagon_settings['weight_decay'], 'Weight for L2 loss on embedding matrix.')
-#     flags.DEFINE_float('dropout', decagon_settings['dropout'], 'Dropout rate (1 - keep probability).')
-#     flags.DEFINE_float('max_margin', decagon_settings['max_margin'], 'Max margin parameter in hinge loss')
-#     flags.DEFINE_integer('batch_size', decagon_settings['batch_size'], 'minibatch size.')
-#     flags.DEFINE_boolean('bias', decagon_settings['bias'], 'Bias term.')
-#     return FLAGS
-
-def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_maccs_keys_feature_df, synergy_df, non_synergy_df,\
-                      cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges,\
-                      run_, out_dir, config_map):
 
 
-    number_of_folds = config_map['ml_models_settings']['cross_val']['folds']
-    decagon_settings = config_map['ml_models_settings']['algs']['decagon']
-    gene_adj = nx.adjacency_matrix(nx.convert_matrix.from_scipy_sparse_matrix(ppi_sparse_matrix, create_using=nx.Graph(),edge_attribute=None))
-    gene_degrees = np.array(gene_adj.sum(axis=0)).squeeze()
-    genes_in_ppi = gene_node_2_idx.keys()
 
-    synergistics_drugs = set(list(synergy_df['Drug1_pubchem_cid'])).union(set(list(synergy_df['Drug2_pubchem_cid'])))
-    # print('number of drugs after applying threshold on synergy data:', len(synergistics_drugs))
-    drug_nodes = drug_target_df['pubchem_cid'].unique()
-    drug_node_2_idx = {node: i for i, node in enumerate(drug_nodes)}
-    idx_2_drug_node =  {i: node for i, node in enumerate(drug_nodes)}
-    drug_target_df['gene_idx'] = drug_target_df['uniprot_id'].astype(str).apply(lambda x: gene_node_2_idx[x])
-    drug_target_df['drug_idx'] = drug_target_df['pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
-
-    # now create drug_target adjacency matrix where gene nodes are in same order as they are in gene_net
-    n_drugs = len(drug_target_df['drug_idx'].unique())
-    n_genes = len(genes_in_ppi)
-
-    row = list(drug_target_df['drug_idx'])
-    col = list(drug_target_df['gene_idx'])
-    data = np.ones(len(row))
-    drug_target_adj = sp.csr_matrix((data, (row, col)),shape=(n_drugs, n_genes))
-    target_drug_adj = drug_target_adj.transpose(copy=True)
-
-    # index all the cell lines
-    cell_lines = synergy_df['Cell_line'].unique()
-    cell_line_2_idx = {cell_line: i for i, cell_line in enumerate(cell_lines)}
-    idx_2_cell_line = {i: cell_line for i, cell_line in enumerate(cell_lines)}
-    # print('number of cell lines: ',len(cell_lines_2_idx.keys()))
-
-    synergy_df['Drug1_idx'] = synergy_df['Drug1_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
-    synergy_df['Drug2_idx'] = synergy_df['Drug2_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
-    synergy_df['Cell_line_idx'] = synergy_df['Cell_line'].astype(str).apply(lambda x: cell_line_2_idx[x])
-
-    # investigate/analyse result
-    # pairs_per_cell_line_idx_df = synergy_df.groupby(by =['Cell_line_idx'], as_index=False).count()
-    # pairs_per_cell_line_idx_df.to_csv('pairs_per_cell_line.tsv', sep='\t')
-    # print('pairs_per_cell_line',pairs_per_cell_line_idx_df)
-
-    non_synergy_df['Drug1_idx'] = non_synergy_df['Drug1_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
-    non_synergy_df['Drug2_idx'] = non_synergy_df['Drug2_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
-    non_synergy_df['Cell_line_idx'] = non_synergy_df['Cell_line'].astype(str).apply(lambda x: cell_line_2_idx[x])
-
-    # create drug-drug synergy network for each cell line separately
-    total_cell_lines = len(cell_line_2_idx.values())
-    drug_drug_adj_list = []
-
-    tagetted_genes = len(drug_target_df['uniprot_id'].unique())
-    n_drugdrug_rel_types = total_cell_lines
-
-    for cell_line_idx in range(total_cell_lines):
-        #     print('cell_line_idx',cell_line_idx)
-        df = synergy_df[synergy_df['Cell_line_idx'] == cell_line_idx][['Drug1_idx', 'Drug2_idx',
-                                                                       'Cell_line_idx', 'Loewe_label']]
-        edges = list(zip(df['Drug1_idx'], df['Drug2_idx']))
-
-        mat = np.zeros((n_drugs, n_drugs))
-        for d1, d2 in edges:
-            mat[d1, d2] = mat[d2, d1] = 1.
-        #         print(d1,d2)
-        drug_drug_adj_list.append(sp.csr_matrix(mat))
-
-    #### in  each drug_drug_adjacency_matrix in drug_degrees_list, if (x,y) is present then (y,x) is also present there.
-    # drug_degrees_list = [np.array(drug_adj.sum(axis=0)).squeeze() for drug_adj in drug_drug_adj_list]
-
-    print('finished network building')
-
-    print('In Final network:\n Genes:%d Targetted Genes:%d  Drugs:%d' % (n_genes, tagetted_genes, n_drugs))
-
-
-    # data representation
-    adj_mats_init = {
-        (0, 0): [gene_adj],
-        (0, 1): [target_drug_adj],
-        (1, 0): [drug_target_adj],
-        (1, 1): drug_drug_adj_list,
-
-    }
-    # degrees = {
-    #     0: [gene_degrees],
-    #     1: drug_degrees_list,
-    # }
-
-
-    ###########################    CROSS VALIDATION PREPARATION    ######################################
-
-    # cross validation folds contain only drug_pair index from synergy_df. Convert validation folds into list of (drug-idx, drug-idx, cell_line_idx) pairs.
-    #after the following two processing both pos and neg cross validation folds will contain bot (x,y,cell_line) and (y,x,cell_line pairs.)
-    edges_all_cell_line = list(zip(synergy_df['Drug1_idx'], synergy_df['Drug2_idx'], synergy_df['Cell_line_idx']))
-    # print('all cell line  edges index length: ', len(edges_all_cell_line))
-    temp_cross_validation_folds = {}
-    for fold in cross_validation_folds_pos_drug_drug_edges:
-        # print('test: ', fold, len(cross_validation_folds[fold]), cross_validation_folds[fold])
-        temp_cross_validation_folds[fold] = [edges_all_cell_line[x] for x in cross_validation_folds_pos_drug_drug_edges[fold]]
-        temp_cross_validation_folds[fold] += [(drug_2_idx,drug_1_idx,cell_line_idx) for drug_1_idx,drug_2_idx,cell_line_idx in  temp_cross_validation_folds[fold]]
-        # print(temp_cross_validation_folds[fold][0:10], cross_validation_folds_pos_drug_drug_edges[fold][0:10])
-    cross_validation_folds_pos_drug_drug_edges = temp_cross_validation_folds
-
-    # cross validation folds contain only drug_pair index from non_synergy_df. Convert validation folds into list of (drug-idx, drug-idx) pairs.
-    temp_cross_validation_folds = {}
-    neg_edges_all_cell_line = list(zip(non_synergy_df['Drug1_idx'], non_synergy_df['Drug2_idx'], non_synergy_df['Cell_line_idx']))
-    for fold in cross_validation_folds_neg_drug_drug_edges:
-        # print('test: ', fold, len(cross_validation_folds[fold]), cross_validation_folds[fold])
-        temp_cross_validation_folds[fold] = [neg_edges_all_cell_line[x] for x in cross_validation_folds_neg_drug_drug_edges[fold]]
-        temp_cross_validation_folds[fold] += [(drug_2_idx, drug_1_idx, cell_line_idx) for drug_1_idx, drug_2_idx, cell_line_idx in
-                                              temp_cross_validation_folds[fold]]
-        # print(temp_cross_validation_folds[fold][0:10], cross_validation_folds_pos_drug_drug_edges[fold][0:10])
-    cross_validation_folds_neg_drug_drug_edges = temp_cross_validation_folds
-
-    non_drug_drug_edge_types = [(0,0),(0,1)]
-    cross_validation_folds_non_drug_drug_edges = cross_val.create_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_init,\
-                                                                                            non_drug_drug_edge_types)
-    neg_cross_validation_folds_non_drug_drug_edges = cross_val.create_neg_cross_val_split_non_drug_drug_edges(number_of_folds,
-                                                                                            adj_mats_init, \
-                                                                                            non_drug_drug_edge_types)
-
-
-    ######################## NODE FEATURE MATRIX CREATION ###########################################
-
-    # featureless (genes)
-    gene_feat = sp.identity(n_genes)
-    gene_nonzero_feat, gene_num_feat = gene_feat.shape
-    gene_feat = utils.sparse_to_tuple(gene_feat.tocoo())
-
-    # FLAGS = initial_model_setting(config_map)
-
-    # features (drugs)
-    use_drug_feat_options = decagon_settings['use_drug_feat']
-    for use_drug_feat_option in use_drug_feat_options:
-        if use_drug_feat_option:
-            drug_maccs_keys_feature_df['drug_idx'] = drug_maccs_keys_feature_df['pubchem_cid'].\
-                                            apply(lambda x: drug_node_2_idx[x])
-            drug_maccs_keys_feature_df = drug_maccs_keys_feature_df.sort_values(by=['drug_idx'])
-            assert len(drug_maccs_keys_feature_df)== n_drugs, 'problem in drug feat creation'
-            drug_feat = drug_maccs_keys_feature_df.drop(columns=['pubchem_cid']).set_index('drug_idx').to_numpy()
-            drug_num_feat = drug_feat.shape[1]
-            drug_nonzero_feat = np.count_nonzero(drug_feat)
-
-            drug_feat = sp.csr_matrix(drug_feat)
-            drug_feat = utils.sparse_to_tuple(drug_feat.tocoo())
-
-        else:
-        # #one hot encoding for drug features
-            drug_feat = sp.identity(n_drugs)
-            drug_nonzero_feat, drug_num_feat = drug_feat.shape
-            drug_feat = utils.sparse_to_tuple(drug_feat.tocoo())
-
-        #
-
-class GAEwithK(torch.nn.Module):
+class SynverseModel(torch.nn.Module):
     r"""The Graph Auto-Encoder model from the
     `"Variational Graph Auto-Encoders" <https://arxiv.org/abs/1611.07308>`_
     paper based on user-defined encoder and decoder models.
@@ -323,10 +164,10 @@ class GAEwithK(torch.nn.Module):
     """
 
     def __init__(self, encoder, decoder=None):
-        super(GAEwithK, self).__init__()
+        super(SynverseModel, self).__init__()
         self.encoder = encoder
         self.decoder = InnerProductDecoder() if decoder is None else decoder
-        GAEwithK.reset_parameters(self)
+        SynverseModel.reset_parameters(self)
 
     def reset_parameters(self):
         reset(self.encoder)
@@ -403,6 +244,25 @@ class Encoder(torch.nn.Module):
             x = F.dropout(x, p=0.2, training=self.training)
         return x
 
+class GCNLayer(torch.nn.Module):
+    def __init__(self, in_channel, out_channel, edge_type):
+        super(GCNLayer, self).__init__()
+        self.in_channel = in_channel
+        self.out_channel = out_channel
+        if edge_type in ['gene_gene','drug_drug']:
+            self.gcn = GCNConv(self.in_channel,self.out_channel, add_self_loops=True, cached=False)
+        else:
+            self.gcn = GCNConv(self.in_channel, self.out_channel, add_self_loops=True, cached=False)
+
+    def forward(self, train_pos_edges_list, node_feat):
+        output = [0]*self.out_channel
+        for i in range(len(train_pos_edges_list)):
+            x = F.relu(self.gcn(node_feat, train_pos_edges_list[i]))
+            x = F.dropout(x, p=0.2, training=self.training)
+            output+=x
+        return output
+
+
 
 class TFDecoder(torch.nn.Module):
     def __init__(self, num_nodes, TFIDs):
@@ -456,28 +316,364 @@ class RESCALDecoder(torch.nn.Module):
     def reset_parameters(self):
         self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
 
+#
+# def train():
+#     model.train()
+#     optimizer.zero_grad()
+#     z = model.encode(x, train_pos_edge_index)
+#     loss = model.recon_loss(z, train_pos_only_edge_index, train_neg_edge_index)
+#     loss.backward()
+#     optimizer.step()
+#     return (loss)
+#
+#
+# def test(pos_edge_index, neg_edge_index):
+#     model.eval()
+#     with torch.no_grad():
+#         z = model.encode(x, train_pos_edge_index)
+#     epr, ap = model.test(z, pos_edge_index, neg_edge_index)
+#     return z, epr, ap
+#
+#
+# def val(pos_edge_index, neg_edge_index):
+#     model.eval()
+#     with torch.no_grad():
+#         z = model.encode(x, train_pos_edge_index)
+#     loss = model.recon_loss(z, pos_edge_index, neg_edge_index)
+#     return loss
 
-def train():
-    model.train()
-    optimizer.zero_grad()
-    z = model.encode(x, train_pos_edge_index)
-    loss = model.recon_loss(z, train_pos_only_edge_index, train_neg_edge_index)
-    loss.backward()
-    optimizer.step()
-    return (loss)
+
+# def initial_model_setting(config_map):
+#     flags = tf.app.flags
+#     FLAGS = flags.FLAGS
+#     decagon_settings = config_map['ml_models_settings']['algs']['decagon']
+#     flags.DEFINE_integer('neg_sample_size', decagon_settings['neg_sample_size'], 'Negative sample size.')
+#     flags.DEFINE_float('learning_rate', decagon_settings['learning_rate'], 'Initial learning rate.')
+#     flags.DEFINE_integer('epochs', decagon_settings['epochs'], 'Number of epochs to train.')
+#     flags.DEFINE_integer('hidden1', 64, 'Number of units in hidden layer 1.')
+#     flags.DEFINE_integer('hidden2', 32, 'Number of units in hidden layer 2.')
+#     flags.DEFINE_float('weight_decay', decagon_settings['weight_decay'], 'Weight for L2 loss on embedding matrix.')
+#     flags.DEFINE_float('dropout', decagon_settings['dropout'], 'Dropout rate (1 - keep probability).')
+#     flags.DEFINE_float('max_margin', decagon_settings['max_margin'], 'Max margin parameter in hinge loss')
+#     flags.DEFINE_integer('batch_size', decagon_settings['batch_size'], 'minibatch size.')
+#     flags.DEFINE_boolean('bias', decagon_settings['bias'], 'Bias term.')
+#     return FLAGS
+
+def prepare_drug_feat(drug_maccs_keys_feature_df, drug_node_2_idx, n_drugs, use_drug_feat_option):
+    if use_drug_feat_option:
+        drug_maccs_keys_feature_df['drug_idx'] = drug_maccs_keys_feature_df['pubchem_cid']. \
+            apply(lambda x: drug_node_2_idx[x])
+        drug_maccs_keys_feature_df = drug_maccs_keys_feature_df.sort_values(by=['drug_idx'])
+        assert len(drug_maccs_keys_feature_df) == n_drugs, 'problem in drug feat creation'
+        drug_feat = drug_maccs_keys_feature_df.drop(columns=['pubchem_cid']).set_index('drug_idx').to_numpy()
+        drug_num_feat = drug_feat.shape[1]
+        drug_nonzero_feat = np.count_nonzero(drug_feat)
+
+        drug_feat = sp.csr_matrix(drug_feat)
+        drug_feat = utils.sparse_to_tuple(drug_feat.tocoo())
+
+    else:
+        # #one hot encoding for drug features
+        drug_feat = sp.identity(n_drugs)
+        drug_nonzero_feat, drug_num_feat = drug_feat.shape
+        drug_feat = utils.sparse_to_tuple(drug_feat.tocoo())
+
+        return drug_feat
+
+def get_set_containing_all_folds(cross_validation_folds_pos_drug_drug_edges):
+    all_folds_edges = set()
+    for fold,edges in cross_validation_folds_pos_drug_drug_edges.items():
+        all_folds_edges = all_folds_edges.union(set(edges))
+    return all_folds_edges
+
+def prepare_train_edges(cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges, \
+                    cross_validation_folds_pos_non_drug_drug_edges, cross_validation_folds_neg_non_drug_drug_edges,
+                    fold_no, total_cell_lines):
+    #this returns four dictionaries. one dict for each of train_pos, train_neg, val_pos, val_neg.
+    # in each dictionary: key = edge_type i.e. ( 'gene_gene', 'target_drug', 'drug_target', 'drug_drug')
+    # each key maps to a list of torchtensor. e.g. drug_drug key maps to a list of torch tensor where each tensor is for a cell line
 
 
-def test(pos_edge_index, neg_edge_index):
-    model.eval()
-    with torch.no_grad():
-        z = model.encode(x, train_pos_edge_index)
-    epr, ap = model.test(z, pos_edge_index, neg_edge_index)
-    return z, epr, ap
+    edge_types = ['gene_gene', 'target_drug', 'drug_target', 'drug_drug']
+    train_pos_edges_dict = {edge_type: [] for edge_type in edge_types}
+    train_neg_edges_dict = {edge_type: [] for edge_type in edge_types}
+    val_pos_edges_dict = {edge_type: [] for edge_type in edge_types}
+    val_neg_edges_dict = {edge_type: [] for edge_type in edge_types}
 
 
-def val(pos_edge_index, neg_edge_index):
-    model.eval()
-    with torch.no_grad():
-        z = model.encode(x, train_pos_edge_index)
-    loss = model.recon_loss(z, pos_edge_index, neg_edge_index)
-    return loss
+    # set drug drug edges
+    val_pos_drug_drug_edges_set = set(cross_validation_folds_pos_drug_drug_edges[fold_no])
+    all_folds_pos_edges = get_set_containing_all_folds(cross_validation_folds_pos_drug_drug_edges)
+    train_pos_drug_drug_edges_set = all_folds_pos_edges.difference(val_pos_drug_drug_edges_set)
+
+    val_neg_drug_drug_edges_set = set(cross_validation_folds_neg_drug_drug_edges[fold_no])
+    all_folds_neg_edges = get_set_containing_all_folds(cross_validation_folds_neg_drug_drug_edges)
+    train_neg_drug_drug_edges_set = all_folds_neg_edges.difference(val_neg_drug_drug_edges_set)
+
+    for cell_line_idx in range(total_cell_lines):
+        train_pos_source_nodes = [d1 for d1,d2,c in train_pos_drug_drug_edges_set if c==cell_line_idx]
+        train_pos_target_nodes = [d2 for d1, d2, c in train_pos_drug_drug_edges_set if c == cell_line_idx]
+        train_pos_edges = torch.stack([torch.LongTensor(train_pos_source_nodes),torch.LongTensor(train_pos_target_nodes)],dim=0)
+
+        train_neg_source_nodes = [d1 for d1, d2, c in train_neg_drug_drug_edges_set if c == cell_line_idx]
+        train_neg_target_nodes = [d2 for d1, d2, c in train_neg_drug_drug_edges_set if c == cell_line_idx]
+        train_neg_edges = torch.stack([torch.LongTensor(train_neg_source_nodes), torch.LongTensor(train_neg_target_nodes)], dim=0)
+
+        val_pos_source_nodes = [d1 for d1, d2, c in val_pos_drug_drug_edges_set if c == cell_line_idx]
+        val_pos_target_nodes = [d2 for d1, d2, c in val_pos_drug_drug_edges_set if c == cell_line_idx]
+        val_pos_edges = torch.stack(
+            [torch.LongTensor(val_pos_source_nodes), torch.LongTensor(val_pos_target_nodes)], dim=0)
+
+        val_neg_source_nodes = [d1 for d1, d2, c in val_neg_drug_drug_edges_set if c == cell_line_idx]
+        val_neg_target_nodes = [d2 for d1, d2, c in val_neg_drug_drug_edges_set if c == cell_line_idx]
+        val_neg_edges = torch.stack(
+            [torch.LongTensor(val_neg_source_nodes), torch.LongTensor(val_neg_target_nodes)], dim=0)
+
+        train_pos_edges_dict['drug_drug'].append(train_pos_edges)
+        train_neg_edges_dict['drug_drug'].append(train_neg_edges)
+        val_pos_edges_dict['drug_drug'].append(val_pos_edges)
+        val_neg_edges_dict['drug_drug'].append(val_neg_edges)
+
+    #gene_gene edges, target_drug_edges, drug_target_edges
+
+    non_drug_drug_edge_types = ['gene_gene', 'target_drug', 'drug_target']
+
+    for edge_type in non_drug_drug_edge_types:
+
+        val_pos_non_drug_drug_edges_set = set(cross_validation_folds_pos_non_drug_drug_edges[edge_type][fold_no])
+        all_folds_pos_edges = get_set_containing_all_folds(cross_validation_folds_pos_non_drug_drug_edges[edge_type])
+        train_pos_non_drug_drug_edges_set = all_folds_pos_edges.difference(val_pos_non_drug_drug_edges_set)
+
+        val_neg_non_drug_drug_edges_set = set(cross_validation_folds_neg_non_drug_drug_edges[edge_type][fold_no])
+        all_folds_neg_edges = get_set_containing_all_folds(cross_validation_folds_neg_non_drug_drug_edges[edge_type])
+        train_neg_non_drug_drug_edges_set = all_folds_neg_edges.difference(val_neg_non_drug_drug_edges_set)
+
+
+        train_pos_source_nodes = [d1 for d1, d2 in train_pos_non_drug_drug_edges_set]
+        train_pos_target_nodes = [d2 for d1, d2 in train_pos_non_drug_drug_edges_set]
+        train_pos_edges = torch.stack(
+            [torch.LongTensor(train_pos_source_nodes), torch.LongTensor(train_pos_target_nodes)], dim=0)
+
+        train_neg_source_nodes = [d1 for d1, d2 in train_neg_non_drug_drug_edges_set]
+        train_neg_target_nodes = [d2 for d1, d2 in train_neg_non_drug_drug_edges_set]
+        train_neg_edges = torch.stack(
+            [torch.LongTensor(train_neg_source_nodes), torch.LongTensor(train_neg_target_nodes)], dim=0)
+
+        val_pos_source_nodes = [d1 for d1, d2 in val_pos_non_drug_drug_edges_set]
+        val_pos_target_nodes = [d2 for d1, d2 in val_pos_non_drug_drug_edges_set]
+        val_pos_edges = torch.stack(
+            [torch.LongTensor(val_pos_source_nodes), torch.LongTensor(val_pos_target_nodes)], dim=0)
+
+        val_neg_source_nodes = [d1 for d1, d2 in val_neg_non_drug_drug_edges_set]
+        val_neg_target_nodes = [d2 for d1, d2  in val_neg_non_drug_drug_edges_set]
+        val_neg_edges = torch.stack(
+            [torch.LongTensor(val_neg_source_nodes), torch.LongTensor(val_neg_target_nodes)], dim=0)
+
+        train_pos_edges_dict[edge_type].append(train_pos_edges)
+        train_neg_edges_dict[edge_type].append(train_neg_edges)
+        val_pos_edges_dict[edge_type].append(val_pos_edges)
+        val_neg_edges_dict[edge_type].append(val_neg_edges)
+
+
+    return  train_pos_edges_dict, train_neg_edges_dict, val_pos_edges_dict, val_neg_edges_dict
+
+
+
+
+def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_maccs_keys_feature_df, synergy_df, non_synergy_df,\
+                      cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges,\
+                      run_, out_dir, config_map):
+
+    #model setup
+    synverse_settings = config_map['ml_models_settings']['algs']['synverse']
+    learning_rate =  synverse_settings['learning_rate']
+    epochs = synverse_settings['epochs']
+    hidden1 = 64
+    hidden2 = 32
+    weight_decay = synverse_settings['weight_decay']
+    dropout = synverse_settings['dropout']
+    max_margin = synverse_settings['max_margin']
+    batch_size = synverse_settings['batch_size']
+    bias = synverse_settings['bias']
+
+    neg_fact = config_map['ml_models_settings']['cross_val']['neg_fact']
+
+    #
+    number_of_folds = config_map['ml_models_settings']['cross_val']['folds']
+
+    gene_adj = nx.adjacency_matrix(nx.convert_matrix.from_scipy_sparse_matrix(ppi_sparse_matrix, create_using=nx.Graph(),edge_attribute=None))
+    gene_degrees = np.array(gene_adj.sum(axis=0)).squeeze()
+    genes_in_ppi = gene_node_2_idx.keys()
+
+    synergistics_drugs = set(list(synergy_df['Drug1_pubchem_cid'])).union(set(list(synergy_df['Drug2_pubchem_cid'])))
+    # print('number of drugs after applying threshold on synergy data:', len(synergistics_drugs))
+    drug_nodes = drug_target_df['pubchem_cid'].unique()
+    drug_node_2_idx = {node: i for i, node in enumerate(drug_nodes)}
+    idx_2_drug_node =  {i: node for i, node in enumerate(drug_nodes)}
+    drug_target_df['gene_idx'] = drug_target_df['uniprot_id'].astype(str).apply(lambda x: gene_node_2_idx[x])
+    drug_target_df['drug_idx'] = drug_target_df['pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
+
+    # now create drug_target adjacency matrix where gene nodes are in same order as they are in gene_net
+    n_drugs = len(drug_target_df['drug_idx'].unique())
+    n_genes = len(genes_in_ppi)
+
+    row = list(drug_target_df['drug_idx'])
+    col = list(drug_target_df['gene_idx'])
+    data = np.ones(len(row))
+    drug_target_adj = sp.csr_matrix((data, (row, col)),shape=(n_drugs, n_genes))
+    target_drug_adj = drug_target_adj.transpose(copy=True)
+
+    # index all the cell lines
+    cell_lines = synergy_df['Cell_line'].unique()
+    cell_line_2_idx = {cell_line: i for i, cell_line in enumerate(cell_lines)}
+    idx_2_cell_line = {i: cell_line for i, cell_line in enumerate(cell_lines)}
+    # print('number of cell lines: ',len(cell_lines_2_idx.keys()))
+
+    synergy_df['Drug1_idx'] = synergy_df['Drug1_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
+    synergy_df['Drug2_idx'] = synergy_df['Drug2_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
+    synergy_df['Cell_line_idx'] = synergy_df['Cell_line'].astype(str).apply(lambda x: cell_line_2_idx[x])
+
+
+    non_synergy_df['Drug1_idx'] = non_synergy_df['Drug1_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
+    non_synergy_df['Drug2_idx'] = non_synergy_df['Drug2_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
+    non_synergy_df['Cell_line_idx'] = non_synergy_df['Cell_line'].astype(str).apply(lambda x: cell_line_2_idx[x])
+
+    # create drug-drug synergy network for each cell line separately
+    total_cell_lines = len(cell_line_2_idx.values())
+    drug_drug_adj_list = []
+
+    tagetted_genes = len(drug_target_df['uniprot_id'].unique())
+    n_drugdrug_rel_types = total_cell_lines
+
+    for cell_line_idx in range(total_cell_lines):
+        #     print('cell_line_idx',cell_line_idx)
+        df = synergy_df[synergy_df['Cell_line_idx'] == cell_line_idx][['Drug1_idx', 'Drug2_idx',
+                                                                       'Cell_line_idx', 'Loewe_label']]
+        edges = list(zip(df['Drug1_idx'], df['Drug2_idx']))
+
+        mat = np.zeros((n_drugs, n_drugs))
+        for d1, d2 in edges:
+            mat[d1, d2] = mat[d2, d1] = 1.
+        #         print(d1,d2)
+        drug_drug_adj_list.append(sp.csr_matrix(mat))
+
+
+    #### in  each drug_drug_adjacency_matrix in drug_degrees_list, if (x,y) is present then (y,x) is also present there.
+    # drug_degrees_list = [np.array(drug_adj.sum(axis=0)).squeeze() for drug_adj in drug_drug_adj_list]
+
+    print('finished network building')
+
+    print('In Final network:\n Genes:%d Targetted Genes:%d  Drugs:%d' % (n_genes, tagetted_genes, n_drugs))
+
+
+    # data representation
+    edge_types = ['gene_gene', 'target_drug', 'drug_target', 'drug_drug']
+    adj_mats_init = {}
+    adj_mats_init['gene_gene'] = [gene_adj]
+    adj_mats_init['target_drug'] = [target_drug_adj]
+    adj_mats_init['drug_target'] = [drug_target_adj]
+    adj_mats_init['drug_drug'] = drug_drug_adj_list
+
+
+
+        ###########################    CROSS VALIDATION PREPARATION    ######################################
+
+    # cross validation folds contain only drug_pair index from synergy_df. Convert validation folds into list of (drug-idx, drug-idx, cell_line_idx) pairs.
+    # after the following two processing both pos and neg cross validation folds will contain both (x,y,cell_line) and (y,x,cell_line tuples.)
+    edges_all_cell_line = list(zip(synergy_df['Drug1_idx'], synergy_df['Drug2_idx'], synergy_df['Cell_line_idx']))
+    # print('all cell line  edges index length: ', len(edges_all_cell_line))
+    temp_cross_validation_folds = {}
+    for fold in cross_validation_folds_pos_drug_drug_edges:
+        # print('test: ', fold, len(cross_validation_folds[fold]), cross_validation_folds[fold])
+        temp_cross_validation_folds[fold] = [edges_all_cell_line[x] for x in
+                                             cross_validation_folds_pos_drug_drug_edges[fold]]
+        temp_cross_validation_folds[fold] += [(drug_2_idx, drug_1_idx, cell_line_idx) for
+                                              drug_1_idx, drug_2_idx, cell_line_idx in
+                                              temp_cross_validation_folds[fold]]
+        # print(temp_cross_validation_folds[fold][0:10], cross_validation_folds_pos_drug_drug_edges[fold][0:10])
+    cross_validation_folds_pos_drug_drug_edges = temp_cross_validation_folds
+
+
+    # cross validation folds contain only drug_pair index from non_synergy_df. Convert validation folds into list of (drug-idx, drug-idx) pairs.
+    temp_cross_validation_folds = {}
+    neg_edges_all_cell_line = list(
+        zip(non_synergy_df['Drug1_idx'], non_synergy_df['Drug2_idx'], non_synergy_df['Cell_line_idx']))
+    for fold in cross_validation_folds_neg_drug_drug_edges:
+        # print('test: ', fold, len(cross_validation_folds[fold]), cross_validation_folds[fold])
+        temp_cross_validation_folds[fold] = [neg_edges_all_cell_line[x] for x in
+                                             cross_validation_folds_neg_drug_drug_edges[fold]]
+        temp_cross_validation_folds[fold] += [(drug_2_idx, drug_1_idx, cell_line_idx) for
+                                              drug_1_idx, drug_2_idx, cell_line_idx in
+                                              temp_cross_validation_folds[fold]]
+        # print(temp_cross_validation_folds[fold][0:10], cross_validation_folds_pos_drug_drug_edges[fold][0:10])
+    cross_validation_folds_neg_drug_drug_edges = temp_cross_validation_folds
+
+    non_drug_drug_edge_types = ['gene_gene', 'target_drug']
+    cross_validation_folds_pos_non_drug_drug_edges = cross_val.create_cross_val_split_non_drug_drug_edges\
+        (number_of_folds, adj_mats_init, non_drug_drug_edge_types)
+    cross_validation_folds_neg_non_drug_drug_edges = cross_val.create_neg_cross_val_split_non_drug_drug_edges\
+        (number_of_folds, adj_mats_init,non_drug_drug_edge_types)
+
+
+
+
+
+    ######################## NODE FEATURE MATRIX CREATION ###########################################
+
+    # featureless (genes)
+    gene_feat = sp.identity(n_genes)
+    gene_nonzero_feat, gene_num_feat = gene_feat.shape
+    gene_feat = utils.sparse_to_tuple(gene_feat.tocoo())
+
+    # features (drugs)
+    use_drug_feat_options = synverse_settings['use_drug_feat']
+    for use_drug_feat_option in use_drug_feat_options:
+        drug_feat = prepare_drug_feat(drug_maccs_keys_feature_df, drug_node_2_idx, n_drugs, use_drug_feat_option)
+
+        node_feat_dict = {'gene': gene_feat, 'drug' : drug_feat}
+        ##########write training code here##################
+
+        for fold_no in range(number_of_folds):
+
+            ###################################### Prepare DATA ########################################
+
+            train_pos_edges_dict, train_neg_edges_dict, val_pos_edges_dict, val_neg_edges_dict = prepare_train_edges \
+                (cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges, \
+                 cross_validation_folds_pos_non_drug_drug_edges, cross_validation_folds_neg_non_drug_drug_edges,
+                 fold_no, total_cell_lines)
+            minibatch_handlder = MinibatchHandler(train_pos_edges_dict, batch_size, total_cell_lines)
+
+            for epoch in range(epochs):
+                #shuffle each training tensor  at the beginning of each epoch
+                train_pos_edges_dict = minibatch_handlder.shuffle_train_edges(train_pos_edges_dict)
+                train_neg_edges_dict = minibatch_handlder.shuffle_train_edges(train_neg_edges_dict)
+
+                #split the train edges in chunks with size=batch_size
+                #dict of list of split tensors/torches
+                train_pos_edges_split_dict = {edge_type:[] for edge_type in edge_types}
+                train_neg_edges_split_dict = {edge_type:[] for edge_type in edge_types}
+
+                for edge_type in train_pos_edges_dict:
+                    for i in range (len(train_pos_edges_dict[edge_type])):
+                        train_pos_edges_split_dict[edge_type][i]= torch.split(train_pos_edges_dict[edge_type][i],batch_size,dim=1)
+                        train_neg_edges_split_dict[edge_type][i] = torch.split(train_neg_edges_dict[edge_type][i],
+                                                                               batch_size*neg_fact, dim=1)
+
+                while not minibatch_handlder.is_batch_finished():
+                    egde_type, edge_type_idx, batch_num =  minibatch_handlder.next_minibatch()
+                    if egde_type == 'drug_drug':
+                        node_feat = drug_feat
+                    elif egde_type == 'gene_gene':
+                        node_feat = gene_feat
+                    elif egde_type == 'target_drug':
+                        node_feat = gene_feat
+                    elif egde_type == 'drug_target':
+                        node_feat = drug_feat
+
+                    data = Data(x=node_feat, edge_index=train_pos_edges_dict[edge_type][edge_type_idx])
+
+
+
+
+
+

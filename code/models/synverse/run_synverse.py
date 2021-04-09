@@ -166,25 +166,30 @@ class SynverseModel(torch.nn.Module):
             (default: :obj:`None`)
     """
 
-    def __init__(self, encoder, decoder=None):
+    def __init__(self, encoder, decoders):
         super(SynverseModel, self).__init__()
         self.encoder = encoder
-        self.decoder = InnerProductDecoder() if decoder is None else decoder
+        self.decoders = decoders
         SynverseModel.reset_parameters(self)
 
     def reset_parameters(self):
         reset(self.encoder)
-        reset(self.decoder)
+        for edge_type in self.decoders:
+            reset(self.decoders[edge_type])
 
-    def encode(self, *args, **kwargs):
+    # def encode(self, *args, **kwargs):
+    #     r"""Runs the encoder and computes node-wise latent variables."""
+    #     return self.encoder(*args, **kwargs)
+
+    def encode(self):
         r"""Runs the encoder and computes node-wise latent variables."""
-        return self.encoder(*args, **kwargs)
+        return self.encoder()
 
-    def decode(self, *args, **kwargs):
-        r"""Runs the decoder and computes edge probabilties."""
-        return self.decoder(*args, **kwargs)
+    # def decode(self, *args, **kwargs):
+    #     r"""Runs the decoder and computes edge probabilties."""
+    #     return self.decoder(*args, **kwargs)
 
-    def recon_loss(self, z, pos_edge_index, neg_edge_index):
+    def recon_loss(self, z, batch_pos_edge_index, batch_neg_edge_index, edge_type, edge_sub_type_idx):
         r"""Given latent variables :obj:`z`, computes the binary cross
         entropy loss for positive edges :obj:`pos_edge_index` and negative
         sampled edges.
@@ -194,10 +199,10 @@ class SynverseModel(torch.nn.Module):
             pos_edge_index (LongTensor): The positive edges to train against.
         """
         pos_loss = -torch.log(
-            self.decoder(z, pos_edge_index, sigmoid=True) + EPS).mean()
+            self.decoders[edge_type](z, batch_pos_edge_index, edge_sub_type_idx, sigmoid=True) + EPS).mean()
 
         neg_loss = -torch.log(1 -
-                              self.decoder(z, neg_edge_index, sigmoid=True) +
+                              self.decoders[edge_type](z, batch_neg_edge_index, edge_sub_type_idx, sigmoid=True) +
                               EPS).mean()
 
         return pos_loss + neg_loss
@@ -232,51 +237,52 @@ class SynverseModel(torch.nn.Module):
 
 
 class Encoder(torch.nn.Module):
-    #h_sizes is an array. containing the gardual node number decrease from inital input_dim to final output_dim
-    def __init__(self, h_sizes, node_feat_dict,train_pos_edges_dict,  edge_types):
+    #h_sizes is an array. containing the gardual node number decrease from initial hidden_layer output  to final output_dim.\
+    # Input dim is not included
+    def __init__(self, h_sizes, node_feat_dict, train_pos_edges_dict,  edge_types):
         super(Encoder, self).__init__()
 
         self.edge_types = edge_types
         self.node_feat_dict = node_feat_dict
         self.train_pos_edges_dict = train_pos_edges_dict
         self.h_sizes = h_sizes
-        self.num_hidden = len(h_sizes) - 1
+        self.num_hidden = len(h_sizes)
         self.hidden={} #dict of dict. self.hidden[0]=> contains a dictionary for first hidden layer. In this dictionary, keys = edge_type,
         # value = GCN layer dedicated to it.
         for hid_layer_no in range(self.num_hidden):
-            self.hidden[hid_layer_no]= {}
+            self.hidden[hid_layer_no] = {}
             for edge_type in edge_types:
-                self.hidden[hid_layer_no][edge_type] = \
-                    (EdgeTypeSpecGCNLayer(h_sizes[hid_layer_no], h_sizes[hid_layer_no + 1], edge_type))
+                if hid_layer_no == 0:
+                    if edge_type in ['drug_drug', 'drug_target']:
+                        input_feat_dim = node_feat_dict['drug'].size()[1]
+                    else:
+                        input_feat_dim = node_feat_dict['gene'].size()[1]
 
-
-        #
-        #
-        #
-        # #write code for one layer first
-        # self.hidden0 = {}
-        # hid_layer_no=0
-        # for edge_type in edge_types:
-        #     self.hidden0[edge_type] = (EdgeTypeSpecGCNLayer(h_sizes[hid_layer_no], h_sizes[hid_layer_no + 1], edge_type))
+                    self.hidden[hid_layer_no][edge_type] = \
+                        (EdgeTypeSpecGCNLayer(input_feat_dim, h_sizes[hid_layer_no], edge_type))
+                else:
+                    self.hidden[hid_layer_no][edge_type] = \
+                        (EdgeTypeSpecGCNLayer(h_sizes[hid_layer_no-1], h_sizes[hid_layer_no], edge_type))
 
 
     def forward(self):
         # for one input layer
         # this will contain the output  i.e. embedding after hidden layer 1
         hidden_output = {}
-        current_node_feat_dict = copy.deepcopy(self.node_feat_dict)
+        layer_input = copy.deepcopy(self.node_feat_dict)
         for hid_layer_no in range(self.num_hidden):
-            hidden_output[hid_layer_no] = {}  # hidden_output[1]={'drug': final_drug_embedding_from_hidden_layer_1, 'gene':final_gene_embedding_from_hidden_layer_1}
+            hidden_output[hid_layer_no] = {}
+            # hidden_output[1]={'drug': final_drug_embedding_from_hidden_layer_1, 'gene':final_gene_embedding_from_hidden_layer_1}
             # self.hidden1_output['drug'].append()
             for edge_type in self.edge_types:
                 if edge_type in ['drug_drug', 'target_drug']:
                     #target_node = drug in both type of edges i.e.
                     # drug embedding is being computed. Hence, put under 'drug' key.
                     self.hidden_output[hid_layer_no]['drug'].append(
-                        self.hidden[hid_layer_no][edge_type](current_node_feat_dict, self.train_pos_edges_dict, edge_type))
+                        self.hidden[hid_layer_no][edge_type](layer_input, self.train_pos_edges_dict, edge_type))
                 else:
                     self.hidden_output[hid_layer_no]['gene'].append(
-                        self.hidden[hid_layer_no][edge_type](current_node_feat_dict, self.train_pos_edges_dict,
+                        self.hidden[hid_layer_no][edge_type](layer_input, self.train_pos_edges_dict,
                                                              edge_type))
 
             for node_type in self.hidden_output[hid_layer_no]:
@@ -285,9 +291,9 @@ class Encoder(torch.nn.Module):
                     output+=self.hidden_output[hid_layer_no][node_type][i]
                 self.hidden_output[hid_layer_no][node_type] = output
 
-            current_node_feat_dict = hidden_output[hid_layer_no]
+            layer_input = hidden_output[hid_layer_no]
 
-        return current_node_feat_dict
+        return layer_input
 
 
 
@@ -301,7 +307,7 @@ class EdgeTypeSpecGCNLayer(torch.nn.Module):
         if edge_type in ['gene_gene','drug_drug']:
             self.gcn = GCNConv(self.in_channel,self.out_channel, add_self_loops=True, cached=False)
         else:
-            self.gcn = GCNConv(self.in_channel, self.out_channel, add_self_loops=True, cached=False)
+            self.gcn = GCNConv(self.in_channel, self.out_channel, add_self_loops=False, normalize = False , cached=False)
 
     def forward(self, node_feat_dict, train_pos_edges_dict, edge_type):
         if edge_type in ['drug_drug', 'drug_target']: #source node = 'drug' in both type of edges. hence take 'drug_feat' in x
@@ -312,12 +318,87 @@ class EdgeTypeSpecGCNLayer(torch.nn.Module):
 
         output = 0
         for adj_mat in adj_mat_list:
+            x = F.dropout(x, p=0.2, training = True)
             x = F.relu(self.gcn(x, adj_mat))
-            x = F.dropout(x, p=0.2, training=self.training)
             output += x
+        output = F.normalize(output, dim=1, p=2) #p=2 means l2-normalization
         return output
 
+class BilinearDecoder(torch.nn.Module): #one decoder object for one edge_type
+    def __init__(self, edge_type, n_sub_types, w_dim ):
+        # n_sub_types = how many different weight matrix is needed to initialize
+        # w_dim = wight matrix dimension will be w_dim * w_dim i.e. dimension of the final nodel embedding
+        super(BilinearDecoder, self).__init__()
+        self.edge_type = edge_type
+        self.weights = []
+        for i in range(n_sub_types):
+            self.weights.append(utils.weight_matrix_glorot(w_dim, w_dim))
 
+    def forward(self, z, batch_edges, edge_sub_type_idx, sigmoid=True):
+        if self.edge_type == 'gene_gene':
+            z1 = z['gene']
+            z2 = z['gene']
+        elif self.edge_type == 'target_drug':
+            z1 = z['gene']
+            z2 = z['drug']
+        elif self.edge_type == 'drug-target':
+            z1 = z['drug']
+            z2 = z['target']
+        else:
+            z1 = z['drug']
+            z2 = z['drug']
+
+        row_embed = z1[batch_edges[0]]
+        col_embed = z2[batch_edges[1]]
+        product_1 = torch.mul(row_embed, self.weights[edge_sub_type_idx])
+        # print(self.weight[0])#, newWeight[850])
+        # sys.exit()
+        score = (product_1 * col_embed.t())
+
+        return torch.sigmoid(score) if sigmoid else score
+
+    # def reset_parameters(self):
+    #     self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
+    #
+
+
+class DedicomDecoder(torch.nn.Module): #one decoder object for one edge_type
+    def __init__(self, edge_type, n_sub_types, w_dim ):
+        # n_sub_types = how many different weight matrix is needed to initialize
+        # w_dim = wight matrix dimension will be w_dim * w_dim i.e. dimension of the final nodel embedding
+        super(DedicomDecoder, self).__init__()
+        self.edge_type = edge_type
+        self.global_weight = utils.weight_matrix_glorot(w_dim, w_dim)
+        self.local_weights = []
+
+        for i in range(n_sub_types):
+            diagonal_vals = torch.reshape(utils.weight_matrix_glorot(w_dim, 1), [-1])
+            self.local_weights.append(torch.diag(diagonal_vals))
+
+    def forward(self, z, batch_edges, edge_sub_type_idx, sigmoid=True):
+        if self.edge_type == 'gene_gene':
+            z1 = z['gene']
+            z2 = z['gene']
+        elif self.edge_type == 'target_drug':
+            z1 = z['gene']
+            z2 = z['drug']
+        elif self.edge_type == 'drug-target':
+            z1 = z['drug']
+            z2 = z['target']
+        else:
+            z1 = z['drug']
+            z2 = z['drug']
+        row_embed = z1[batch_edges[0]]
+        col_embed = z2[batch_edges[1]]
+        product_1 = torch.mul(row_embed, self.local_weights[edge_sub_type_idx])
+        product_2 = torch.mul(product_1, self.global_weight)
+        product_3 = torch.mul(product_2, self.local_weights[edge_sub_type_idx])
+        score = product_3 * col_embed.t()
+
+        return torch.sigmoid(score) if sigmoid else score
+
+    # def reset_parameters(self):
+    #     self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
 
 class TFDecoder(torch.nn.Module):
     def __init__(self, num_nodes, TFIDs):
@@ -372,47 +453,32 @@ class RESCALDecoder(torch.nn.Module):
         self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
 
 #
-# def train():
-#     model.train()
-#     optimizer.zero_grad()
-#     z = model.encode(x, train_pos_edge_index)
-#     loss = model.recon_loss(z, train_pos_only_edge_index, train_neg_edge_index)
-#     loss.backward()
-#     optimizer.step()
-#     return (loss)
+def train(model, optimizer,  batch_pos_train_edges, batch_neg_train_edges, edge_type, edge_sub_type_idx ):
+    model.train()
+    optimizer.zero_grad()
+    z = model.encode()
+    loss = model.recon_loss(z, batch_pos_train_edges, batch_neg_train_edges, edge_type, edge_sub_type_idx)
+    loss.backward()
+    optimizer.step()
+    return (loss)
+
 #
-#
-# def test(pos_edge_index, neg_edge_index):
+# def test(model, pos_edge_index, neg_edge_index, edge_type, edge_sub_type_idx):
 #     model.eval()
 #     with torch.no_grad():
-#         z = model.encode(x, train_pos_edge_index)
+#         z = model.encode()
 #     epr, ap = model.test(z, pos_edge_index, neg_edge_index)
 #     return z, epr, ap
 #
 #
-# def val(pos_edge_index, neg_edge_index):
-#     model.eval()
-#     with torch.no_grad():
-#         z = model.encode(x, train_pos_edge_index)
-#     loss = model.recon_loss(z, pos_edge_index, neg_edge_index)
-#     return loss
+def val(model, pos_edge_index, neg_edge_index, edge_type, edge_sub_type_idx):
+    model.eval()
+    with torch.no_grad():
+        z = model.encode()
+    loss = model.recon_loss(z, pos_edge_index, neg_edge_index, edge_type, edge_sub_type_idx)
+    return loss
 
 
-# def initial_model_setting(config_map):
-#     flags = tf.app.flags
-#     FLAGS = flags.FLAGS
-#     decagon_settings = config_map['ml_models_settings']['algs']['decagon']
-#     flags.DEFINE_integer('neg_sample_size', decagon_settings['neg_sample_size'], 'Negative sample size.')
-#     flags.DEFINE_float('learning_rate', decagon_settings['learning_rate'], 'Initial learning rate.')
-#     flags.DEFINE_integer('epochs', decagon_settings['epochs'], 'Number of epochs to train.')
-#     flags.DEFINE_integer('hidden1', 64, 'Number of units in hidden layer 1.')
-#     flags.DEFINE_integer('hidden2', 32, 'Number of units in hidden layer 2.')
-#     flags.DEFINE_float('weight_decay', decagon_settings['weight_decay'], 'Weight for L2 loss on embedding matrix.')
-#     flags.DEFINE_float('dropout', decagon_settings['dropout'], 'Dropout rate (1 - keep probability).')
-#     flags.DEFINE_float('max_margin', decagon_settings['max_margin'], 'Max margin parameter in hinge loss')
-#     flags.DEFINE_integer('batch_size', decagon_settings['batch_size'], 'minibatch size.')
-#     flags.DEFINE_boolean('bias', decagon_settings['bias'], 'Bias term.')
-#     return FLAGS
 
 def prepare_drug_feat(drug_maccs_keys_feature_df, drug_node_2_idx, n_drugs, use_drug_feat_option):
     if use_drug_feat_option:
@@ -672,7 +738,6 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
 
 
 
-
     ######################## NODE FEATURE MATRIX CREATION ###########################################
 
     # featureless (genes)
@@ -687,6 +752,8 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
 
         node_feat_dict = {'gene': gene_feat, 'drug' : drug_feat}
         ##########write training code here##################
+        h_sizes = [64,32] #only hidden and output_layer
+
 
         for fold_no in range(number_of_folds):
 
@@ -696,6 +763,31 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
                 (cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges, \
                  cross_validation_folds_pos_non_drug_drug_edges, cross_validation_folds_neg_non_drug_drug_edges,
                  fold_no, total_cell_lines)
+
+            edge_type_wise_number_of_subtypes = {}
+            for edge_type in edge_types:
+                edge_type_wise_number_of_subtypes[edge_type] = len(train_pos_edges_dict[edge_type])
+
+            encoder = Encoder(h_sizes, node_feat_dict, train_pos_edges_dict,edge_types)
+
+            # init different decoder according to edge type
+            # hardcode the decoder choice for now
+
+            #change the drug_drug decoder to 'dedicom' later
+            decoder_names = {'gene_gene': 'bilinear', 'target_drug': 'biliear', 'drug_target': 'bilinear', 'drug_drug':'dedicom'}
+
+            decoders = {}
+            for edge_type in edge_types:
+                n_sub_types = edge_type_wise_number_of_subtypes[edge_type]
+                if decoder_names=='bilinear':
+                    decoders[edge_type] = BilinearDecoder(n_sub_types, h_sizes[-1])
+                elif decoder_names=='dedicom':
+                    decoders[edge_type] = DedicomDecoder(n_sub_types, h_sizes[-1])
+
+
+            model = SynverseModel(encoder = encoder, decoders=decoders)
+            optimizer = torch.optim.Adam(model.parameters(), lr=0.003)
+
             minibatch_handlder = MinibatchHandler(train_pos_edges_dict, batch_size, total_cell_lines)
 
             for epoch in range(epochs):
@@ -715,7 +807,7 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
                                                                                batch_size*neg_fact, dim=1)
 
                 while not minibatch_handlder.is_batch_finished():
-                    egde_type, edge_type_idx, batch_num =  minibatch_handlder.next_minibatch()
+                    egde_type, edge_sub_type_idx, batch_num =  minibatch_handlder.next_minibatch()
                     if egde_type == 'drug_drug':
                         node_feat = drug_feat
                     elif egde_type == 'gene_gene':
@@ -725,7 +817,22 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
                     elif egde_type == 'drug_target':
                         node_feat = drug_feat
 
-                    data = Data(x=node_feat, edge_index=train_pos_edges_dict[edge_type][edge_type_idx])
+                    batch_pos_train_edges =  train_pos_edges_split_dict[edge_type][edge_sub_type_idx][batch_num]
+
+                    batch_neg_train_edges = train_neg_edges_split_dict[edge_type][edge_sub_type_idx][batch_num]
+
+
+                    training_batch_loss = train(model, optimizer, batch_pos_train_edges, batch_neg_train_edges, edge_type, edge_sub_type_idx)
+
+
+                if epoch % 150 ==0:
+                    for edge_type in edge_types:
+                        for i in range(val_pos_edges_dict[edge_type]):
+                            val_pos_edges=  val_pos_edges_dict[edge_type][i]
+                            val_neg_edges = val_neg_edges_dict[edge_type][i]
+                            loss = val(model, val_pos_edges, val_neg_edges, edge_type, i)
+                            print(loss)
+
 
 
 

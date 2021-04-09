@@ -11,24 +11,41 @@ import statistics
 import torch
 import copy
 
+import torch
+from torch_geometric.data import Data
+from torch_geometric.nn import GCNConv
+edge_index = torch.tensor([[0, 1, 1, 2],
+                           [1, 0, 2, 1]], dtype=torch.long)
+
+x = torch.tensor([[5, 5, 5], [10,10 ,10], [20, 20, 20]], dtype=torch.float)
+gcn = GCNConv(in_channels=3, out_channels=2)
+out = gcn(x, edge_index)
+
+print(out)
+
+t = torch.tensor([[0, 1, 1]], dtype=torch.long)
+print(t)
+t1 = torch.reshape(t,[-1])
+print(t1)
+
 # data_dict = {'a': [1,2,3,4], 'b': [1,2,3,12], 'c': [2,45,67,3]}
 # x = copy.deepcopy(data_dict)
 # x['a'].append(1000)
 # print(data_dict)
 # print(x)
 
-print(torch.randn(1))
-x = np.array([1,2,3,4,5])
-y = np.array([10,11,12,13,6])
-z = torch.stack([torch.LongTensor(x), torch.LongTensor(y)], dim=0)
-w = torch.LongTensor([x,y])
-print(z)
-print(w)
-m = 0
-m+=z
-m+=w
-print(z+w)
-print(m)
+# print(torch.randn(1))
+# x = np.array([1,2,3,4,5])
+# y = np.array([10,11,12,13,6])
+# z = torch.stack([torch.LongTensor(x), torch.LongTensor(y)], dim=0)
+# w = torch.LongTensor([x,y])
+# print(z)
+# print(w)
+# m = 0
+# m+=z
+# m+=w
+# print(z+w)
+# print(m)
 # c=torch.randperm(4)
 # r=[0,1]
 # z=z[r][:,c]

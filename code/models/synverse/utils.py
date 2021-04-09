@@ -1,3 +1,6 @@
+import torch
+from torch.nn import Parameter
+import math
 import numpy as np
 import networkx as nx
 import scipy.sparse as sp
@@ -11,6 +14,15 @@ def sparse_to_tuple(sparse_mx):
     values = sparse_mx.data
     shape = sparse_mx.shape
     return coords, values, shape
+
+def weight_matrix_glorot(in_channels, out_channels):
+    """Create a weight variable with Glorot & Bengio (AISTATS 2010)
+    initialization.
+    """
+    w = Parameter(torch.Tensor(in_channels, out_channels))
+    stdv = math.sqrt(6.0 / (in_channels + in_channels))
+    w.data.uniform(-stdv, stdv)
+    return w
 
 
 def write_drug_drug_link_probability(pos_df, neg_df, run_, use_drug_feat_option, FLAGS, out_dir):

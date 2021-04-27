@@ -7,6 +7,16 @@ import scipy.sparse as sp
 import os
 import pandas as pd
 
+def np_sparse_to_sparse_tensor(adj_normalized):
+    if not sp.isspmatrix_coo(adj_normalized):
+        sparse_mx = adj_normalized.tocoo()
+    coords = np.vstack((sparse_mx.row, sparse_mx.col))
+    values = sparse_mx.data
+    shape = sparse_mx.shape
+    adj_normalized = torch.sparse.FloatTensor(torch.LongTensor(coords), \
+                                              torch.FloatTensor(values), torch.Size(shape))
+    return adj_normalized
+
 def sparse_to_tuple(sparse_mx):
     if not sp.isspmatrix_coo(sparse_mx):
         sparse_mx = sparse_mx.tocoo()
@@ -21,28 +31,10 @@ def weight_matrix_glorot(in_channels, out_channels):
     """
     w = Parameter(torch.Tensor(in_channels, out_channels))
     stdv = math.sqrt(6.0 / (in_channels + in_channels))
-    w.data.uniform(-stdv, stdv)
+    w.data.uniform_(-stdv, stdv)
     return w
 
 
-def write_drug_drug_link_probability(pos_df, neg_df, run_, use_drug_feat_option, FLAGS, out_dir):
-    lr = FLAGS.learning_rate
-    epochs = FLAGS.epochs
-    batch_size = FLAGS.batch_size
-    dr = FLAGS.dropout
-    #inputs: df with link prediction probability after applying sigmoid on models predicted score for an edges(positive, negative)
-    pos_out_file = out_dir + 'run_' + str(run_) + '/'+\
-                    '/pos_val_scores'+'_drugfeat_'+str(use_drug_feat_option)+'_e_'+str(epochs) +'_lr_'+str(lr) +'_batch_'+ str(batch_size) +'_dr_'+\
-                   str(dr)+'.tsv'
-    neg_out_file = out_dir + 'run_' + str(run_) + '/'+\
-                    '/neg_val_scores'+'_drugfeat_'+str(use_drug_feat_option)+'_e_'+str(epochs) +'_lr_'+str(lr) +'_batch_'+ str(batch_size) +'_dr_'+\
-                   str(dr)+'.tsv'
-
-    os.makedirs(os.path.dirname(pos_out_file), exist_ok=True)
-    os.makedirs(os.path.dirname(neg_out_file), exist_ok=True)
-
-    pos_df.to_csv(pos_out_file, sep='\t')
-    neg_df.to_csv(neg_out_file, sep='\t')
 
 
 def check_if_a_sparse_matrix_undirected(sp_matrix):

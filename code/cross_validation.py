@@ -102,7 +102,7 @@ def create_cross_val_folds(synergy_df, cross_val_type, number_of_folds, neg_fact
         for i in folds:
             print(str(i) + ': ', len(folds[i]))
         print(cross_val_type)
-        print('time for creating folds for ', cross_val_type, 'time: ', str(t1-t2))
+        # print('time for creating folds for ', cross_val_type, 'time: ', str(t1-t2))
         return folds
 
     elif cross_val_type == 'leave_drug':

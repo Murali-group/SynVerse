@@ -8,59 +8,22 @@ import matplotlib.pyplot as plt
 import statistics
 import numpy as np
 import pandas as pd
-
-def compute_roc_auprc(output_df):
-    prroc = importr('PRROC')
-    prCurve = prroc.pr_curve(scores_class0 = FloatVector(list(output_df['predicted'].values)),
-              weights_class0 = FloatVector(list(output_df['true'].values)))
-
-    fpr, tpr, thresholds = roc_curve(y_true=output_df['true'],
-                                     y_score=output_df['predicted'], pos_label=1)
-
-    prec, recall, thresholds = precision_recall_curve(y_true=output_df['true'],
-                                                      probas_pred=output_df['predicted'], pos_label=1)
-    return prec, recall, fpr, tpr, prCurve[2][0], auc(fpr, tpr)
+from evaluation.utils import keep_one_from_symmetric_pairs, compute_roc_prc, sort_max_drug_first
 
 
+def plot_predicted_score_distribution(df, title_suffix, plot_dir):
+    # input is from a single run for a single algorithm.
 
-def keep_one_from_symmetric_pairs(df, aggregate = 'max'):
-    # df will contain predicted score for all (x,y) and (y,x) pairs from a single run
-    # df =  df_input
-    df = sort_max_drug_first(df, 'drug_1','drug_2')
-    # print('df after sorting\n', df.head())
-    if (aggregate == 'max'):
-        df = df.groupby(['drug_1','drug_2','cell_line','true'], as_index = False)['predicted'].max()
-        # print('df after taking max:\n', df.head())
-    elif(aggregate=='mean'):
-        df =  df.groupby(['drug_1', 'drug_2', 'cell_line', 'true'], as_index=False)['predicted'].mean()
-    return df
-
-
-def sort_max_drug_first(df, drug1_col, drug2_col):
-    #this function will take a dataframe df_input as input
-    #sort df_input such that in sorted df, max(drug1_col, drug2_col) will be in drug1_col and min(drug1_col, drug2_col) will be in drug2_col
-    # df = df_input
-    df['max_drug'] = df[[drug1_col, drug2_col]].max(axis=1)
-    df['min_drug'] = df[[drug1_col, drug2_col]].min(axis=1)
-    # print(df.head(10))
-    df[drug1_col] = df['max_drug']
-    df[drug2_col] = df['min_drug']
-    df.drop(['max_drug', 'min_drug'], axis=1, inplace=True)
-    # print(df.head(10))
-    return df
-
-
-def plot_predicted_score_distribution(pos_df, neg_df, title_suffix, plot_dir):
-    # input is from a single run for a single algorithm. this is the minimum unit for plotting
-
+    pos_df = df[df['true'] == 1]
+    neg_df = df[df['true'] == 0]
     pos_df_unique_pairs = keep_one_from_symmetric_pairs(pos_df.copy(), aggregate='max')
     neg_df_unique_pairs = keep_one_from_symmetric_pairs(neg_df.copy(), aggregate='max')
     pos_data = list(pos_df_unique_pairs['predicted'])
     neg_data = list(neg_df_unique_pairs['predicted'])
     print(len(pos_data), len(neg_data))
-    plt.hist(pos_data, weights=np.zeros_like(pos_data) + 1. / len(pos_data), \
+    plt.hist(pos_data, weights=np.zeros_like(pos_data) + 1. / len(pos_data),
              alpha=0.5, bins=30, color='blue', range=(0, 1), label='positive')
-    plt.hist(neg_data, weights=np.zeros_like(neg_data) + 1. / len(neg_data), \
+    plt.hist(neg_data, weights=np.zeros_like(neg_data) + 1. / len(neg_data),
              alpha=0.5, bins=30, color='orange', range=(0, 1), label='negative')
 
     plt.xlabel('predicted score')
@@ -80,17 +43,20 @@ def plot_predicted_score_distribution(pos_df, neg_df, title_suffix, plot_dir):
     plt.clf()
 
 
-def plot_auprc_auroc(output_df, title_suffix, plot_dir):
+def scatter_plot_auprc_auroc(df, title_suffix, plot_dir):
     #scatter plot for auprc and auroc score across all cell line for a certain algorithm at certain run
-    cell_lines = output_df['cell_line'].unique()
-    output_df_unique_pairs = keep_one_from_symmetric_pairs(output_df.copy(), aggregate='max')
+    cell_lines = df['cell_line'].unique()
+    output_df_unique_pairs = keep_one_from_symmetric_pairs(df.copy(), aggregate='max')
+
+    _, _, _, _, auprc, auc = compute_roc_prc(df)
+    print('all cell lines: AUPRC, AUROC', auprc, auc)
 
     precision, recall, FPR, TPR, AUPRC, AUROC = {}, {}, {}, {}, {}, {}
 
     for cell_line in cell_lines:
         cell_line_specific_df = output_df_unique_pairs[output_df_unique_pairs['cell_line'] == cell_line]
         precision[cell_line], recall[cell_line], FPR[cell_line], TPR[cell_line], AUPRC[cell_line], AUROC[cell_line] \
-            = compute_roc_auprc(cell_line_specific_df)
+            = compute_roc_prc(cell_line_specific_df)
 
     AUPRC_sorted_dict = dict(sorted(AUPRC.items(), key=lambda item: item[1], reverse=True))
     AUROC_sorted_dict = dict(sorted(AUROC.items(), key=lambda item: item[1], reverse=True))
@@ -326,16 +292,16 @@ def performance_metric_evaluation_per_alg(output_df_per_alg_all_runs, alg, confi
         precision,recall, FPR, TPR, AUPRC,AUROC = {},{},{},{},{},{}
         output_df_unique_pairs = keep_one_from_symmetric_pairs(output_df_per_iter.copy(), aggregate ='max')
         precision['combo'], recall['combo'], FPR['combo'], TPR['combo'], AUPRC['combo'], AUROC['combo'] \
-            = compute_roc_auprc(output_df_unique_pairs)
+            = compute_roc_prc(output_df_unique_pairs)
 
         #separate the cell lines
-        for cell_line in cell_lines:
-            cell_line_specific_df = output_df_unique_pairs[output_df_unique_pairs['cell_line'] == cell_line]
-            precision[cell_line], recall[cell_line], FPR[cell_line], TPR[cell_line], AUPRC[cell_line], AUROC[cell_line]\
-                = compute_roc_auprc(cell_line_specific_df)
-
-            AUPRC_dict[cell_line].append(AUPRC[cell_line])
-            AUROC_dict[cell_line].append(AUROC[cell_line])
+        # for cell_line in cell_lines:
+        #     cell_line_specific_df = output_df_unique_pairs[output_df_unique_pairs['cell_line'] == cell_line]
+        #     precision[cell_line], recall[cell_line], FPR[cell_line], TPR[cell_line], AUPRC[cell_line], AUROC[cell_line]\
+        #         = compute_roc_prc(cell_line_specific_df)
+        #
+        #     AUPRC_dict[cell_line].append(AUPRC[cell_line])
+        #     AUROC_dict[cell_line].append(AUROC[cell_line])
         #input to the main storage for eval metrics
 
         performance_metric_per_alg[iter]['precision'] = precision

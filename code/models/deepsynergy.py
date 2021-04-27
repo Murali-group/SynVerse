@@ -82,7 +82,7 @@ def run_deepsynergy_model(drug_maccs_keys_targets_feature_df, \
     in_hid_dropouts = ds_settings['in_hid_dropouts']
     # dropouts = ds_settings['dropout']
     # input_dropouts = ds_settings['input_dropout']
-    lrs = ds_settings['lr']
+    lrs = ds_settings['learning_rate']
     act_func = ds_settings['act_func']
     epochs = ds_settings['epochs']
     batch_size = ds_settings['batch_size']

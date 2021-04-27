@@ -56,7 +56,7 @@ def zeros(tensor):
 
 
 
-class DGCNConv(MessagePassing):
+class BipartiteGCN(MessagePassing):
     r"""The graph convolutional operator from the `"Semi-supervised
     Classification with Graph Convolutional Networks"
     <https://arxiv.org/abs/1609.02907>`_ paper
@@ -110,7 +110,7 @@ class DGCNConv(MessagePassing):
                  bias: bool = True,**kwargs):
 
         kwargs.setdefault('aggr', 'add')
-        super(DGCNConv, self).__init__(**kwargs)
+        super(BipartiteGCN, self).__init__(**kwargs)
 
         self.in_channels = in_channels
         self.out_channels = out_channels

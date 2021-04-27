@@ -41,7 +41,7 @@ from torch_geometric.nn.inits import reset
 import models.synverse.utils as utils
 import models.synverse.cross_validation as cross_val
 from models.synverse.minibatch import MinibatchHandler
-from models.synverse.DGCNConv import DGCNConv
+from models.synverse.BipartiteGCN import BipartiteGCN
 
 EPS = 1e-15
 MAX_LOGVAR = 10
@@ -309,9 +309,9 @@ class EdgeTypeSpecGCNLayer(torch.nn.Module):
             self.gcn = GCNConv(self.in_channel, self.out_channel, add_self_loops=True, cached=False)
         else:
             if(edge_type == 'target_drug'):
-                self.gcn = DGCNConv(self.in_channel, self.out_channel, adj_shape = (n_genes, n_drugs))
+                self.gcn = BipartiteGCN(self.in_channel, self.out_channel, adj_shape = (n_genes, n_drugs))
             elif (edge_type == 'drug_target'):
-                self.gcn = DGCNConv(self.in_channel, self.out_channel, adj_shape = (n_drugs, n_genes))
+                self.gcn = BipartiteGCN(self.in_channel, self.out_channel, adj_shape = (n_drugs, n_genes))
             else:
                 print('unknown edge type')
 

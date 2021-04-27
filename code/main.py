@@ -23,13 +23,13 @@ import  time
 #import subprocess
 # sys.path.insert(0, '/home/tasnina/Projects/Synverse/')
 import cross_validation as cross_val
-# import models.synverse.run_synverse as synverse
+import models.synverse.run_synverse as synverse
 #
 # import models.deepsynergy as deepsynergy
 #
-import models.decagon_handler.run_decagon as decagon
-import evaluation.performance_metric_plot as metric_plot
-
+# import models.decagon_handler.run_decagon as decagon
+import evaluation.plot as metric_plot
+import evaluation.evaluation_handler as evaluation_handler
 
 
 def parse_args():
@@ -62,7 +62,13 @@ def setup_opts():
     group.add_argument('--alg', '-A', dest='algs', type=str, action="append",
                        help="Algorithms for which to get results. Must be in the config file.\
                            If not specified, will get the list of algs with should_run set to True in the config file")
+
+    group.add_argument('--recall', type=float,
+                       default=0.3,
+                       help="recall value for early precision")
+
     group.add_argument('--force-run', action='store_true', default=False)
+
 
     return parser
 
@@ -224,102 +230,61 @@ def main(config_map, **kwargs):
     print(should_run_algs)
 
 
-
-    # #generate model prediction and result
-    for i in range(number_of_runs):
-        #train-test split
-        # train_synergy_df, test_synergy_df = cross_val.train_test_split(synergy_df, test_frac)
-        # dict of dict to hold different types of cross val split folds
-        type_wise_pos_cross_val_folds = {cross_val_type: dict() for cross_val_type in cross_val_types }
-        type_wise_neg_cross_val_folds = {cross_val_type: dict() for cross_val_type in cross_val_types}
-        for cross_val_type in cross_val_types:
-            type_wise_pos_cross_val_folds[cross_val_type], type_wise_neg_cross_val_folds[cross_val_type], non_synergy_df = cross_val.\
-                create_cross_val_folds(synergy_df, cross_val_type, number_of_folds,neg_fact)
-
-            #save the output from cross-val
-            cross_val_dir = config_map['project_dir']+ config_map['output_dir'] + 'cross_val/'+'/run_'+str(i)+ '_'+cross_val_type+'/pairs_' + str(min_pairs_per_cell_line)+'_'+\
-                str(max_pairs_per_cell_line) + '_th_'+str(threshold)+'_'+'neg_'+str(neg_fact)+'_'+str(time.time())+'/'
-            pos_fold_file = cross_val_dir + 'pos_folds.tsv'
-            neg_fold_file = cross_val_dir + 'neg_folds.tsv'
-            syn_df_file = cross_val_dir + 'synergy.tsv'
-            non_syn_df_file = cross_val_dir +'non_synergy.tsv'
-
-            os.makedirs(os.path.dirname(pos_fold_file), exist_ok=True)
-            pd.DataFrame.from_dict(type_wise_pos_cross_val_folds[cross_val_type],orient='index').T.to_csv(pos_fold_file, sep='\t')
-            pd.DataFrame.from_dict(type_wise_neg_cross_val_folds[cross_val_type],orient='index').T.to_csv(neg_fold_file, sep='\t')
-            synergy_df.to_csv(syn_df_file, sep='\t')
-            non_synergy_df.to_csv(non_syn_df_file,sep='\t')
-
-
-        for alg in should_run_algs:
-            out_dir = config_map['project_dir'] + config_map['output_dir'] + alg + '/' + \
-                      'pairs_' + str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line)+'_th_'+str(threshold)+'_'+'neg_'+str(neg_fact)+'/'
-            if alg=='synverse':
-                    print('Model running: ', alg)
-                    synverse.run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_maccs_keys_feature_df,
-                               synergy_df, non_synergy_df, \
-                               type_wise_pos_cross_val_folds['random'], type_wise_neg_cross_val_folds['random'], \
-                               i, out_dir, config_map)
-
-            if alg=='decagon':
-                    print('Model running: ', alg)
-                    decagon.run_decagon_model(ppi_sparse_matrix,gene_node_2_idx,\
-                                                                      drug_target_df, drug_maccs_keys_feature_df,\
-                        synergy_df, non_synergy_df, type_wise_pos_cross_val_folds['random'], type_wise_neg_cross_val_folds['random'],\
-                                                                      i,out_dir, config_map)
-
-            if alg=='deepsynergy':
-                    print('Model running: ', alg)
-                    # deepsynergy.run_deepsynergy_model(drug_maccs_keys_targets_feature_df,\
-                    #     train_synergy_df, test_synergy_df, non_synergy_df, type_wise_pos_cross_val_folds['random'],type_wise_neg_cross_val_folds['random'], i,out_dir, config_map)
-                    deepsynergy.run_deepsynergy_model(drug_maccs_keys_targets_feature_df, \
-                                                      synergy_df, non_synergy_df,
-                                                      type_wise_pos_cross_val_folds['random'],
-                                                      type_wise_neg_cross_val_folds['random'], i, out_dir, config_map)
-
-    ###################### PLOT ######################################
-    # # read and plot result from already existing files
-    ## pos_df_all_runs={alg:[] for alg in should_run_algs}
-    ## neg_df_all_runs={alg:[] for alg in should_run_algs}
-
-    # outputs_df = {alg: [] for alg in should_run_algs}
-    # for alg in should_run_algs:
-    #     for run_ in range(number_of_runs):
-    #         out_dir = config_map['project_dir'] + config_map['output_dir'] + alg + '/'+\
-    #          'pairs_' + str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line) + '_th_'+str(threshold)+'_'+'neg_'+str(neg_fact)+'/'
+    #
+    # # #generate model prediction and result
+    # for i in range(number_of_runs):
+    #     #train-test split
+    #     # train_synergy_df, test_synergy_df = cross_val.train_test_split(synergy_df, test_frac)
+    #     # dict of dict to hold different types of cross val split folds
+    #     type_wise_pos_cross_val_folds = {cross_val_type: dict() for cross_val_type in cross_val_types }
+    #     type_wise_neg_cross_val_folds = {cross_val_type: dict() for cross_val_type in cross_val_types}
+    #     for cross_val_type in cross_val_types:
+    #         type_wise_pos_cross_val_folds[cross_val_type], type_wise_neg_cross_val_folds[cross_val_type], non_synergy_df = cross_val.\
+    #             create_cross_val_folds(synergy_df, cross_val_type, number_of_folds,neg_fact)
+    #
+    #         #save the output from cross-val
+    #         cross_val_dir = config_map['project_dir']+ config_map['output_dir'] + 'cross_val/'+'/run_'+str(i)+ '_'+cross_val_type+'/pairs_' + str(min_pairs_per_cell_line)+'_'+\
+    #             str(max_pairs_per_cell_line) + '_th_'+str(threshold)+'_'+'neg_'+str(neg_fact)+'_'+str(time.time())+'/'
+    #         pos_fold_file = cross_val_dir + 'pos_folds.tsv'
+    #         neg_fold_file = cross_val_dir + 'neg_folds.tsv'
+    #         syn_df_file = cross_val_dir + 'synergy.tsv'
+    #         non_syn_df_file = cross_val_dir +'non_synergy.tsv'
+    #
+    #         os.makedirs(os.path.dirname(pos_fold_file), exist_ok=True)
+    #         pd.DataFrame.from_dict(type_wise_pos_cross_val_folds[cross_val_type],orient='index').T.to_csv(pos_fold_file, sep='\t')
+    #         pd.DataFrame.from_dict(type_wise_neg_cross_val_folds[cross_val_type],orient='index').T.to_csv(neg_fold_file, sep='\t')
+    #         synergy_df.to_csv(syn_df_file, sep='\t')
+    #         non_synergy_df.to_csv(non_syn_df_file,sep='\t')
+    #
+    #
+    #     for alg in should_run_algs:
+    #         out_dir = config_map['project_dir'] + config_map['output_dir'] + alg + '/' + \
+    #                   'pairs_' + str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line)+'_th_'+str(threshold)+'_'+'neg_'+str(neg_fact)+'/'
+    #         if alg=='synverse':
+    #                 print('Model running: ', alg)
+    #                 synverse.run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_maccs_keys_feature_df,
+    #                            synergy_df, non_synergy_df, \
+    #                            type_wise_pos_cross_val_folds['random'], type_wise_neg_cross_val_folds['random'], \
+    #                            i, out_dir, config_map)
     #
     #         if alg=='decagon':
-    #             decagon_settings = config_map['ml_models_settings']['algs']['decagon']
-    #             lr = decagon_settings['learning_rate']
-    #             epochs =  decagon_settings['epochs']
-    #             batch_size = decagon_settings['batch_size']
-    #             dr = decagon_settings['dropout']
-    #             use_drug_feat_options = decagon_settings['use_drug_feat']
-    #             for drug_feat_option in use_drug_feat_options:
+    #                 print('Model running: ', alg)
+    #                 decagon.run_decagon_model(ppi_sparse_matrix,gene_node_2_idx,\
+    #                                                                   drug_target_df, drug_maccs_keys_feature_df,\
+    #                     synergy_df, non_synergy_df, type_wise_pos_cross_val_folds['random'], type_wise_neg_cross_val_folds['random'],\
+    #                                                                   i,out_dir, config_map)
     #
-    #
-    #                 pos_out_file = out_dir + 'run_' + str(run_) + '/' + '/pos_val_scores' + '_drugfeat_' + str(drug_feat_option) +\
-    #                                '_e_' + str(epochs) + '_lr_' + str(lr) + '_batch_' + str(batch_size) + '_dr_' + str(dr) + '.tsv'
-    #                 neg_out_file = out_dir + 'run_' + str(run_) + '/' + '/neg_val_scores' + '_drugfeat_' + str(drug_feat_option) +\
-    #                                '_e_' + str(epochs) + '_lr_' + str(lr) + '_batch_' + str(batch_size) + '_dr_' + str(dr) + '.tsv'
-    #                 pos_df = pd.read_csv(pos_out_file , sep='\t')
-    #                 neg_df = pd.read_csv(neg_out_file, sep='\t')
-    #                 pos_neg_df = pd.concat([pos_df,neg_df], axis=0)\
-    #                     [['drug_1','drug_2','cell_line', 'model_score','predicted','true']]
-    #                 outputs_df[alg].append(pos_neg_df)
-    #                 # pos_df_all_runs[alg].append(pos_df)
-    #                 # neg_df_all_runs[alg].append(neg_df)
-    #
-    #                 print('plot: ')
-    #                 title_suffix =  'run_' + str(run_) +  '_pairs_' + str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line)+\
-    #                                    '_drugfeat_' + str(drug_feat_option) +\
-    #                                '_e_' + str(epochs) + '_lr_' + str(lr) + '_batch_' + str(batch_size) + '_dr_' + str(dr)
-    #                 plot_dir = out_dir+'plot/'
-    #                 metric_plot.plot_predicted_score_distribution(pos_df, neg_df, title_suffix,plot_dir)
-    #                 metric_plot.plot_auprc_auroc(pos_neg_df, title_suffix, plot_dir)
-        # metric_plot.performance_metric_evaluation_per_alg(outputs_df[alg], alg, config_map)
+    #         if alg=='deepsynergy':
+    #                 print('Model running: ', alg)
+    #                 # deepsynergy.run_deepsynergy_model(drug_maccs_keys_targets_feature_df,\
+    #                 #     train_synergy_df, test_synergy_df, non_synergy_df, type_wise_pos_cross_val_folds['random'],type_wise_neg_cross_val_folds['random'], i,out_dir, config_map)
+    #                 deepsynergy.run_deepsynergy_model(drug_maccs_keys_targets_feature_df, \
+    #                                                   synergy_df, non_synergy_df,
+    #                                                   type_wise_pos_cross_val_folds['random'],
+    #                                                   type_wise_neg_cross_val_folds['random'], i, out_dir, config_map)
 
-
+    ###################### PLOT ######################################
+    evaluation_handler.evaluate(should_run_algs, kwargs, config_map)
 
 
 

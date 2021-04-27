@@ -17,14 +17,13 @@ def find_drug_degrees(drugs, cell_line_spec_drug_drug_pairs_set):
         drug_degrees[drug1] += 1
         drug_degrees[drug2] += 1
 
-    # print(time.time()-t1)
     return drug_degrees
 
 
 def negative_sampling(cell_line, synergy_df, neg_fact):
     # if (x,y) is in 'cell_line_spec_drug_drug_pairs_set', both (x,y) and (y,x) should not be in val_edges_false.
     #that's why I used sorting here.
-    drugs = list(set(synergy_df['Drug1_pubchem_cid']). \
+    drugs = list(set(synergy_df['Drug1_pubchem_cid']).\
                  union(set(synergy_df['Drug2_pubchem_cid'])))
 
     cell_line_spec_synergy_df = synergy_df[synergy_df['Cell_line']==cell_line]
@@ -44,11 +43,11 @@ def negative_sampling(cell_line, synergy_df, neg_fact):
     drug_count_per_cell_line = cell_line_spec_synergy_df.groupby(['Drug1_pubchem_cid']).size().reset_index(name='counts')
     drug_dict = dict(zip(drug_count_per_cell_line['Drug1_pubchem_cid'],drug_count_per_cell_line['counts']))
 
-    print('total drugs in cell_line %s is %d',(cell_line, len(drug_dict.keys())))
+    # print('total drugs in cell_line %s is %d',(cell_line, len(drug_dict.keys())))
     for d in drug_dict.keys():
         m = drug_dict[d]
         total_neg_sample = m*neg_fact
-        n=2
+        n = 2
         while True:
             #generate pairs having drug_1=d and some random drug as drug_2. generate n times pairs then that is needed.
             idx_i = [d] * total_neg_sample * n
@@ -60,12 +59,12 @@ def negative_sampling(cell_line, synergy_df, neg_fact):
             new_val_edges = set([(max(idx_1, idx_2), min(idx_1, idx_2)) for idx_1, idx_2 in new_val_edges if idx_1 != idx_2])
             new_false_val_edges = new_val_edges.difference(cell_line_spec_drug_drug_pairs_set)
             new_false_val_edges = new_false_val_edges.difference(val_edges_false)
-            n+=1
-            if(len(new_false_val_edges)>=total_neg_sample):
+            n += 1
+            if (len(new_false_val_edges)>=total_neg_sample):
                 val_edges_false = val_edges_false.union(set(list(new_false_val_edges)[0:total_neg_sample]))
                 break
-            if n>20:
-                print('n: ', n, d, m )
+            # if n>20:
+                # print('n: ', n, d, m )
 
 
     val_edges_false = np.array(list(val_edges_false))

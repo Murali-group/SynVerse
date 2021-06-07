@@ -168,9 +168,13 @@ class BipartiteGCN(MessagePassing):
             self.adj_norm = self.norm(edge_index)
         assert self.adj_norm.size()[1] == x.size()[0], 'problem in size: ' + \
                                     str(self.adj_norm.size()[1]) +'  '+ str(x.size()[0])
-        x = torch.matmul(self.adj_norm, x)
+        out = torch.matmul(self.adj_norm, x)
 
-        return x
+        #write code for bias
+        if self.bias is not None:
+            out += self.bias
+
+        return out
 
     # def message(self, x_j: Tensor, edge_weight: OptTensor) -> Tensor:
     #     if edge_weight is None:

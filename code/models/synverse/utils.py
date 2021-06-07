@@ -7,6 +7,7 @@ import scipy.sparse as sp
 import os
 import pandas as pd
 
+
 def np_sparse_to_sparse_tensor(adj_normalized):
     if not sp.isspmatrix_coo(adj_normalized):
         sparse_mx = adj_normalized.tocoo()
@@ -34,6 +35,10 @@ def weight_matrix_glorot(in_channels, out_channels):
     w.data.uniform_(-stdv, stdv)
     return w
 
+# def glorot(tensor):
+#     if tensor is not None:
+#         stdv = math.sqrt(6.0 / (tensor.size(-2) + tensor.size(-1)))
+#         tensor.data.uniform_(-stdv, stdv)
 
 
 
@@ -58,3 +63,9 @@ def precision_at_k(y_true, y_score, k):
     threshold = df.loc[k - 1]['score']
     df = df[df.score >= threshold]
     return df.true.sum() / df.shape[0]
+
+def edge_type_to_idx(edge_type):
+    edge_types = ['gene_gene', 'target_drug', 'drug_target', 'drug_drug']
+    for i in range(len(edge_types)):
+        if edge_types[i] == edge_type:
+            return i

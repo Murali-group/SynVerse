@@ -44,7 +44,7 @@ def get_performance_scores(pos_neg_df, early_prec_recall_val):
     early_prec = compute.compute_early_prec(pos_neg_df, early_prec_recall_val)
     return auprc, auroc, early_prec
 
-def evaluate(should_run_algs,kwargs,  config_map):
+def evaluate(should_run_algs, cross_val_type, kwargs, config_map):
     # get settings from config map
     min_pairs_per_cell_line = config_map['synergy_data_settings']['min_pairs']
     max_pairs_per_cell_line = config_map['synergy_data_settings']['max_pairs']
@@ -75,14 +75,24 @@ def evaluate(should_run_algs,kwargs,  config_map):
             dr = decagon_settings['dropout']
             use_drug_feat_options = decagon_settings['use_drug_feat']
             for drug_feat_option in use_drug_feat_options:
+                #
+                # model_param = {'min_pairs': min_pairs_per_cell_line,
+                #                'max_pairs': max_pairs_per_cell_line, 'neg': neg_fact, 'th':  threshold,  \
+                #                'lr': lr, 'e': epochs, 'batch': batch_size, 'dr': dr, \
+                #                'd_feat': drug_feat_option}
+
+
                 model_param = {'min_pairs': min_pairs_per_cell_line,
                                'max_pairs': max_pairs_per_cell_line, 'neg': neg_fact, 'th':  threshold,  \
                                'lr': lr, 'e': epochs, 'batch': batch_size, 'dr': dr, \
                                'd_feat': drug_feat_option}
+
                 model_params[alg].append(model_param)
 
                 pos_out_file =  '/pos_val_scores' + '_drugfeat_' + str( drug_feat_option) + '_e_' + str(epochs) +\
                                  '_lr_' + str(lr) + '_batch_' + str(batch_size) + '_dr_' + str(dr) + '.tsv'
+
+
                 neg_out_file = '/neg_val_scores' + '_drugfeat_' + str(drug_feat_option) + \
                                 '_e_' + str(epochs) + '_lr_' + str(lr) + '_batch_' + str(batch_size) + '_dr_' + str(dr) + '.tsv'
                 # model output files
@@ -104,6 +114,11 @@ def evaluate(should_run_algs,kwargs,  config_map):
                                'max_pairs': max_pairs_per_cell_line,  'neg': neg_fact,'th':  threshold, 'h_sizes': h_sizes, \
                                'lr': lr, 'e': epochs, 'batch': batch_size, 'dr': dr, \
                                'd_feat': drug_feat_option}
+
+                # model_param = {'h_sizes': h_sizes,
+                #                'lr': lr,
+                #                'e': epochs,
+                #                'dr': dr}
                 model_params[alg].append(model_param)
 
                 pos_out_file = '/pos_val_scores' + '_hsize_' + str(h_sizes) + '_drugfeat_' + str(drug_feat_option) +\
@@ -134,6 +149,9 @@ def evaluate(should_run_algs,kwargs,  config_map):
                                        'layers': layer_setup, 'lr': lr, 'e': epochs,
                                        'batch': batch_size, 'dr': in_hid_dropout,
                                        'act_': act_func}
+                        # model_param = {'layers': layer_setup, 'lr': lr, 'e': epochs,
+                        #                'batch': batch_size, 'dr': in_hid_dropout,
+                        #                'act_': act_func}
 
                         model_params[alg].append(model_param)
 
@@ -160,9 +178,13 @@ def evaluate(should_run_algs,kwargs,  config_map):
             eval_scores = []
             # sum_auroc = 0
             for run_ in range(number_of_runs):
-                out_dir = config_map['project_dir'] + config_map['output_dir'] + alg + '/' + 'pairs_' + \
-                    str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line) + '_th_' + str(threshold) +\
-                    '_' + 'neg_' + str(neg_fact) + '/'+'run_' + str(run_) + '/'
+                # out_dir = config_map['project_dir'] + config_map['output_dir'] + alg + '/' + 'pairs_' + \
+                #     str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line) + '_th_' + str(threshold) +\
+                #     '_' + 'neg_' + str(neg_fact) + '/'+'run_' + str(run_) + '/'
+
+                out_dir = config_map['project_dir'] + config_map['output_dir'] + alg + '/' + cross_val_type + '/' + \
+                          'pairs_' + str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line) + '_th_' + str(
+                    threshold) +'_' + 'neg_' + str(neg_fact) + '_' + kwargs.get('cvdir') + '/'+'run_' + str(run_) + '/'
 
                 pos_df = pd.read_csv(out_dir + pos_out_file, sep='\t')
                 neg_df = pd.read_csv(out_dir + neg_out_file, sep='\t')
@@ -176,15 +198,20 @@ def evaluate(should_run_algs,kwargs,  config_map):
 
                 e_prec_saving_file = out_dir + '.'.join(pos_out_file.split('.')[0:-1]). \
                     replace('pos_val_scores', '') + '.tsv'
-                early_prec = compute.compute_early_prec(pos_neg_df, early_prec_k, e_prec_saving_file, force_run=True)
+                early_prec = compute.compute_early_prec(pos_neg_df, early_prec_k, e_prec_saving_file, force_run=False)
 
                 eval_scores.append(EvalScore(auprc, auroc, early_prec))
                 sum_auprc += auprc
 
                 print('plot: ')
-                plot_dir = config_map['project_dir'] + config_map['output_dir'] + 'Viz/' + alg + '/' + 'pairs_' + \
-                    str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line) + '_th_' + str(threshold) +\
-                    '_' + 'neg_' + str(neg_fact) + '/'+'run_' + str(run_) + '/'
+                # plot_dir = config_map['project_dir'] + config_map['output_dir'] + 'Viz/' + alg + '/' + 'pairs_' + \
+                #     str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line) + '_th_' + str(threshold) +\
+                #     '_' + 'neg_' + str(neg_fact) + '/'+'run_' + str(run_) + '/'
+
+                plot_dir = config_map['project_dir'] + config_map['output_dir'] + 'Viz/' + alg + '/' + cross_val_type +\
+                           '/pairs_'+ str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line) + '_th_' +\
+                           str(threshold)+'_' + 'neg_' + str(neg_fact) + '_' + kwargs.get('cvdir') + '/' + 'run_' +\
+                           str(run_) + '/'
                 os.makedirs(plot_dir, exist_ok=True)
 
                 title_suffix = alg+'_run_' + str(run_) + set_title_suffix(model_params[alg][i])
@@ -203,11 +230,11 @@ def evaluate(should_run_algs,kwargs,  config_map):
 
             i += 1
 
-    #plots of best models from each alg
-    plot_dir = config_map['project_dir'] + config_map['output_dir'] + 'Viz/'+'all_alg/'+ 'pairs_' + \
+    #plots of best models from all algs
+    plot_dir = config_map['project_dir'] + config_map['output_dir'] + 'Viz/'+'all_alg/' + cross_val_type + '/pairs_' + \
                     str(min_pairs_per_cell_line) + '_' + str(max_pairs_per_cell_line) + '_th_' + str(threshold) +\
-                    '_' + 'neg_' + str(neg_fact)
+                    '_' + 'neg_' + str(neg_fact)+'_' + kwargs.get('cvdir') + '/'
 
     os.makedirs(plot_dir, exist_ok=True)
-    eval_plot.plot_best_models_auprc_auroc_e_prec(early_prec_k, best_models_eval_score_dict, best_model_param_dict,plot_dir)
+    # eval_plot.plot_best_models_auprc_auroc_e_prec(early_prec_k, neg_fact, best_models_eval_score_dict, best_model_param_dict, plot_dir)
 

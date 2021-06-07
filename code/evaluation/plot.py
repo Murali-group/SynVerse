@@ -34,20 +34,23 @@ def plot_predicted_score_distribution(df, title_suffix, plot_dir):
     plt.xlabel('predicted score')
     plt.ylabel('fraction of total (pos or neg) pairs')
 
-    plot_title = '\n'.join(wrap('score distribution ' + title_suffix, 60))
+    file_title = 'score_distribution_' + title_suffix
+    plot_filename_png = plot_dir + file_title + '.png'
+    plot_filename_pdf = plot_dir + file_title + '.pdf'
+
+    plot_title = '\n'.join(wrap(file_title, 60))
     plt.title(plot_title, loc = 'left')
     plt.tight_layout(pad=1, w_pad=0.4, h_pad=0.5)
 
     plt.legend()
 
-    plot_filename_png = plot_dir + plot_title + '.png'
-    plot_filename_pdf = plot_dir + plot_title + '.pdf'
+
 
     os.makedirs(os.path.dirname(plot_filename_pdf), exist_ok=True)
     # plt.tight_layout()
     plt.tight_layout(pad=1, w_pad=0.4, h_pad=0.5)
 
-
+    print('file name: ', plot_filename_png )
     plt.savefig(plot_filename_png)
     plt.savefig(plot_filename_pdf)
 
@@ -55,7 +58,7 @@ def plot_predicted_score_distribution(df, title_suffix, plot_dir):
     # plt.savefig(plot_filename_pdf,  bbox_inches='tight')
 
     plt.show()
-    plt.clf()
+    # plt.clf()
     plt.close()
 
 ################## input: prediction score single model instance,
@@ -87,19 +90,22 @@ def scatter_plot_auprc_auroc(df, title_suffix, plot_dir):
     # plot_title = 'AUPRC_' + title_suffix
     # plt.title(plot_title, loc='center', wrap=True)
 
-    plot_title = '\n'.join(wrap('AUPRC  ' + title_suffix, 60))
+    file_title = 'AUPRC_' + title_suffix
+    plot_filename_png = plot_dir + file_title + '.png'
+    plot_filename_pdf = plot_dir + file_title + '.pdf'
+
+    plot_title = '\n'.join(wrap(file_title, 50))
     plt.title(plot_title, loc='left')
     plt.tight_layout(pad=1, w_pad=0.4, h_pad=0.5)
 
-    plot_filename_png = plot_dir + plot_title + '.png'
-    plot_filename_pdf = plot_dir + plot_title + '.pdf'
+
 
     os.makedirs(os.path.dirname(plot_filename_pdf),exist_ok=True)
     plt.savefig(plot_filename_png,  bbox_inches='tight')
     plt.savefig(plot_filename_pdf,  bbox_inches='tight')
 
     plt.show()
-    plt.clf()
+    # plt.clf()
     plt.close()
 
     #plot auroc
@@ -112,17 +118,18 @@ def scatter_plot_auprc_auroc(df, title_suffix, plot_dir):
     # plot_title = 'AUROC_' + title_suffix
     # plt.title(plot_title, loc = 'center', wrap=True)
 
-    plot_title = '\n'.join(wrap('AUROC  ' + title_suffix, 60))
+    file_title = 'AUROC_' + title_suffix
+    plot_filename_png = plot_dir + file_title + '.png'
+    plot_filename_pdf = plot_dir + file_title + '.pdf'
+
+    plot_title = '\n'.join(wrap(file_title, 50))
     plt.title(plot_title, loc='left')
     plt.tight_layout(pad=1, w_pad=0.4, h_pad=0.5)
 
-
-    plot_filename_png = plot_dir + plot_title + '.png'
-    plot_filename_pdf = plot_dir + plot_title + '.pdf'
     plt.savefig(plot_filename_png,  bbox_inches='tight')
     plt.savefig(plot_filename_pdf,  bbox_inches='tight')
     plt.show()
-    plt.clf()
+    # plt.clf()
     plt.close()
 
 def plot_roc_prc(precision, recall, FPR, TPR, title_suffix, plot_dir):
@@ -137,12 +144,14 @@ def plot_roc_prc(precision, recall, FPR, TPR, title_suffix, plot_dir):
     # plot_title = 'PRcurve_' + title_suffix
     # plt.title(plot_title, loc='center', wrap=True)
 
-    plot_title = '\n'.join(wrap('PRcurve  ' + title_suffix, 60))
+    file_title = 'PRcurve_' + title_suffix
+    plot_filename_png = plot_dir + file_title + '.png'
+    plot_filename_pdf = plot_dir + file_title + '.pdf'
+
+    plot_title = '\n'.join(wrap(file_title, 50))
     plt.title(plot_title, loc='left')
     plt.tight_layout(pad=1, w_pad=0.4, h_pad=0.5)
 
-    plot_filename_png = plot_dir + plot_title + '.png'
-    plot_filename_pdf = plot_dir + plot_title + '.pdf'
 
     plt.savefig(plot_filename_png,  bbox_inches='tight')
     plt.savefig(plot_filename_pdf,  bbox_inches='tight')
@@ -160,12 +169,14 @@ def plot_roc_prc(precision, recall, FPR, TPR, title_suffix, plot_dir):
     plt.ylabel('TPR')
     # plot_title = 'ROCcurve_' + title_suffix
     # plt.title(plot_title, loc='center', wrap=True)
-    plot_title = '\n'.join(wrap('ROCcurve  ' + title_suffix, 60))
+    file_title = 'ROCcurve_' + title_suffix
+    plot_filename_png = plot_dir + file_title + '.png'
+    plot_filename_pdf = plot_dir + file_title + '.pdf'
+
+    plot_title = '\n'.join(wrap(file_title, 50))
     plt.title(plot_title, loc='left')
     plt.tight_layout(pad=1, w_pad=0.4, h_pad=0.5)
 
-    plot_filename_png = plot_dir + plot_title + '.png'
-    plot_filename_pdf = plot_dir + plot_title + '.pdf'
 
     plt.savefig(plot_filename_png, bbox_inches='tight')
     plt.savefig(plot_filename_pdf, bbox_inches='tight')
@@ -175,7 +186,7 @@ def plot_roc_prc(precision, recall, FPR, TPR, title_suffix, plot_dir):
 
 
 
-def plot_best_models_auprc_auroc_e_prec(early_prec_k, eval_score_dict, model_param_dict, plot_dir):
+def plot_best_models_auprc_auroc_e_prec(early_prec_k,neg_fact, eval_score_dict, model_param_dict, plot_dir):
     #eval_score_dict[alg] => is a list containing the performance of best-param-setting-model of 'alg'. This is a
     # list because it contains score from multiple runs
     auprc_data_all_alg = []
@@ -221,6 +232,14 @@ def plot_best_models_auprc_auroc_e_prec(early_prec_k, eval_score_dict, model_par
     plt.close()
 
     plt.boxplot(e_prec_data_all_alg, labels=plot_label)
+    
+    #plot baseline
+    y_val = 1/float(1+neg_fact)
+    # x = np.arange(0,1,0.1 )
+    # y = [y_val]*len(x)
+    # plt.plot(x,y)
+    plt.axhline(y=y_val, color='r', linestyle='-')
+
     plt.xlabel('Algorithms')
     plt.ylabel('Early_precision_at '+ str(early_prec_k))
     plt.title('comparing early precision of different algorithms')

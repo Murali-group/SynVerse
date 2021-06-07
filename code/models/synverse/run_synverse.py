@@ -43,6 +43,9 @@ import models.synverse.cross_validation as cross_val
 from models.synverse.minibatch import MinibatchHandler
 from models.synverse.BipartiteGCN import BipartiteGCN
 
+import wandb
+# wandb.login()
+
 EPS = 1e-15
 MAX_LOGVAR = 10
 dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -64,7 +67,8 @@ def sigmoid(x):
     return 1. / (1 + np.exp(-x))
 
 
-def compute_drug_drug_link_probability(cell_line_specific_edges_pos, cell_line_specific_edges_neg, cell_line, rec, val_fold, idx_2_drug_node):
+def compute_drug_drug_link_probability(cell_line_specific_edges_pos, cell_line_specific_edges_neg, cell_line,
+                                       rec, val_fold, idx_2_drug_node):
     #if we pass edge_type(1,1,x) then it will give sigmoid  score for drug-drug-links
 
         pos_edge_dict = {'drug_1_idx': [], 'drug_2_idx': [], 'cell_line':[], 'model_score': [], 'predicted': [], 'true':[], 'val_fold': []}
@@ -177,14 +181,13 @@ class SynverseModel(torch.nn.Module):
             pos_edge_index (LongTensor): The positive edges to train against.
         """
 
+        pos_loss = -torch.log(self.decoders[edge_type](z, batch_pos_edge_index,
+                    edge_sub_type_idx, sigmoid=True) + EPS).mean()
 
-        pos_loss = -torch.log(
-            self.decoders[edge_type](z, batch_pos_edge_index, edge_sub_type_idx, sigmoid=True) + EPS).mean()
+        neg_loss = -torch.log(1 - self.decoders[edge_type](z, batch_neg_edge_index,
+                    edge_sub_type_idx, sigmoid=True) + EPS).mean()
 
-        neg_loss = -torch.log(1 -
-                              self.decoders[edge_type](z, batch_neg_edge_index, edge_sub_type_idx, sigmoid=True) +
-                              EPS).mean()
-
+        # return pos_loss
         return pos_loss + neg_loss
 
     def predict(self,  z, batch_pos_edge_index, batch_neg_edge_index, edge_type, edge_sub_type_idx):
@@ -238,7 +241,7 @@ class SynverseModel(torch.nn.Module):
 class Encoder(torch.nn.Module):
     #h_sizes is an array. containing the gardual node number decrease from initial hidden_layer output  to final output_dim.\
     # Input dim is not included
-    def __init__(self, h_sizes, node_feat_dict, train_pos_edges_dict,  edge_types, n_drugs, n_genes):
+    def __init__(self, h_sizes, bias, dr, node_feat_dict, train_pos_edges_dict,  edge_types, n_drugs, n_genes):
         super(Encoder, self).__init__()
 
         self.edge_types = edge_types
@@ -258,10 +261,10 @@ class Encoder(torch.nn.Module):
                         input_feat_dim = list(node_feat_dict['gene'].size())[1]
 
                     self.hidden[str(hid_layer_no)][edge_type] = \
-                        (EdgeTypeSpecGCNLayer(input_feat_dim, h_sizes[hid_layer_no], edge_type, n_drugs, n_genes))
+                        (EdgeTypeSpecGCNLayer(input_feat_dim, h_sizes[hid_layer_no], bias, dr, edge_type, n_drugs, n_genes))
                 else:
                     self.hidden[str(hid_layer_no)][edge_type] = \
-                        (EdgeTypeSpecGCNLayer(h_sizes[hid_layer_no-1], h_sizes[hid_layer_no], edge_type, n_drugs, n_genes))
+                        (EdgeTypeSpecGCNLayer(h_sizes[hid_layer_no-1], h_sizes[hid_layer_no], bias, dr,   edge_type, n_drugs, n_genes))
 
 
     def forward(self):
@@ -295,23 +298,21 @@ class Encoder(torch.nn.Module):
         return layer_input
 
 
-
-
-
 class EdgeTypeSpecGCNLayer(torch.nn.Module):
-    def __init__(self, in_channel, out_channel, edge_type, n_drugs, n_genes):
+    def __init__(self, in_channel, out_channel, bias, dr, edge_type, n_drugs, n_genes):
         super(EdgeTypeSpecGCNLayer, self).__init__()
         self.in_channel = in_channel
         self.out_channel = out_channel
         self.n_drugs = n_drugs
         self.n_genes = n_genes
+        self.dr = dr
         if edge_type in ['gene_gene', 'drug_drug']:
-            self.gcn = GCNConv(self.in_channel, self.out_channel, add_self_loops=True, cached=False)
+            self.gcn = GCNConv(self.in_channel, self.out_channel, bias = bias, add_self_loops=True, cached=False)
         else:
             if(edge_type == 'target_drug'):
-                self.gcn = BipartiteGCN(self.in_channel, self.out_channel, adj_shape = (n_genes, n_drugs))
+                self.gcn = BipartiteGCN(self.in_channel, self.out_channel, bias = bias, adj_shape = (n_genes, n_drugs))
             elif (edge_type == 'drug_target'):
-                self.gcn = BipartiteGCN(self.in_channel, self.out_channel, adj_shape = (n_drugs, n_genes))
+                self.gcn = BipartiteGCN(self.in_channel, self.out_channel, bias = bias, adj_shape = (n_drugs, n_genes))
             else:
                 print('unknown edge type')
 
@@ -328,11 +329,12 @@ class EdgeTypeSpecGCNLayer(torch.nn.Module):
         edge_index_list = train_pos_edges_dict[edge_type]
 
         for edge_index in edge_index_list:
-            x1 = F.dropout(x.float(), p=0.2, training=True)
+            x1 = F.dropout(x.float(), p=self.dr, training=True)
             x1 = F.relu(self.gcn(x1, edge_index))
             # x1 = F.dropout(x, p=0.2, training=True)
             # x1 = F.relu(self.gcn(x, adj_mat))
             output += x1
+        #Nure: look into this normalization
         output = F.normalize(output, dim=1, p=2) #p=2 means l2-normalization
 
         # print('edge type done:', edge_type)
@@ -344,9 +346,11 @@ class BilinearDecoder(torch.nn.Module): #one decoder object for one edge_type
         # w_dim = wight matrix dimension will be w_dim * w_dim i.e. dimension of the final nodel embedding
         super(BilinearDecoder, self).__init__()
         self.edge_type = edge_type
+        # self.weight = utils.weight_matrix_glorot(w_dim, w_dim).to(dev)
         self.weights = nn.ParameterList()
         for i in range(n_sub_types):
             self.weights.append(Parameter(utils.weight_matrix_glorot(w_dim, w_dim).to(dev)))
+
 
     def forward(self, z, batch_edges, edge_sub_type_idx, sigmoid=True):
         if self.edge_type == 'gene_gene':
@@ -362,8 +366,11 @@ class BilinearDecoder(torch.nn.Module): #one decoder object for one edge_type
             z1 = z['drug']
             z2 = z['drug']
 
+
         row_embed = z1[batch_edges[0]]
         col_embed = z2[batch_edges[1]]
+
+        # product_1 = torch.matmul(row_embed, self.weight)
         product_1 = torch.matmul(row_embed, self.weights[edge_sub_type_idx])
         # print('in bilinear decoder: ',product_1.size(), col_embed.t().size())
         # print(self.weight[0])#, newWeight[850])
@@ -374,14 +381,28 @@ class BilinearDecoder(torch.nn.Module): #one decoder object for one edge_type
         return torch.sigmoid(score) if sigmoid else score
 
     # def reset_parameters(self):
-    #     self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
-    #
+    #     for i in range(len(self.weights)):
+    #         self.weights[i].data.normal_(std=1 / np.sqrt(self.in_dim))
+
 
 
 class DedicomDecoder(torch.nn.Module): #one decoder object for one edge_type
     def __init__(self, edge_type, n_sub_types, w_dim):
-        # n_sub_types = how many different weight matrix is needed to initialize
-        # w_dim = wight matrix dimension will be w_dim * w_dim i.e. dimension of the final nodel embedding
+        '''
+        params:
+        1. edge_type= any of the one from the four edge types i.e. gene_gene, targte_drug, drug_target, drug_drug,
+        2. n_sub_types = number of subtype e.g. drug_drug edge_type can consisted of multiple cell_line based sub_edge_type
+        3. w_dim = dimension of the final node embedding.
+                    wight matrix dimension  will be w_dim * w_dim
+
+        function:
+        1. initialize one global weight matrix for all subtypes of a particular edge_type i.e. for all drug_drug
+        edges there will be one global_weight matrix
+        2. initialize separate local weight matrix for each subtype of a particular edge_type. i.e.
+        for drug_drug edges from each cell line  there will be one dedicated local_weight matrix.
+
+        '''
+
         super(DedicomDecoder, self).__init__()
         self.edge_type = edge_type
         self.global_weight = Parameter(utils.weight_matrix_glorot(w_dim, w_dim)).to(dev)
@@ -390,6 +411,7 @@ class DedicomDecoder(torch.nn.Module): #one decoder object for one edge_type
         for i in range(n_sub_types):
             diagonal_vals = torch.reshape(utils.weight_matrix_glorot(w_dim, 1), [-1])
             self.local_weights.append(Parameter(torch.diag(diagonal_vals).to(dev)))
+
 
     def forward(self, z, batch_edges, edge_sub_type_idx, sigmoid=True):
         if self.edge_type == 'gene_gene':
@@ -418,60 +440,61 @@ class DedicomDecoder(torch.nn.Module): #one decoder object for one edge_type
     # def reset_parameters(self):
     #     self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
 
-class TFDecoder(torch.nn.Module):
-    def __init__(self, num_nodes, TFIDs):
-        super(TFDecoder, self).__init__()
-        self.TFIDs = list(TFIDs)
-        self.num_nodes = num_nodes
-        self.in_dim = 1  # one relation type
-        # self.weight = nn.Parameter(torch.Tensor(len(self.TFIDs)))
-        self.weight = nn.Parameter(torch.Tensor(self.num_nodes))
-        self.reset_parameters()
-
-    def forward(self, z, edge_index, sigmoid=True):
-        # newWeight = torch.zeros(self.num_nodes).to(dev)
-        # nCnt = 0
-        # for idx in self.TFIDs:
-        #    newWeight[idx] = self.weight[nCnt]
-        #    nCnt += 1
-        zNew = torch.mul(z.t(), self.weight).t()
-        # print(self.weight[0])#, newWeight[850])
-        # sys.exit()
-        value = (zNew[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
-
-        return torch.sigmoid(value) if sigmoid else value
-
-    def reset_parameters(self):
-        self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
-
-
-class RESCALDecoder(torch.nn.Module):
-    def __init__(self, out_dim):
-        super(RESCALDecoder, self).__init__()
-        self.out_dim = out_dim
-        self.in_dim = 1  # one relation type
-        self.weight = nn.Parameter(torch.Tensor(self.out_dim, self.out_dim))
-        self.reset_parameters()
-
-    def forward(self, z, edge_index, sigmoid=True):
-        # zNew = z.clone()*self.weight
-        zNew = torch.matmul(z.clone(), self.weight)
-        # zNew = z*self.weight
-        # print(edge_index)
-        # print(zNew.shape,self.weight)
-        value = (zNew[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
-
-        # self.weight[edge_index[0]]
-        # print(value, edge_index)
-        # value = (1 * z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
-        # print(edge_index.shape,value.shape)
-        return torch.sigmoid(value) if sigmoid else value
-
-    def reset_parameters(self):
-        self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
-
+# class TFDecoder(torch.nn.Module):
+#     def __init__(self, num_nodes, TFIDs):
+#         super(TFDecoder, self).__init__()
+#         self.TFIDs = list(TFIDs)
+#         self.num_nodes = num_nodes
+#         self.in_dim = 1  # one relation type
+#         # self.weight = nn.Parameter(torch.Tensor(len(self.TFIDs)))
+#         self.weight = nn.Parameter(torch.Tensor(self.num_nodes))
+#         self.reset_parameters()
 #
+#     def forward(self, z, edge_index, sigmoid=True):
+#         # newWeight = torch.zeros(self.num_nodes).to(dev)
+#         # nCnt = 0
+#         # for idx in self.TFIDs:
+#         #    newWeight[idx] = self.weight[nCnt]
+#         #    nCnt += 1
+#         zNew = torch.mul(z.t(), self.weight).t()
+#         # print(self.weight[0])#, newWeight[850])
+#         # sys.exit()
+#         value = (zNew[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
+#
+#         return torch.sigmoid(value) if sigmoid else value
+#
+#     def reset_parameters(self):
+#         self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
+#
+#
+# class RESCALDecoder(torch.nn.Module):
+#     def __init__(self, out_dim):
+#         super(RESCALDecoder, self).__init__()
+#         self.out_dim = out_dim
+#         self.in_dim = 1  # one relation type
+#         self.weight = nn.Parameter(torch.Tensor(self.out_dim, self.out_dim))
+#         self.reset_parameters()
+#
+#     def forward(self, z, edge_index, sigmoid=True):
+#         # zNew = z.clone()*self.weight
+#         zNew = torch.matmul(z.clone(), self.weight)
+#         # zNew = z*self.weight
+#         # print(edge_index)
+#         # print(zNew.shape,self.weight)
+#         value = (zNew[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
+#
+#         # self.weight[edge_index[0]]
+#         # print(value, edge_index)
+#         # value = (1 * z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
+#         # print(edge_index.shape,value.shape)
+#         return torch.sigmoid(value) if sigmoid else value
+#
+#     def reset_parameters(self):
+#         self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
+
+
 def train(model, optimizer,  batch_pos_train_edges, batch_neg_train_edges, edge_type, edge_sub_type_idx ):
+
     model.train()
     optimizer.zero_grad()
     z = model.encode()
@@ -615,8 +638,7 @@ def prepare_train_edges(cross_validation_folds_pos_drug_drug_edges, cross_valida
         val_pos_edges_dict[edge_type].append(val_pos_edges)
         val_neg_edges_dict[edge_type].append(val_neg_edges)
 
-
-    return  train_pos_edges_dict, train_neg_edges_dict, val_pos_edges_dict, val_neg_edges_dict
+    return train_pos_edges_dict, train_neg_edges_dict, val_pos_edges_dict, val_neg_edges_dict
 
 
 
@@ -667,10 +689,20 @@ def save_drug_drug_link_probability(pos_df, neg_df, run_, h_sizes, use_drug_feat
     pos_df.to_csv(pos_out_file, sep='\t')
     neg_df.to_csv(neg_out_file, sep='\t')
 
+def train_log(loss, wandb_step, edge_type, edge_name):
+    loss = float(loss)
+    edge_type_idx = utils.edge_type_to_idx(edge_type)
+    l = 'loss_'+ edge_name
+    wandb.log({l: loss, 'edge_type':edge_type_idx },\
+              step = wandb_step)
+    # wandb.log({'Epoch': epoch, 'loss': loss}, step=wandb_step)
+
+
 def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_maccs_keys_feature_df, synergy_df, non_synergy_df,\
                       cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges,\
-                      run_, out_dir, config_map):
+                      run_, cross_val_dir, out_dir, config_map):
 
+    t1 = time.time()
     #model setup
     synverse_settings = config_map['ml_models_settings']['algs']['synverse']
     h_sizes = synverse_settings['h_sizes'] # only hidden and output_layer
@@ -690,7 +722,8 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
 
 
 
-    gene_adj = nx.adjacency_matrix(nx.convert_matrix.from_scipy_sparse_matrix(ppi_sparse_matrix, create_using=nx.Graph(),edge_attribute=None))
+    gene_adj = nx.adjacency_matrix(nx.convert_matrix.from_scipy_sparse_matrix(ppi_sparse_matrix,\
+                                                create_using=nx.Graph(),edge_attribute=None))
     gene_degrees = np.array(gene_adj.sum(axis=0)).squeeze()
     genes_in_ppi = gene_node_2_idx.keys()
 
@@ -754,6 +787,8 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
 
     print('In Final network:\n Genes:%d Targetted Genes:%d  Drugs:%d' % (n_genes, tagetted_genes, n_drugs))
 
+    # t2 = time.time()
+    # print('time for network building: ', t2-t1)
 
     # data representation
     edge_types = ['gene_gene', 'target_drug', 'drug_target', 'drug_drug']
@@ -799,13 +834,13 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
 
     non_drug_drug_edge_types = ['gene_gene', 'target_drug']
     cross_validation_folds_pos_non_drug_drug_edges = cross_val.create_cross_val_split_non_drug_drug_edges\
-        (number_of_folds, adj_mats_init, non_drug_drug_edge_types)
+        (number_of_folds, adj_mats_init, non_drug_drug_edge_types, cross_val_dir)
     cross_validation_folds_neg_non_drug_drug_edges = cross_val.create_neg_cross_val_split_non_drug_drug_edges\
-        (number_of_folds, adj_mats_init,non_drug_drug_edge_types, neg_fact)
+        (number_of_folds, adj_mats_init,non_drug_drug_edge_types, neg_fact, cross_val_dir)
 
-
-
-
+    # t3 = time.time()
+    # print('time for cross validation preparation: ', t3 - t2)
+    # print('neg_edges created!')
     ######################## NODE FEATURE MATRIX CREATION ###########################################
 
     # featureless (genes)
@@ -815,132 +850,190 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
 
     # features (drugs)
     use_drug_feat_options = synverse_settings['use_drug_feat']
+
+    model_no = 0
     for use_drug_feat_option in use_drug_feat_options:
         drug_feat = prepare_drug_feat(drug_maccs_keys_feature_df, drug_node_2_idx, n_drugs, use_drug_feat_option)
         drug_feat = drug_feat.to(dev)
 
+        # t4 = time.time()
+        # print('time for drug feat preparation: ', t4 - t3)
+
         node_feat_dict = {'gene': gene_feat, 'drug' : drug_feat}
         ##########write training code here##################
-
 
         pos_df = pd.DataFrame()
         neg_df = pd.DataFrame()
         for fold_no in range(number_of_folds):
+            with wandb.init(project='synverse_1', config=config_map):
+                config_map = wandb.config
+                ###################################### Prepare DATA ########################################
 
-            ###################################### Prepare DATA ########################################
+                train_pos_edges_dict, train_neg_edges_dict, val_pos_edges_dict, val_neg_edges_dict = prepare_train_edges\
+                    (cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges,
+                     cross_validation_folds_pos_non_drug_drug_edges, cross_validation_folds_neg_non_drug_drug_edges,
+                     fold_no, total_cell_lines)
 
-            train_pos_edges_dict, train_neg_edges_dict, val_pos_edges_dict, val_neg_edges_dict = prepare_train_edges\
-                (cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges,
-                 cross_validation_folds_pos_non_drug_drug_edges, cross_validation_folds_neg_non_drug_drug_edges,
-                 fold_no, total_cell_lines)
-            # print('before split 1', train_pos_edges_dict['gene_gene'][0].size())
-            edge_type_wise_number_of_subtypes = {}
-            for edge_type in edge_types:
-                edge_type_wise_number_of_subtypes[edge_type] = len(train_pos_edges_dict[edge_type])
+                # t5 = time.time()
+                # print('time for training matrix preparation: ', t5 - t4)
 
-            #move all tensor to cuda device
-            # for edge_type in edge_types:
-            #     for i in edge_type_wise_number_of_subtypes[edge_type]:
-            #         train_pos_edges_dict[edge_type][i] = train_pos_edges_dict[edge_type][i].to(dev)
-            #         train_neg_edges_dict[edge_type][i] = train_neg_edges_dict[edge_type][i].to(dev)
-            #         val_pos_edges_dict[edge_type][i] = val_pos_edges_dict[edge_type][i].to(dev)
-            #         val_neg_edges_dict[edge_type][i] = val_neg_edges_dict[edge_type][i].to(dev)
+                # print('before split 1', train_pos_edges_dict['gene_gene'][0].size())
+                edge_type_wise_number_of_subtypes = {}
+                for edge_type in edge_types:
+                    edge_type_wise_number_of_subtypes[edge_type] = len(train_pos_edges_dict[edge_type])
 
-
-
-            encoder = Encoder(h_sizes, node_feat_dict, train_pos_edges_dict,edge_types, n_drugs, n_genes)
-            # print('before split 2', train_pos_edges_dict['gene_gene'][0].size())
-            # init different decoder according to edge type
-            # hardcode the decoder choice for now
-
-            #change the drug_drug decoder to 'dedicom' later
-            decoder_names = {'gene_gene': 'bilinear', 'target_drug': 'bilinear', 'drug_target': 'bilinear', 'drug_drug':'dedicom'}
-
-            decoders = {}
-            for edge_type in edge_types:
-                n_sub_types = edge_type_wise_number_of_subtypes[edge_type]
-                if decoder_names[edge_type]=='bilinear':
-                    decoders[edge_type] = BilinearDecoder(edge_type, n_sub_types, h_sizes[-1])
-                elif decoder_names[edge_type]=='dedicom':
-                    decoders[edge_type] = DedicomDecoder(edge_type, n_sub_types, h_sizes[-1])
+                #move all tensor to cuda device
+                # for edge_type in edge_types:
+                #     for i in edge_type_wise_number_of_subtypes[edge_type]:
+                #         train_pos_edges_dict[edge_type][i] = train_pos_edges_dict[edge_type][i].to(dev)
+                #         train_neg_edges_dict[edge_type][i] = train_neg_edges_dict[edge_type][i].to(dev)
+                #         val_pos_edges_dict[edge_type][i] = val_pos_edges_dict[edge_type][i].to(dev)
+                #         val_neg_edges_dict[edge_type][i] = val_neg_edges_dict[edge_type][i].to(dev)
 
 
-            model = SynverseModel(encoder = encoder, decoders=decoders).to(dev)
-            model_param = model.state_dict()
-            # print(model_param)
-            optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+                encoder = Encoder(h_sizes, bias , dr, node_feat_dict, train_pos_edges_dict,edge_types, n_drugs, n_genes)
+                # t6 = time.time()
+                # print('time for encoder initiation: ', t6 - t5)
+
+                # print('before split 2', train_pos_edges_dict['gene_gene'][0].size())
+                # init different decoder according to edge type
+                # hardcode the decoder choice for now
 
 
-            minibatch_handlder = MinibatchHandler(train_pos_edges_dict, batch_size, total_cell_lines)
-            # print('before split 3', train_pos_edges_dict['gene_gene'][0].size())
+                decoder_names = {'gene_gene': 'bilinear', 'target_drug': 'bilinear',\
+                                 'drug_target': 'bilinear', 'drug_drug':'dedicom'}
 
-            for epoch in range(epochs):
-                t1=time.time()
-                #shuffle each training tensor  at the beginning of each epoch
-                train_pos_edges_dict = minibatch_handlder.shuffle_train_edges(train_pos_edges_dict)
-                train_neg_edges_dict = minibatch_handlder.shuffle_train_edges(train_neg_edges_dict)
+                decoders = nn.ModuleDict()
+                for edge_type in edge_types:
+                    n_sub_types = edge_type_wise_number_of_subtypes[edge_type]
+                    if decoder_names[edge_type]=='bilinear':
+                        decoders[edge_type] = BilinearDecoder(edge_type, n_sub_types, h_sizes[-1])
+                    elif decoder_names[edge_type]=='dedicom':
+                        decoders[edge_type] = DedicomDecoder(edge_type, n_sub_types, h_sizes[-1])
 
-                #split the train edges in chunks with size=batch_size
-                #dict of list of split tensors/torches
-                train_pos_edges_split_dict = {edge_type:[] for edge_type in edge_types}
-                train_neg_edges_split_dict = {edge_type:[] for edge_type in edge_types}
+                # t7 = time.time()
+                # print('time for decoder initiation: ', t7 - t6)
+
+                model = SynverseModel(encoder = encoder, decoders=decoders).to(dev)
+                print('model_no: ',model_no)
+                print('fold_no: ',fold_no)
+                model_no +=1
+                # t8 = time.time()
+                # print('time for model initiation: ', t8 - t7)
+
+                model_param = model.state_dict()
+                # model_param = model.parameters()
+                # print(model_param)
+                optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+                print('learning rate: ', lr, 'h_sizes: ', h_sizes, 'optimizer: ', optimizer)
+
+                minibatch_handlder = MinibatchHandler(train_pos_edges_dict, batch_size, total_cell_lines)
+                # t9 = time.time()
+                # print('time for minibatch initiation: ', t9 - t8)
+
+                # print('before split 3', train_pos_edges_dict['gene_gene'][0].size())
+
+                wandb.watch(model, log='all', log_freq=1)
+
+                wandb_step = 0
+
+                for epoch in range(epochs):
+                    t10 = time.time()
+                    #shuffle each training tensor  at the beginning of each epoch
+                    train_pos_edges_dict = minibatch_handlder.shuffle_train_edges(train_pos_edges_dict)
+                    train_neg_edges_dict = minibatch_handlder.shuffle_train_edges(train_neg_edges_dict)
+
+                    # t11 = time.time()
+                    # print('time for shuffling minibatches: ', t11-t10)
+
+                    #split the train edges in chunks with size=batch_size
+                    #dict of list of split tensors/torches
+                    train_pos_edges_split_dict = {edge_type:[] for edge_type in edge_types}
+                    train_neg_edges_split_dict = {edge_type:[] for edge_type in edge_types}
+
+                    for edge_type in train_pos_edges_dict:
+                        for i in range(len(train_pos_edges_dict[edge_type])):
+                            train_pos_edges_split_dict[edge_type].append(torch.split(train_pos_edges_dict[edge_type][i],
+                                                                                   batch_size, dim=1))
+                            train_neg_edges_split_dict[edge_type].append(torch.split(train_neg_edges_dict[edge_type][i],
+                                                                                   batch_size*neg_fact, dim=1))
+                    # print('before split 4', train_pos_edges_dict['gene_gene'][0].size())
+
+
+                    # t12 = time.time()
+                    # print('time for batch split: ', t12-t11)
+
+                    batch_count = 0
+                    while not minibatch_handlder.is_batch_finished():
+                        # t13 = time.time()
+                        e, edge_sub_type_idx, batch_num = minibatch_handlder.next_minibatch()
+                        # t14 = time.time()
+                        # print('time for next minibatch choosing: ', t14-t13)
+                        # print('egde_type:', e, 'edge_sub_type_idx:', edge_sub_type_idx, 'batch_num:', batch_num)
+                        # print('before split', train_pos_edges_dict['gene_gene'][0].size())
+                        # print('before split', train_pos_edges_dict[e][edge_sub_type_idx].size())
+                        #
+                        # print('train_pos_edges_split_dict:', type(train_pos_edges_split_dict[e][edge_sub_type_idx]),len(train_pos_edges_split_dict[e][edge_sub_type_idx]))
+                        # print('train_neg_edges_split_dict:', type(train_neg_edges_split_dict[e][edge_sub_type_idx]),len(train_neg_edges_split_dict[e][edge_sub_type_idx]))
+
+                        batch_pos_train_edges = train_pos_edges_split_dict[e][edge_sub_type_idx][batch_num].to(dev)
+
+                        batch_neg_train_edges = train_neg_edges_split_dict[e][edge_sub_type_idx][batch_num].to(dev)
+
+
+                        training_batch_loss = train(model, optimizer, batch_pos_train_edges, batch_neg_train_edges,\
+                                                    e, edge_sub_type_idx)
+
+                        # t15 = time.time()
+                        # print('time for batchwise training ', t15 - t14)
+
+                        if e == 'drug_drug':
+                            wandb_step += 1
+                            # print('batch_num: ', batch_num)
+                            # print('batch length: ', train_pos_edges_split_dict[e][edge_sub_type_idx][batch_num].size())
+                            cell_line = idx_2_cell_line[edge_sub_type_idx]
+                            train_log(training_batch_loss, wandb_step, e, cell_line)
+                        if e == 'gene_gene':
+                            wandb_step += 1
+                            train_log(training_batch_loss, wandb_step, e, 'gene_gene')
+
+                        wandb.log({'Epoch': epoch}, step=wandb_step)
+
+                        batch_count += 1
+                        # print('one batch done')
+
+                    print('epoch: ',  epoch,  'epoch time: ', time.time() - t10)
+
+
+                #validation
+                val_pos_edges_split_dict = {edge_type: [] for edge_type in edge_types}
+                val_neg_edges_split_dict = {edge_type: [] for edge_type in edge_types}
 
                 for edge_type in train_pos_edges_dict:
                     for i in range(len(train_pos_edges_dict[edge_type])):
-                        train_pos_edges_split_dict[edge_type].append(torch.split(train_pos_edges_dict[edge_type][i],
-                                                                               batch_size, dim=1))
-                        train_neg_edges_split_dict[edge_type].append(torch.split(train_neg_edges_dict[edge_type][i],
-                                                                               batch_size*neg_fact, dim=1))
+                        val_pos_edges_split_dict[edge_type].append(torch.split(val_pos_edges_dict[edge_type][i],
+                                                                                 batch_size, dim=1))
+                        val_neg_edges_split_dict[edge_type].append(torch.split(val_neg_edges_dict[edge_type][i],
+                                                                                 batch_size * neg_fact, dim=1))
+
                 # print('before split 4', train_pos_edges_dict['gene_gene'][0].size())
-                while not minibatch_handlder.is_batch_finished():
-                    e, edge_sub_type_idx, batch_num = minibatch_handlder.next_minibatch()
-                    print('egde_type:', e, 'edge_sub_type_idx:', edge_sub_type_idx, 'batch_num:', batch_num)
-                    # print('before split', train_pos_edges_dict['gene_gene'][0].size())
-                    # print('before split', train_pos_edges_dict[e][edge_sub_type_idx].size())
-                    #
-                    # print('train_pos_edges_split_dict:', type(train_pos_edges_split_dict[e][edge_sub_type_idx]),len(train_pos_edges_split_dict[e][edge_sub_type_idx]))
-                    # print('train_neg_edges_split_dict:', type(train_neg_edges_split_dict[e][edge_sub_type_idx]),len(train_neg_edges_split_dict[e][edge_sub_type_idx]))
+                val_edge_type = 'drug_drug'
+                for edge_sub_type in range(edge_type_wise_number_of_subtypes[val_edge_type]):
+                    cell_line = idx_2_cell_line[edge_sub_type]
+                    for split_idx in range(len(val_pos_edges_split_dict[val_edge_type][edge_sub_type])):
+                        val_pos_edges = val_pos_edges_split_dict[val_edge_type][edge_sub_type][split_idx].to(dev)
+                        val_neg_edges = val_neg_edges_split_dict[val_edge_type][edge_sub_type][split_idx].to(dev)
+                        batch_wise_pos_pred, batch_wise_neg_pred = val(model, val_pos_edges, val_neg_edges, val_edge_type, edge_sub_type)
+                        batch_wise_pos_df, batch_wise_neg_df = prepare_pred_score_for_saving\
+                            (batch_wise_pos_pred, batch_wise_neg_pred, cell_line, idx_2_drug_node)
+                        pos_df = pd.concat([pos_df, batch_wise_pos_df], axis=0)
+                        neg_df = pd.concat([neg_df, batch_wise_neg_df], axis=0)
+                    print('cell_line: ', cell_line )
+                    print('\n')
 
-                    batch_pos_train_edges = train_pos_edges_split_dict[e][edge_sub_type_idx][batch_num].to(dev)
-
-                    batch_neg_train_edges = train_neg_edges_split_dict[e][edge_sub_type_idx][batch_num].to(dev)
-
-
-                    training_batch_loss = train(model, optimizer, batch_pos_train_edges, batch_neg_train_edges,\
-                                                e, edge_sub_type_idx)
-
-                    # print('one batch done')
-
-                print(' epoch time: ', time.time()-t1)
-
-
-            #validation
-            val_pos_edges_split_dict = {edge_type: [] for edge_type in edge_types}
-            val_neg_edges_split_dict = {edge_type: [] for edge_type in edge_types}
-
-            for edge_type in train_pos_edges_dict:
-                for i in range(len(train_pos_edges_dict[edge_type])):
-                    val_pos_edges_split_dict[edge_type].append(torch.split(val_pos_edges_dict[edge_type][i],
-                                                                             batch_size, dim=1))
-                    val_neg_edges_split_dict[edge_type].append(torch.split(val_neg_edges_dict[edge_type][i],
-                                                                             batch_size * neg_fact, dim=1))
-            # print('before split 4', train_pos_edges_dict['gene_gene'][0].size())
-            val_edge_type = 'drug_drug'
-
-            for edge_sub_type in range(edge_type_wise_number_of_subtypes[val_edge_type]):
-                cell_line = idx_2_cell_line[edge_sub_type]
-                for split_idx in range(len(val_pos_edges_split_dict[val_edge_type][edge_sub_type])):
-                    val_pos_edges = val_pos_edges_split_dict[val_edge_type][edge_sub_type][split_idx].to(dev)
-                    val_neg_edges = val_neg_edges_split_dict[val_edge_type][edge_sub_type][split_idx].to(dev)
-                    batch_wise_pos_pred, batch_wise_neg_pred = val(model, val_pos_edges, val_neg_edges, val_edge_type, edge_sub_type)
-                    batch_wise_pos_df, batch_wise_neg_df = prepare_pred_score_for_saving\
-                        (batch_wise_pos_pred, batch_wise_neg_pred, cell_line, idx_2_drug_node)
-                    pos_df = pd.concat([pos_df, batch_wise_pos_df], axis=0)
-                    neg_df = pd.concat([neg_df, batch_wise_neg_df], axis=0)
-                print('cell_line: ',cell_line )
-                print('\n')
-
-        save_drug_drug_link_probability(pos_df, neg_df, run_, h_sizes, use_drug_feat_option, lr, epochs, batch_size, dr,  out_dir)
+            save_drug_drug_link_probability(pos_df, neg_df, run_, h_sizes, use_drug_feat_option, lr, epochs, batch_size, dr,  out_dir)
 
 
 

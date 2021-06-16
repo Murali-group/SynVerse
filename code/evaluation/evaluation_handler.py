@@ -236,5 +236,5 @@ def evaluate(should_run_algs, cross_val_type, kwargs, config_map):
                     '_' + 'neg_' + str(neg_fact)+'_' + kwargs.get('cvdir') + '/'
 
     os.makedirs(plot_dir, exist_ok=True)
-    # eval_plot.plot_best_models_auprc_auroc_e_prec(early_prec_k, neg_fact, best_models_eval_score_dict, best_model_param_dict, plot_dir)
+    eval_plot.plot_best_models_auprc_auroc_e_prec(early_prec_k, neg_fact, best_models_eval_score_dict, best_model_param_dict, plot_dir)
 

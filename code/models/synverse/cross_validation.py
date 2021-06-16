@@ -66,6 +66,10 @@ def create_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_init, n
     with open(pickle_file, 'rb') as handle:
         cross_val_folds_non_drug_drug_edges = pickle.load(handle)
 
+    for edge_type in cross_val_folds_non_drug_drug_edges:
+        for fold_no in cross_val_folds_non_drug_drug_edges[edge_type]:
+            print('pos_edges: ', edge_type, ': ', len(cross_val_folds_non_drug_drug_edges[edge_type][fold_no]))
+
     return cross_val_folds_non_drug_drug_edges
 
 def create_neg_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_orig, non_drug_drug_edge_types, neg_fact, cross_val_dir):
@@ -88,16 +92,18 @@ def create_neg_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_ori
             n_target_node = specific_adj_mat.shape[1]
             edges_set, source_node_degrees, target_node_degrees = find_node_degrees(n_source_node, n_target_node, edges_set, edge_type)
             total_edges = len(edges_set)
-            edges_per_fold = int(total_edges / number_of_folds + 1)
+            edges_per_fold = neg_fact*int(total_edges / number_of_folds + 1)
             val_edges_false = set()
 
             if (edge_type == 'gene_gene'):
                 # sorted_edges_set = set([(max(idx_1, idx_2), min(idx_1, idx_2)) for idx_1, idx_2 in edges_set])
+                print('total nodes: ', len(source_node_degrees.keys()))
                 for node in source_node_degrees:
                     source_node_degree = source_node_degrees[node]
                     if source_node_degree>0:
                         total_neg_sample = source_node_degree * neg_fact
-                        n = 1
+                        print('sample required for node: ', node, total_neg_sample)
+                        n = neg_fact
                         while True:
                             # generate pairs having first node=node and some random node as second node. generate n times pairs than that is needed.
                             idx_i = [node] * total_neg_sample * n
@@ -111,13 +117,14 @@ def create_neg_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_ori
                             new_false_val_edges = new_val_edges.difference(edges_set)
                             new_false_val_edges = new_false_val_edges.difference(val_edges_false)
                             n += 1
+                            print('l of new_false_val: ', len(new_false_val_edges))
                             if (len(new_false_val_edges) >= total_neg_sample):
                                 val_edges_false = val_edges_false.union(set(list(new_false_val_edges)[0:total_neg_sample]))
                                 # print(node)
                                 break
                 val_edges_false_1_2 = list(val_edges_false)
                 #now split into 5 folds
-                start=0
+                start = 0
                 for ith_fold in range(number_of_folds):
                     end = start + int(edges_per_fold)
                     neg_cross_val_folds_non_drug_drug_edges[edge_type][ith_fold] = val_edges_false_1_2[start:end]
@@ -125,7 +132,8 @@ def create_neg_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_ori
 
                 if end < len(val_edges_false_1_2):
                     fold_no = random.randint(0,number_of_folds-1)
-                    neg_cross_val_folds_non_drug_drug_edges[edge_type][fold_no] += val_edges_false_1_2[end:len(val_edges_false_1_2)]
+                    neg_cross_val_folds_non_drug_drug_edges[edge_type][fold_no] += \
+                        val_edges_false_1_2[end:len(val_edges_false_1_2)]
 
                 #now add the (y,x) pair with every (x,y) pairs present in each fold
                 for ith_fold in range(number_of_folds):
@@ -133,15 +141,16 @@ def create_neg_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_ori
                     neg_cross_val_folds_non_drug_drug_edges[edge_type][ith_fold] = l1 + [(idx_2, idx_1) for idx_1, idx_2 in l1]
 
 
-
             elif (edge_type == 'target_drug') | (edge_type == 'drug_target'):
-                edges_per_fold = int(total_edges / number_of_folds + 1)
-
+                # edges_per_fold = neg_fact*int(total_edges / number_of_folds + 1)
+                print('edge type: ', edge_type)
+                print('total nodes: ', len(source_node_degrees.keys()))
                 for node in source_node_degrees:
                     source_node_degree = source_node_degrees[node]
                     if source_node_degree > 0:
                         total_neg_sample = source_node_degree * neg_fact
-                        n = 1
+                        print('sample required for node: ', node, total_neg_sample)
+                        n = neg_fact
                         while True:
                             # generate pairs having first node=node and some random node as second node. generate n times pairs than that is needed.
                             idx_i = [node] * total_neg_sample * n
@@ -168,14 +177,15 @@ def create_neg_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_ori
                     neg_cross_val_folds_non_drug_drug_edges[edge_type][ith_fold] = val_edges_false_x_y[start:end]
                     if edge_type=='target_drug':
                         neg_cross_val_folds_non_drug_drug_edges['drug_target'][ith_fold] =\
-                        val_edges_false_y_x[start:end]
+                            val_edges_false_y_x[start:end]
                     else:
                         neg_cross_val_folds_non_drug_drug_edges['target_drug'][ith_fold] = \
                             val_edges_false_y_x[start:end]
                     start = end
                 if end < len(val_edges_false_x_y):
                     fold_no = random.randint(0, number_of_folds - 1)
-                    neg_cross_val_folds_non_drug_drug_edges[edge_type][fold_no] += val_edges_false_x_y[end:len(val_edges_false_x_y)]
+                    neg_cross_val_folds_non_drug_drug_edges[edge_type][fold_no] +=\
+                        val_edges_false_x_y[end:len(val_edges_false_x_y)]
 
                     if edge_type=='target_drug':
                         neg_cross_val_folds_non_drug_drug_edges['drug_target'][fold_no] += \
@@ -189,6 +199,10 @@ def create_neg_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_ori
 
     with open(pickle_file, 'rb') as handle:
         neg_cross_val_folds_non_drug_drug_edges = pickle.load(handle)
+
+    for edge_type in neg_cross_val_folds_non_drug_drug_edges:
+        for fold_no in neg_cross_val_folds_non_drug_drug_edges[edge_type]:
+            print('neg_edges: ', edge_type , ': ',len(neg_cross_val_folds_non_drug_drug_edges[edge_type][fold_no]))
 
     print('neg_cross_val_folds_non_drug_drug_edges done\n')
     return neg_cross_val_folds_non_drug_drug_edges

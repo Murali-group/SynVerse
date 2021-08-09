@@ -14,7 +14,7 @@ import copy
 import time
 dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 import logging
-logging.basicConfig(filename='autoencoder_model.log', filemode='w', level=logging.DEBUG)
+logging.basicConfig(filename='autoencoder_model.log', filemode='a', level=logging.DEBUG)
 
 def parse_args():
     parser = setup_opts()
@@ -46,7 +46,11 @@ def setup_opts():
                        default="Z_SCORE",
                        help="Z_SCORE or REGULATION. expression score to consider")
 
-    group.add_argument('--force-run', action = 'store_true', help = '''force_run ==True means read
+    group.add_argument('--preferred-model', type=list,
+                       default=[4096, 1024, 256],
+                       help="Layers for preferred model")
+
+    group.add_argument('--force-cosmic-read', action = 'store_true', help = '''force_run ==True means read
                                             from the raw gene_expression file, not from the pkl file''')
 
 
@@ -186,7 +190,7 @@ def val (gene_compressor_model, dataloader_val, criterion):
 
 def train_gene_compressing_model(dataset_train, dataset_val,\
                                  initial_num_genes, h_sizes, num_gene_compressed, epochs,\
-                                 noise_weight=0.2, log_interval=1, patience=10):
+                                 noise_weight=0.2, log_interval=1, patience=50):
     # model
     gene_compressor_model = GeneCompressingAutoEncoder(initial_num_genes, h_sizes,\
                                                        out_dim=num_gene_compressed, dropout=0.1).to(dev)
@@ -196,7 +200,7 @@ def train_gene_compressing_model(dataset_train, dataset_val,\
     optimizer = torch.optim.Adam(gene_compressor_model.parameters())
 
     n_epochs_with_val_loss_increment = 0
-    prev_val_loss = 10000000
+    prev_val_loss = 0
     min_val_loss = 10000000
 
     for epoch in range(1, epochs + 1):
@@ -228,19 +232,29 @@ def train_gene_compressing_model(dataset_train, dataset_val,\
         if val_loss < min_val_loss:
             min_val_loss = val_loss
             best_gene_compressor_model = copy.deepcopy(gene_compressor_model)
-            # print('min_val_loss: ', min_val_loss)
-        elif val_loss > prev_val_loss:
+            n_epochs_with_val_loss_increment = 0
+
+            print('changing best model at epoch: ', epoch)
+        if val_loss >= min_val_loss:
             n_epochs_with_val_loss_increment+=1
             if n_epochs_with_val_loss_increment>patience:
+                print('early stop: ', epoch)
+                logging.info('Model:\n\n ')
+                logging.info('Layers: '+ str(h_sizes+ [num_gene_compressed]))
+                logging.info('Loss: ' + str(min_val_loss))
+                logging.info('epochs: ' + str(epoch))
                 return best_gene_compressor_model, min_val_loss
+        print('epoch: ', epoch)
 
-        # print('epoch: ', epoch, 'time: ', time.time() - start_time)
-
+    logging.info('\n\nModel: ')
+    logging.info('Layers: ' + str(h_sizes + [num_gene_compressed]))
+    logging.info('Loss: ' + str(min_val_loss))
+    logging.info('epochs: ' + str(epoch))
 
     return best_gene_compressor_model, min_val_loss
 
 def handle_gene_compression_model_training(gene_expression_df_train, gene_expression_df_val, num_compressed_genes, \
-                                           epochs, h_sizes, compressed_gene_expression_dir_path,force_run=True ):
+                                           epochs, h_sizes, compressed_gene_expression_dir_path, force_run):
 
     model_file = compressed_gene_expression_dir_path+'/GeneCompressorModel_layers_' +\
                  str(h_sizes+[num_compressed_genes]) +'_e_'+ str(epochs) + '.p'
@@ -256,7 +270,7 @@ def handle_gene_compression_model_training(gene_expression_df_train, gene_expres
     gene_expression_df_val_new.drop('cosmic_id', axis = 1, inplace=True)
     gene_expression_dataset_val = GeneExpressionDataset(gene_expression_df_val_new)
 
-    if (not os.path.exists(model_file))|force_run:
+    if (not os.path.exists(model_file)) | force_run:
         print('training model')
         #learn
         gene_compressing_model, val_loss = train_gene_compressing_model(gene_expression_dataset_train,\
@@ -275,12 +289,28 @@ def handle_gene_compression_model_training(gene_expression_df_train, gene_expres
 
     return gene_compressing_model, val_loss
 
+
+def load_model(init_num_genes, num_compressed_genes, epochs, h_sizes,
+            compressed_gene_expression_dir_path):
+
+    model_file = compressed_gene_expression_dir_path+'/GeneCompressorModel_layers_' +\
+                 str(h_sizes+[num_compressed_genes]) +'_e_'+ str(epochs) + '.p'
+    #load the saved model
+    print('loading trained model')
+
+    gene_compressing_model = GeneCompressingAutoEncoder(init_num_genes,h_sizes,
+                                        out_dim=num_compressed_genes).to(dev)
+    gene_compressing_model.load_state_dict(torch.load(model_file))
+
+    return gene_compressing_model
+
+
 def get_compressed_gene_expression(gene_compressing_model, gene_expression_for_common_cell_lines_df,\
-                                   common_cosmic_id_to_cell_line_mapping_dict, compressed_gene_expression_dir_path):
+                                   common_cosmic_id_to_cell_line_mapping_dict, compressed_gene_expression_dir_path, manual_or_auto):
 
     gene_expression_for_common_cell_lines_df.set_index('cosmic_id', drop=True, inplace=True)
     # compressed_gene_expression_pkl_file = compressed_gene_expression_dir_path + 'compressed_gene_expression.pkl'
-    compressed_gene_expression_file = compressed_gene_expression_dir_path + '/compressed_gene_expression.tsv'
+    compressed_gene_expression_file = compressed_gene_expression_dir_path + '/compressed_gene_expression_'+manual_or_auto + '.tsv'
     cosmic_ids_to_consider = list(gene_expression_for_common_cell_lines_df.index)
 
     gene_compressing_model.eval()
@@ -317,7 +347,7 @@ def main(config_map, **kwargs):
     ############# COMBINING DRUGCOMB WITH DATA DOWNLOADED FROM COSMIC DATASET #################
     # extract gene expression data for cosmic ids in final_cosmic_ids
     expression_pkl_file = os.path.dirname(init_expression_file_path) + '/CosmicCLP_CompleteGeneExpression.pkl'
-    if (not os.path.exists(expression_pkl_file))|kwargs.get('force_run'):
+    if (not os.path.exists(expression_pkl_file))|kwargs.get('force_cosmic_read'):
         expression_df = pd.read_csv(init_expression_file_path, sep='\t')
 
         with open(expression_pkl_file, 'wb') as handle:
@@ -338,25 +368,21 @@ def main(config_map, **kwargs):
     print('number of cell lines for training: ', len(cell_line_vs_gene_expression_df))
     #train and find the best model
     min_val_loss = 1000000
-    cell_line_vs_gene_expression_df_train = cell_line_vs_gene_expression_df.sample(frac=0.8, replace=False, random_state=1).reset_index(drop=True)
-    cell_line_vs_gene_expression_df_val = cell_line_vs_gene_expression_df.drop(cell_line_vs_gene_expression_df_train.
-                                                                            index, axis=0).reset_index(drop=True)
-    for h_sizes_and_out_size in h_sizes_and_out_sizes_list:
-        print('current model : ', str(h_sizes_and_out_size))
-        num_compressed_genes = h_sizes_and_out_size[-1]
-        h_sizes = h_sizes_and_out_size[0:-1]
-        gene_compressing_model, val_loss = handle_gene_compression_model_training(cell_line_vs_gene_expression_df_train,
-        cell_line_vs_gene_expression_df_val,  num_compressed_genes, n_epochs, h_sizes, compressed_gene_expression_dir_path)
+    flag_train_model = False
+    gene_expression_train_file = compressed_gene_expression_dir_path + '/gene_expression_train_file.tsv'
+    gene_expression_val_file  = compressed_gene_expression_dir_path + '/gene_expression_val_file.tsv'
+    if (not os.path.exists(gene_expression_train_file)) | (not os.path.exists(gene_expression_val_file)) | kwargs.get('force_new_train_val'):
+        cell_line_vs_gene_expression_df_train = cell_line_vs_gene_expression_df.sample(frac=0.8, replace=False, random_state=1).reset_index(drop=True)
+        cell_line_vs_gene_expression_df_val = cell_line_vs_gene_expression_df.drop(cell_line_vs_gene_expression_df_train.
+                                                                                index, axis=0).reset_index(drop=True)
 
-        if(val_loss<min_val_loss):
-            best_gene_compressing_model = gene_compressing_model
-            min_val_loss = val_loss
-            print('layers for best model: ',num_compressed_genes, h_sizes)
-            logging.info('layers for best model: '+ str(h_sizes_and_out_size))
-            logging.info('val loss for best model: ' + str(min_val_loss))
+        cell_line_vs_gene_expression_df_train.to_csv(gene_expression_train_file, sep='\t')
+        cell_line_vs_gene_expression_df_val.to_csv(gene_expression_val_file, sep='\t')
 
+        flag_train_model = True
 
-
+    cell_line_vs_gene_expression_df_train = pd.read_csv(gene_expression_train_file, sep='\t')
+    cell_line_vs_gene_expression_df_val = pd.read_csv(gene_expression_val_file, sep='\t')
     ########## NOW in filter the compressed_gene_nparray such that cell_lines for which we have\
     # both SYNERGY VAL and COSMIC ID are present in drugcombdb are kept.
 
@@ -381,10 +407,48 @@ def main(config_map, **kwargs):
 
     gene_expression_for_common_cell_lines_df = cell_line_vs_gene_expression_df[cell_line_vs_gene_expression_df['cosmic_id']\
                                             .isin(common_cosmic_id_to_cell_line_mapping_dict.keys())]
-    compressed_gene_expression_in_common_cell_lines_df = \
-        get_compressed_gene_expression(best_gene_compressing_model, gene_expression_for_common_cell_lines_df, \
-                                   common_cosmic_id_to_cell_line_mapping_dict, compressed_gene_expression_dir_path)
 
+    if kwargs.get('preferred_model')==None:
+
+        for h_sizes_and_out_size in h_sizes_and_out_sizes_list:
+            print('current model : ', str(h_sizes_and_out_size))
+            num_compressed_genes = h_sizes_and_out_size[-1]
+            h_sizes = h_sizes_and_out_size[0:-1]
+            gene_compressing_model, val_loss = handle_gene_compression_model_training(cell_line_vs_gene_expression_df_train,
+                        cell_line_vs_gene_expression_df_val,  num_compressed_genes, n_epochs, h_sizes, \
+                        compressed_gene_expression_dir_path, flag_train_model)
+
+            if(val_loss<min_val_loss):
+                best_gene_compressing_model = copy.deepcopy(gene_compressing_model)
+                min_val_loss = val_loss
+                layers_in_best_model = h_sizes_and_out_size
+
+        print('layers for best model: ', layers_in_best_model)
+        logging.info('layers for best model: '+ str(layers_in_best_model))
+
+        compressed_gene_expression_in_common_cell_lines_df = \
+            get_compressed_gene_expression(best_gene_compressing_model, gene_expression_for_common_cell_lines_df, \
+                                           common_cosmic_id_to_cell_line_mapping_dict,
+                                           compressed_gene_expression_dir_path, 'auto')
+
+    else:
+        #this is added so that I can choose a model manually to compress the gene_ecpression data.
+        # AWhy do I need it? => I can decide to choose a model which might not be the best but the model can have
+        # loss comparable to min_val_loss but with lower number of nodes in final layer.
+        h_sizes_and_out_size = kwargs.get('preferred_model')
+        print('Given preferred model: ', str(h_sizes_and_out_size))
+        num_compressed_genes = h_sizes_and_out_size[-1]
+        h_sizes = h_sizes_and_out_size[0:-1]
+
+        init_num_genes = len(cell_line_vs_gene_expression_df_train.columns)-1
+        preferred_gene_compressing_model = load_model(init_num_genes, num_compressed_genes, n_epochs, h_sizes,
+            compressed_gene_expression_dir_path)
+
+
+        compressed_gene_expression_in_common_cell_lines_df = \
+            get_compressed_gene_expression(preferred_gene_compressing_model, gene_expression_for_common_cell_lines_df, \
+                                           common_cosmic_id_to_cell_line_mapping_dict,
+                                           compressed_gene_expression_dir_path,'manual')
 
 
 

@@ -307,7 +307,9 @@ def load_model(init_num_genes, num_compressed_genes, epochs, h_sizes,
 
 def get_compressed_gene_expression(gene_compressing_model, gene_expression_for_common_cell_lines_df,\
                                    common_cosmic_id_to_cell_line_mapping_dict, compressed_gene_expression_dir_path, manual_or_auto):
-
+    '''
+    return: a dataframe containing cell_line_name as index. in each row it has the compresses gene expression of a cell line.
+    '''
     gene_expression_for_common_cell_lines_df.set_index('cosmic_id', drop=True, inplace=True)
     # compressed_gene_expression_pkl_file = compressed_gene_expression_dir_path + 'compressed_gene_expression.pkl'
     compressed_gene_expression_file = compressed_gene_expression_dir_path + '/compressed_gene_expression_'+manual_or_auto + '.tsv'

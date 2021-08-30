@@ -30,7 +30,7 @@ def weight_matrix_glorot(in_channels, out_channels):
     """Create a weight variable with Glorot & Bengio (AISTATS 2010)
     initialization.
     """
-    w = Parameter(torch.Tensor(in_channels, out_channels))
+    w = torch.Tensor(in_channels, out_channels)
     stdv = math.sqrt(6.0 / (in_channels + in_channels))
     w.data.uniform_(-stdv, stdv)
     return w

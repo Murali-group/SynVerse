@@ -42,6 +42,9 @@ import models.synverse.utils as utils
 import models.synverse.cross_validation as cross_val
 from models.synverse.minibatch import MinibatchHandler
 from models.synverse.BipartiteGCN import BipartiteGCN
+import logging
+logging.basicConfig(filename='synverse_model.log', filemode='w', level=logging.DEBUG)
+
 
 import wandb
 # wandb.login()
@@ -96,8 +99,8 @@ def compute_drug_drug_link_probability(cell_line_specific_edges_pos, cell_line_s
 
 
 
-def plot_loss(model, edge_type, pos_edges_split_dict,neg_edges_split_dict,\
-              edge_type_wise_number_of_subtypes, idx_2_cell_line, train_or_val, min_loss, epoch, wandb_step):
+def compute_and_plot_loss(model, edge_type, pos_edges_split_dict, neg_edges_split_dict, \
+                          edge_type_wise_number_of_subtypes, idx_2_cell_line, train_or_val, epoch, wandb_step):
     total_loss = 0
     for edge_sub_type in range(edge_type_wise_number_of_subtypes[edge_type]):
         cell_line_wise_loss = 0
@@ -117,15 +120,15 @@ def plot_loss(model, edge_type, pos_edges_split_dict,neg_edges_split_dict,\
             wandb.log({cell_line_wise_title: cell_line_wise_loss}, step=wandb_step)
 
     # if total_val_loss.to('cpu').detach().numpy()[0] < min_val_loss.to('cpu').detach().numpy()[0]:
-    if total_loss < min_loss:
-        # print(total_loss, min_loss)
-        min_loss = total_loss
+    # if total_loss < min_loss:
+    #     # print(total_loss, min_loss)
+    #     min_loss = total_loss
 
         # print(edge_type+': current minimum ' + train_or_val+ ' loss = ', min_loss, ' at epoch: ', epoch)
 
     wandb.log({train_or_val+ '_loss_'+ edge_type: total_loss}, step=wandb_step)
 
-    return min_loss
+    return total_loss
 
 
 
@@ -837,25 +840,33 @@ def train_log(loss, wandb_step, edge_type, edge_name):
 def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_maccs_keys_feature_df, \
                        gene_expression_feature_df, synergy_df, non_synergy_df,\
                        cell_line_2_idx, idx_2_cell_line,
-                       cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges,\
-                       cross_val_dir, neg_sampling_type, encoder_type, dd_decoder_type, out_dir, config_map, use_drug_based_batch_end):
+                       cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges,
+                       cross_val_dir, neg_sampling_type, encoder_type, dd_decoder_type, out_dir, synverse_params,
+                       config_map, use_drug_based_batch_end):
 
     t1 = time.time()
     #model setup
-    synverse_settings = config_map['ml_models_settings']['algs']['synverse']
-    h_sizes = synverse_settings['h_sizes'] # only hidden and output_layer
-    lr = synverse_settings['learning_rate']
-    epochs = synverse_settings['epochs']
-    # hidden1 = 64
-    # hidden2 = 32
-    # weight_decay = synverse_settings['weight_decay']
-    dr = synverse_settings['dropout']
-    # max_margin = synverse_settings['max_margin']
-    batch_size = synverse_settings['batch_size']
-    bias = synverse_settings['bias']
+    # synverse_settings = config_map['ml_models_settings']['algs']['synverse']
+    # h_sizes = synverse_settings['h_sizes'] # only hidden and output_layer
+    # lr = synverse_settings['learning_rate']
+    # epochs = synverse_settings['epochs']
+    # dr = synverse_settings['dropout']
+    # # max_margin = synverse_settings['max_margin']
+    # batch_size = synverse_settings['batch_size']
+    # bias = synverse_settings['bias']
+    # patience = synverse_settings['patience']
+
+    h_sizes = synverse_params['h_size'] # only hidden and output_layer
+    lr = synverse_params['learning_rate']
+    epochs = synverse_params['epoch']
+    dr = synverse_params['dropout']
+
+    batch_size = synverse_params['batch_size']
+    bias = synverse_params['bias']
+    patience = synverse_params['patience']
+    use_gene_ex = synverse_params['gene_ex']
 
     neg_fact = config_map['ml_models_settings']['cross_val']['neg_fact']
-
     number_of_folds = config_map['ml_models_settings']['cross_val']['folds']
 
 
@@ -989,7 +1000,7 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
     gene_feat = torch.tensor(np.identity(n_genes)).to(dev)
 
     # features (drugs)
-    use_drug_feat_options = synverse_settings['use_drug_feat']
+    use_drug_feat_options = synverse_params['use_drug_feat']
 
     model_no = 0
     for use_drug_feat_option in use_drug_feat_options:
@@ -1121,14 +1132,6 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
 
                         # t13 = time.time()
                         e, edge_sub_type_idx, batch_num = minibatch_handlder.next_minibatch()
-                        # t14 = time.time()
-                        # print('time for next minibatch choosing: ', t14-t13)
-                        # print('egde_type:', e, 'edge_sub_type_idx:', edge_sub_type_idx, 'batch_num:', batch_num)
-                        # print('before split', train_pos_edges_dict['gene_gene'][0].size())
-                        # print('before split', train_pos_edges_dict[e][edge_sub_type_idx].size())
-                        #
-                        # print('train_pos_edges_split_dict:', type(train_pos_edges_split_dict[e][edge_sub_type_idx]),len(train_pos_edges_split_dict[e][edge_sub_type_idx]))
-                        # print('train_neg_edges_split_dict:', type(train_neg_edges_split_dict[e][edge_sub_type_idx]),len(train_neg_edges_split_dict[e][edge_sub_type_idx]))
 
                         batch_pos_train_edges = train_pos_edges_split_dict[e][edge_sub_type_idx][batch_num].to(dev)
 
@@ -1157,35 +1160,37 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
                     print('epoch: ', epoch, ' epoch time: ', time.time()-t10)
 
                     ##train and val loss plot after whole epoch
-                    if epoch % 2 == 0:
-                        min_loss_dd_train = plot_loss(model, 'drug_drug', train_pos_edges_split_dict, train_neg_edges_split_dict, \
-                                  edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', min_loss_dd_train, epoch, wandb_step)
-                        min_loss_gg_train = plot_loss(model, 'gene_gene', train_pos_edges_split_dict, train_neg_edges_split_dict, \
-                                  edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', min_loss_gg_train, epoch, wandb_step)
+                    if epoch % 1 == 0:
+                        loss_dd_train = compute_and_plot_loss(model, 'drug_drug', train_pos_edges_split_dict, train_neg_edges_split_dict,
+                                                                  edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
+                        loss_gg_train = compute_and_plot_loss(model, 'gene_gene', train_pos_edges_split_dict, train_neg_edges_split_dict,
+                                                                  edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
 
-                        min_loss_dg_train = plot_loss(model, 'drug_target', train_pos_edges_split_dict,
-                                                      train_neg_edges_split_dict,
-                                                      edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train',
-                                                      min_loss_dg_train, epoch, wandb_step)
-                        min_loss_gd_train = plot_loss(model, 'target_drug', train_pos_edges_split_dict,
-                                                      train_neg_edges_split_dict,
-                                                      edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train',
-                                                      min_loss_gd_train, epoch, wandb_step)
+                        loss_dg_train = compute_and_plot_loss(model, 'drug_target', train_pos_edges_split_dict,train_neg_edges_split_dict,
+                                                                  edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
 
-                        min_loss_dd_val = plot_loss(model, 'drug_drug', val_pos_edges_split_dict, val_neg_edges_split_dict, \
-                                  edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', min_loss_dd_val, epoch, wandb_step)
-                        min_loss_gg_val = plot_loss(model, 'gene_gene', val_pos_edges_split_dict, val_neg_edges_split_dict, \
-                                  edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', min_loss_gg_val, epoch, wandb_step)
-                        min_loss_dg_val = plot_loss(model, 'drug_target', val_pos_edges_split_dict,
-                                                    val_neg_edges_split_dict,
-                                                    edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val',
-                                                    min_loss_dg_val, epoch, wandb_step)
-                        min_loss_gd_val = plot_loss(model, 'target_drug', val_pos_edges_split_dict,
-                                                    val_neg_edges_split_dict,
-                                                    edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val',
-                                                    min_loss_gd_val, epoch, wandb_step)
+                        gd_train = compute_and_plot_loss(model, 'target_drug', train_pos_edges_split_dict, train_neg_edges_split_dict,
+                                                                  edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
+
+                        loss_dd_val = compute_and_plot_loss(model, 'drug_drug', val_pos_edges_split_dict, val_neg_edges_split_dict,
+                                                                edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
+
+                        loss_gg_val = compute_and_plot_loss(model, 'gene_gene', val_pos_edges_split_dict, val_neg_edges_split_dict,
+                                                                edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
+
+                        loss_dg_val = compute_and_plot_loss(model, 'drug_target', val_pos_edges_split_dict,val_neg_edges_split_dict,
+                                                                edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
+
+                        loss_gd_val = compute_and_plot_loss(model, 'target_drug', val_pos_edges_split_dict, val_neg_edges_split_dict,
+                                                                edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
+
+                        if loss_dd_val < min_loss_dd_val:
+                            best_model = copy.deepcopy(model)
+                            required_epoch = epoch
+                            min_loss_dd_val = loss_dd_val
 
 
+                #save result from the best model here
                 val_edge_type = 'drug_drug'
                 total_val_loss = 0
                 for edge_sub_type in range(edge_type_wise_number_of_subtypes[val_edge_type]):

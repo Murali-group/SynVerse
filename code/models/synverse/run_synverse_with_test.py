@@ -68,7 +68,7 @@ def gpu_memory_usage():
 
     info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
 
-    print("Total memory:", (info.total)/(1024*1024))
+    # print("Total memory:", (info.total)/(1024*1024))
     print("Free memory:", (info.free)/(1024*1024))
     print("Used memory:", (info.used)/(1024*1024))
 
@@ -119,10 +119,31 @@ def compute_drug_drug_link_probability(cell_line_specific_edges_pos, cell_line_s
         return pos_df, neg_df
 
 
+def compute_loss(model, edge_type, pos_edges_split_dict, neg_edges_split_dict,
+                          edge_type_wise_number_of_subtypes):
+    total_loss = 0
+    for edge_sub_type in range(edge_type_wise_number_of_subtypes[edge_type]):
+        cell_line_wise_loss = 0
+        for split_idx in range(len(pos_edges_split_dict[edge_type][edge_sub_type])):
+            pos_edges = pos_edges_split_dict[edge_type][edge_sub_type][split_idx].to(dev)
+            neg_edges = neg_edges_split_dict[edge_type][edge_sub_type][split_idx].to(dev)
+            batch_wise_pos_pred, batch_wise_neg_pred, loss = val(model, pos_edges,
+                                                                       neg_edges, edge_type,
+                                                                       edge_sub_type)
+            cell_line_wise_loss += loss
+        cell_line_wise_loss = cell_line_wise_loss/float(len(pos_edges_split_dict[edge_type][edge_sub_type]))
+        total_loss += cell_line_wise_loss.to('cpu').detach().item()
+
+    return total_loss
+
+
 
 def compute_and_plot_loss(model, edge_type, pos_edges_split_dict, neg_edges_split_dict, \
                           edge_type_wise_number_of_subtypes, idx_2_cell_line, train_or_val, epoch, wandb_step):
     total_loss = 0
+
+    # print('4.1')
+    # gpu_memory_usage()
     for edge_sub_type in range(edge_type_wise_number_of_subtypes[edge_type]):
         cell_line_wise_loss = 0
         for split_idx in range(len(pos_edges_split_dict[edge_type][edge_sub_type])):
@@ -140,25 +161,8 @@ def compute_and_plot_loss(model, edge_type, pos_edges_split_dict, neg_edges_spli
             cell_line_wise_title = train_or_val + '_loss_' + cell_line
             wandb.log({cell_line_wise_title: cell_line_wise_loss}, step=wandb_step)
 
-    # if total_val_loss.to('cpu').detach().numpy()[0] < min_val_loss.to('cpu').detach().numpy()[0]:
-    # if total_loss < min_loss:
-    #     # print(total_loss, min_loss)
-    #     min_loss = total_loss
-
-        # print(edge_type+': current minimum ' + train_or_val+ ' loss = ', min_loss, ' at epoch: ', epoch)
-
     wandb.log({train_or_val+ '_loss_'+ edge_type: total_loss}, step=wandb_step)
 
-    # print('memory use before delete called in compute loss func: ')
-    # gpu_memory_usage()
-    # print('size of pos_edges, neg_edges')
-    # print((pos_edges.element_size() * pos_edges.nelement())/(1024*1024) ,
-    #       (neg_edges.element_size() * neg_edges.nelement())/(1024*1024) )
-    # del pos_edges
-    # del neg_edges
-    #
-    # print('memory use after delete called in compute loss func: ')
-    # gpu_memory_usage()
 
     return total_loss
 
@@ -556,42 +560,40 @@ class DedicomDecoder(torch.nn.Module): #one decoder object for one edge_type
 
 
 class FeedforwardNeuralNetModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
+    def __init__(self, input_dim, hidden_layer_dims, output_dim):
         super(FeedforwardNeuralNetModel, self).__init__()
-        # Linear function
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.hidden_layer_dims = hidden_layer_dims
+        self.layers = nn.ModuleList()
+        self.layers.append(nn.Linear(input_dim, hidden_layer_dims[0]))
+        for i in range(1, len(self.hidden_layer_dims)):
+            self.layers.append(nn.Linear(hidden_layer_dims[i-1], hidden_layer_dims[i]))
+        self.layers.append(nn.Linear(hidden_layer_dims[-1], output_dim))
 
         # Non-linearity
         self.sigmoid = nn.Sigmoid()
         self.relu = nn.ReLU()
-        # Linear function (readout)
-        self.fc2 = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
-        # Linear function  # LINEAR
-        out = self.fc1(x)
-
-        # Non-linearity  # NON-LINEAR
-        out = self.relu(out)
-
-        # Linear function (readout)  # LINEAR
-        out = self.fc2(out)
+        out = self.layers[0](x)
+        for i in range(1, len(self.layers)):
+            # Non-linearity
+            out = self.relu(out)
+            out = self.layers[i](out)
         return out
 
 
 class NNDecoder(torch.nn.Module):
     #this decoder is applicable for only drug_drug edge prediction
-    def __init__(self, edge_type, n_sub_types, w_dim,gene_expression_df):
+    def __init__(self, edge_type, n_sub_types, w_dim, hidden_layer_setup, gene_expression_df):
         super(NNDecoder, self).__init__()
         self.edge_type = edge_type
         self.gene_expression_df = gene_expression_df
 
-        self.hidden_layer_1 = 512
+        self.hidden_layer_setup = hidden_layer_setup
         self.out_layer = 1
-        # self.feed_forward_model = FeedforwardNeuralNetModel\
-        #     (concatenated_drug_drug_genex_embedding.size()[1], hidden_layer_1, out_layer)
+
         self.feed_forward_model = FeedforwardNeuralNetModel \
-            (w_dim, self.hidden_layer_1, self.out_layer).to(dev)
+            (w_dim, self.hidden_layer_setup, self.out_layer).to(dev)
 
     def forward(self, z, batch_edges, edge_sub_type_idx, sigmoid=True):
 
@@ -676,7 +678,7 @@ def train(model, optimizer,  batch_pos_train_edges, batch_neg_train_edges, edge_
     loss.backward()
     optimizer.step()
 
-    return (loss)
+    return float(loss)
 
 #
 # def test(model, pos_edge_index, neg_edge_index, edge_type, edge_sub_type_idx):
@@ -735,8 +737,12 @@ def prepare_train_edges(cross_validation_folds_pos_drug_drug_edges, cross_valida
     edge_types = ['gene_gene', 'target_drug', 'drug_target', 'drug_drug']
     train_pos_edges_dict = {edge_type: [] for edge_type in edge_types}
     train_neg_edges_dict = {edge_type: [] for edge_type in edge_types}
+
     val_pos_edges_dict = {edge_type: [] for edge_type in edge_types}
     val_neg_edges_dict = {edge_type: [] for edge_type in edge_types}
+
+    val_es_pos_edges_dict = {edge_type: [] for edge_type in edge_types}
+    val_es_neg_edges_dict = {edge_type: [] for edge_type in edge_types}
 
     test_pos_edges_dict = {edge_type: [] for edge_type in edge_types}
     test_neg_edges_dict = {edge_type: [] for edge_type in edge_types}
@@ -748,11 +754,12 @@ def prepare_train_edges(cross_validation_folds_pos_drug_drug_edges, cross_valida
     train_pos_drug_drug_edges_set =  set(cross_validation_folds_pos_drug_drug_edges[fold_no]['train'])
     test_pos_drug_drug_edges_set =  set(cross_validation_folds_pos_drug_drug_edges[fold_no]['test'])
     val_pos_drug_drug_edges_set = set(cross_validation_folds_pos_drug_drug_edges[fold_no]['val'])
-
+    val_es_pos_drug_drug_edges_set = set(cross_validation_folds_pos_drug_drug_edges[fold_no]['val_es'])
 
     train_neg_drug_drug_edges_set = set(cross_validation_folds_neg_drug_drug_edges[fold_no]['train'])
     test_neg_drug_drug_edges_set = set(cross_validation_folds_neg_drug_drug_edges[fold_no]['test'])
     val_neg_drug_drug_edges_set = set(cross_validation_folds_neg_drug_drug_edges[fold_no]['val'])
+    val_es_neg_drug_drug_edges_set = set(cross_validation_folds_neg_drug_drug_edges[fold_no]['val_es'])
 
     for cell_line_idx in range(total_cell_lines):
         train_pos_source_nodes = [d1 for d1,d2,c in train_pos_drug_drug_edges_set if c == cell_line_idx]
@@ -773,6 +780,16 @@ def prepare_train_edges(cross_validation_folds_pos_drug_drug_edges, cross_valida
         val_neg_edges = torch.stack(
             [torch.LongTensor(val_neg_source_nodes), torch.LongTensor(val_neg_target_nodes)], dim=0)
 
+        val_es_pos_source_nodes = [d1 for d1, d2, c in val_es_pos_drug_drug_edges_set if c == cell_line_idx]
+        val_es_pos_target_nodes = [d2 for d1, d2, c in val_es_pos_drug_drug_edges_set if c == cell_line_idx]
+        val_es_pos_edges = torch.stack(
+            [torch.LongTensor(val_es_pos_source_nodes), torch.LongTensor(val_es_pos_target_nodes)], dim=0)
+
+        val_es_neg_source_nodes = [d1 for d1, d2, c in val_es_neg_drug_drug_edges_set if c == cell_line_idx]
+        val_es_neg_target_nodes = [d2 for d1, d2, c in val_es_neg_drug_drug_edges_set if c == cell_line_idx]
+        val_es_neg_edges = torch.stack(
+            [torch.LongTensor(val_es_neg_source_nodes), torch.LongTensor(val_es_neg_target_nodes)], dim=0)
+
         test_pos_source_nodes = [d1 for d1, d2, c in test_pos_drug_drug_edges_set if c == cell_line_idx]
         test_pos_target_nodes = [d2 for d1, d2, c in test_pos_drug_drug_edges_set if c == cell_line_idx]
         test_pos_edges = torch.stack(
@@ -787,6 +804,8 @@ def prepare_train_edges(cross_validation_folds_pos_drug_drug_edges, cross_valida
         train_neg_edges_dict['drug_drug'].append(train_neg_edges)
         val_pos_edges_dict['drug_drug'].append(val_pos_edges)
         val_neg_edges_dict['drug_drug'].append(val_neg_edges)
+        val_es_pos_edges_dict['drug_drug'].append(val_es_pos_edges)
+        val_es_neg_edges_dict['drug_drug'].append(val_es_neg_edges)
         test_pos_edges_dict['drug_drug'].append(test_pos_edges)
         test_neg_edges_dict['drug_drug'].append(test_neg_edges)
 
@@ -831,7 +850,7 @@ def prepare_train_edges(cross_validation_folds_pos_drug_drug_edges, cross_valida
         val_pos_edges_dict[edge_type].append(val_pos_edges)
         val_neg_edges_dict[edge_type].append(val_neg_edges)
 
-    return train_pos_edges_dict, train_neg_edges_dict, val_pos_edges_dict, val_neg_edges_dict, test_pos_edges_dict, test_neg_edges_dict,
+    return train_pos_edges_dict, train_neg_edges_dict, val_pos_edges_dict, val_neg_edges_dict,val_es_pos_edges_dict, val_es_neg_edges_dict, test_pos_edges_dict, test_neg_edges_dict,
 
 
 
@@ -868,7 +887,7 @@ def prepare_pred_score_for_saving(pos_pred, neg_pred, cell_line, idx_2_drug_node
     return pos_df, neg_df
 
 def save_drug_drug_link_probability(pos_df, neg_df, encoder_type, decoder_type, h_sizes, use_drug_feat_option, lr, \
-                                    epochs, batch_size, dr, out_dir, drug_based_batch_end):
+                                    epochs, batch_size, dr, out_dir, drug_based_batch_end, nndecoder_h_size=''):
     #inputs: df with link prediction probability after applying sigmoid on models predicted score for an edges(positive, negative)
 
     if drug_based_batch_end:
@@ -878,10 +897,10 @@ def save_drug_drug_link_probability(pos_df, neg_df, encoder_type, decoder_type, 
 
     pos_out_file = out_dir+\
                     extra_direction_on_out_dir + 'pos_val_scores'+'_encoder_' +encoder_type+'_decoder_' + decoder_type + '_hsize_'+str(h_sizes)+\
-                   '_drugfeat_'+ str(use_drug_feat_option)+'_e_'+str(epochs) +'_lr_'+str(lr) +'_batch_'+ str(batch_size)\
+                   '_'+str(nndecoder_h_size)+'_drugfeat_'+ str(use_drug_feat_option)+'_e_'+str(epochs) +'_lr_'+str(lr) +'_batch_'+ str(batch_size)\
                    +'_dr_'+ str(dr)+'.tsv'
     neg_out_file = out_dir + extra_direction_on_out_dir + 'neg_val_scores'+ '_encoder_' +encoder_type+'_decoder_' + decoder_type + '_hsize_'+str(h_sizes)+\
-                   '_drugfeat_'+str(use_drug_feat_option)+'_e_'+str(epochs) +'_lr_'+str(lr) +'_batch_'+ str(batch_size) +\
+                   '_'+str(nndecoder_h_size) + '_drugfeat_'+str(use_drug_feat_option)+'_e_'+str(epochs) +'_lr_'+str(lr) +'_batch_'+ str(batch_size) +\
                    '_dr_'+ str(dr)+'.tsv'
 
     os.makedirs(os.path.dirname(pos_out_file), exist_ok=True)
@@ -890,7 +909,7 @@ def save_drug_drug_link_probability(pos_df, neg_df, encoder_type, decoder_type, 
     pos_df.to_csv(pos_out_file, sep='\t')
     neg_df.to_csv(neg_out_file, sep='\t')
 
-def save_model_info_with_loss(min_val_loss, encoder_type, decoder_type, h_sizes, use_drug_feat_option, lr, \
+def save_model_info_with_loss(min_val_loss, encoder_type, decoder_type, h_sizes, nndecoder_h_size, use_drug_feat_option, lr, \
                                     epochs, batch_size, dr, out_dir, drug_based_batch_end):
     #inputs: df with link prediction probability after applying sigmoid on models predicted score for an edges(positive, negative)
 
@@ -900,7 +919,7 @@ def save_model_info_with_loss(min_val_loss, encoder_type, decoder_type, h_sizes,
         extra_direction_on_out_dir = ''
 
     out_file = out_dir + extra_direction_on_out_dir + 'model_val_loss.txt'
-    model_info = '_encoder_' + encoder_type + '_decoder_' + decoder_type + '_hsize_' + str(h_sizes) + \
+    model_info = '_encoder_' + encoder_type + '_decoder_' + decoder_type + '_hsize_' + str(h_sizes) + '_'+str(nndecoder_h_size)+\
     '_drugfeat_' + str(use_drug_feat_option) + '_e_' + str(epochs) + '_lr_' + str(lr) + '_batch_' + str(batch_size) \
     + '_dr_' + str(dr) +'\n'
 
@@ -929,6 +948,8 @@ def save_best_model(best_model, encoder_type, decoder_type, h_sizes, use_drug_fe
 
     torch.save(best_model.state_dict(), model_file)
 
+    return model_file
+
 def train_log(loss, wandb_step, edge_type, edge_name):
     loss = float(loss)
     edge_type_idx = utils.edge_type_to_idx(edge_type)
@@ -943,26 +964,20 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
                        gene_expression_feature_df, synergy_df, non_synergy_df,\
                        cell_line_2_idx, idx_2_cell_line,
                        cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges,
-                       cross_val_dir, neg_sampling_type, encoder_type, dd_decoder_type, out_dir, synverse_params,
+                       cross_val_dir, neg_sampling_type, encoder_type, dd_decoder_type,
+                       out_dir, synverse_params,
                        config_map, use_drug_based_batch_end):
 
     t1 = time.time()
     #model setup
-    # synverse_settings = config_map['ml_models_settings']['algs']['synverse']
-    # h_sizes = synverse_settings['h_sizes'] # only hidden and output_layer
-    # lr = synverse_settings['learning_rate']
-    # epochs = synverse_settings['epochs']
-    # # hidden1 = 64
-    # # hidden2 = 32
-    # # weight_decay = synverse_settings['weight_decay']
-    # dr = synverse_settings['dropout']
-    # # max_margin = synverse_settings['max_margin']
-    # batch_size = synverse_settings['batch_size']
-    # bias = synverse_settings['bias']
-    # patience = synverse_settings['patience']
 
 
     h_sizes = synverse_params['h_size'] # only hidden and output_layer
+
+    if dd_decoder_type=='nndecoder':
+        nndecoder_h_size = synverse_params['nndecoder_hsize']
+    else:
+        nndecoder_h_size = ''
     lr = synverse_params['learning_rate']
     epochs = synverse_params['epoch']
     dr = synverse_params['dropout']
@@ -1062,33 +1077,33 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
     edges_all_cell_line = list(zip(synergy_df['Drug1_idx'], synergy_df['Drug2_idx'], synergy_df['Cell_line_idx']))
     # print('all cell line  edges index length: ', len(edges_all_cell_line))
 
-    temp_cross_validation_folds = {i: {'test': [], 'train': [], 'val': []} for i in range(number_of_folds)}
+    temp_cross_validation_folds_1 = {i: {'test': [], 'train': [], 'val': [], 'val_es':[]} for i in range(number_of_folds)}
     for fold in cross_validation_folds_pos_drug_drug_edges:
         # print('test: ', fold, len(cross_validation_folds[fold]), cross_validation_folds[fold])
-        for split_type in ['test','train', 'val']:
-            temp_cross_validation_folds[fold][split_type] = [edges_all_cell_line[x] for x in
+        for split_type in ['test','train', 'val','val_es']:
+            temp_cross_validation_folds_1[fold][split_type] = [edges_all_cell_line[x] for x in
                                                  cross_validation_folds_pos_drug_drug_edges[fold][split_type]]
-            temp_cross_validation_folds[fold][split_type] += [(drug_2_idx, drug_1_idx, cell_line_idx) for
+            temp_cross_validation_folds_1[fold][split_type] += [(drug_2_idx, drug_1_idx, cell_line_idx) for
                                                   drug_1_idx, drug_2_idx, cell_line_idx in
-                                                  temp_cross_validation_folds[fold][split_type]]
+                                                  temp_cross_validation_folds_1[fold][split_type]]
         # print(temp_cross_validation_folds[fold], cross_validation_folds_pos_drug_drug_edges[fold])
 
-    cross_validation_folds_pos_drug_drug_edges = temp_cross_validation_folds
+    cross_validation_folds_pos_drug_drug_edges = temp_cross_validation_folds_1
 
 
     # cross validation folds contain only drug_pair index from non_synergy_df. Convert validation folds into list of (drug-idx, drug-idx) pairs.
-    temp_cross_validation_folds = {i: {'test': [], 'train': [], 'val': []} for i in range(number_of_folds)}
+    temp_cross_validation_folds_2 = {i: {'test': [], 'train': [], 'val': [],'val_es':[]} for i in range(number_of_folds)}
     neg_edges_all_cell_line = list(zip(non_synergy_df['Drug1_idx'], non_synergy_df['Drug2_idx'], non_synergy_df['Cell_line_idx']))
     for fold in cross_validation_folds_neg_drug_drug_edges:
         # print('test: ', fold, len(cross_validation_folds[fold]), cross_validation_folds[fold])
-        for split_type in ['test', 'train', 'val']:
-            temp_cross_validation_folds[fold][split_type] = [neg_edges_all_cell_line[x] for x in
+        for split_type in ['test', 'train', 'val', 'val_es']:
+            temp_cross_validation_folds_2[fold][split_type] = [neg_edges_all_cell_line[x] for x in
                                                  cross_validation_folds_neg_drug_drug_edges[fold][split_type]]
-            temp_cross_validation_folds[fold][split_type] += [(drug_2_idx, drug_1_idx, cell_line_idx) for
+            temp_cross_validation_folds_2[fold][split_type] += [(drug_2_idx, drug_1_idx, cell_line_idx) for
                                                   drug_1_idx, drug_2_idx, cell_line_idx in
-                                                  temp_cross_validation_folds[fold][split_type]]
+                                                  temp_cross_validation_folds_2[fold][split_type]]
         # print(temp_cross_validation_folds[fold][0:10], cross_validation_folds_pos_drug_drug_edges[fold][0:10])
-    cross_validation_folds_neg_drug_drug_edges = temp_cross_validation_folds
+    cross_validation_folds_neg_drug_drug_edges = temp_cross_validation_folds_2
 
     non_drug_drug_edge_types = ['gene_gene', 'drug_target']
     # non_drug_drug_edge_types = ['drug_target']
@@ -1099,7 +1114,7 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
     if neg_sampling_type == 'degree_based':
         cross_validation_folds_neg_non_drug_drug_edges = cross_val.create_degree_based_neg_cross_val_split_non_drug_drug_edges\
             (number_of_folds, adj_mats_init, non_drug_drug_edge_types, neg_fact, cross_val_dir)
-    elif neg_sampling_type == 'semi_random':
+    elif (neg_sampling_type == 'semi_random')|(neg_sampling_type == 'no'):
         cross_validation_folds_neg_non_drug_drug_edges = cross_val.create_semi_random_neg_cross_val_split_non_drug_drug_edges\
             (number_of_folds, adj_mats_init, non_drug_drug_edge_types, neg_fact, cross_val_dir)
 
@@ -1130,15 +1145,16 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
 
     # print('memory use at the beginning of five folds: ')
     # gpu_memory_usage()
-
+    machine_name = config_map['machine_name']
     for fold_no in range(number_of_folds):
         best_model_no = 0
-        with wandb.init(project='synverse_gpu3_genex_1', config=config_map):
+        project_name = 'synverse_' + machine_name
+        with wandb.init(project=project_name, config=config_map):
             config_map = wandb.config
             ###################################### Prepare DATA ########################################
 
-            train_pos_edges_dict, train_neg_edges_dict, val_pos_edges_dict, val_neg_edges_dict,\
-            test_pos_edges_dict, test_neg_edges_dict =\
+            train_pos_edges_dict, train_neg_edges_dict, val_pos_edges_dict, val_neg_edges_dict,val_es_pos_edges_dict,\
+            val_es_neg_edges_dict, test_pos_edges_dict, test_neg_edges_dict =\
             prepare_train_edges(cross_validation_folds_pos_drug_drug_edges,
             cross_validation_folds_neg_drug_drug_edges, cross_validation_folds_pos_non_drug_drug_edges,
             cross_validation_folds_neg_non_drug_drug_edges, fold_no, total_cell_lines)
@@ -1153,6 +1169,18 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
                                     batch_size, dim=1))
                     val_neg_edges_split_dict[edge_type].append(torch.split(val_neg_edges_dict[edge_type][i],
                                     batch_size * neg_fact, dim=1))
+
+
+            #validation set for early stopping
+            val_es_pos_edges_split_dict = {edge_type: [] for edge_type in edge_types}
+            val_es_neg_edges_split_dict = {edge_type: [] for edge_type in edge_types}
+
+            for edge_type in val_es_pos_edges_dict:
+                for i in range(len(val_es_pos_edges_dict[edge_type])):
+                    val_es_pos_edges_split_dict[edge_type].append(torch.split(val_es_pos_edges_dict[edge_type][i],
+                                                                           batch_size, dim=1))
+                    val_es_neg_edges_split_dict[edge_type].append(torch.split(val_es_neg_edges_dict[edge_type][i],
+                                                                           batch_size * neg_fact, dim=1))
 
             #test data split only for drug_drug edges now
             test_pos_edges_split_dict = {edge_type: [] for edge_type in edge_types}
@@ -1196,8 +1224,10 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
                     #the size of the input is concatenation of (drug1, drug2 , cell_line_spec_gene_expression)
                     #here, h_sizes[-1] is the output dimension of embedding layer i.e. final dim of embedded drugs
                     # and len(gene_expression_feature_df.columns) is the #of gene expression features
+                    # nndecoder_hidden_layer_setup = synverse_params['nndecoder_hsize']
                     decoders[edge_type] = NNDecoder(edge_type,n_sub_types,h_sizes[-1]*2 + \
-                                        len(gene_expression_feature_df.columns), gene_expression_feature_df)
+                                        len(gene_expression_feature_df.columns),nndecoder_h_size,
+                                        gene_expression_feature_df)
 
 
             model = SynverseModel(encoder = encoder, decoders=decoders).to(dev)
@@ -1218,19 +1248,14 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
 
             wandb_step = 0
 
-            min_loss_dd_train = 1000
+            min_loss_dd_val_es = 1000
             min_loss_dd_val = 1000
-            min_loss_gg_train = 1000
-            min_loss_gg_val = 1000
-
-            min_loss_dg_train = 1000
-            min_loss_dg_val = 1000
-            min_loss_gd_train = 1000
-            min_loss_gd_val = 1000
 
             for epoch in range(1, epochs+1):
                 t10 = time.time()
                 #shuffle each training tensor  at the beginning of each epoch
+
+
                 train_pos_edges_dict = minibatch_handlder.shuffle_train_edges(train_pos_edges_dict)
                 train_neg_edges_dict = minibatch_handlder.shuffle_train_edges(train_neg_edges_dict)
 
@@ -1248,10 +1273,6 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
                                                                                batch_size * neg_fact, dim=1))
 
 
-                batch_count = 0
-
-
-                # while not minibatch_handlder.is_batch_finished():
                 while True:
                     if use_drug_based_batch_end:
                         if minibatch_handlder.is_batch_finished_new():
@@ -1262,65 +1283,55 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
 
                     # t13 = time.time()
                     e, edge_sub_type_idx, batch_num = minibatch_handlder.next_minibatch()
-                    # t14 = time.time()
-                    # print('time for next minibatch choosing: ', t14-t13)
-                    # print('egde_type:', e, 'edge_sub_type_idx:', edge_sub_type_idx, 'batch_num:', batch_num)
-                    # print('before split', train_pos_edges_dict['gene_gene'][0].size())
-                    # print('before split', train_pos_edges_dict[e][edge_sub_type_idx].size())
-                    #
-                    # print('train_pos_edges_split_dict:', type(train_pos_edges_split_dict[e][edge_sub_type_idx]),len(train_pos_edges_split_dict[e][edge_sub_type_idx]))
-                    # print('train_neg_edges_split_dict:', type(train_neg_edges_split_dict[e][edge_sub_type_idx]),len(train_neg_edges_split_dict[e][edge_sub_type_idx]))
 
                     batch_pos_train_edges = train_pos_edges_split_dict[e][edge_sub_type_idx][batch_num].to(dev)
                     #
                     batch_neg_train_edges = train_neg_edges_split_dict[e][edge_sub_type_idx][batch_num].to(dev)
 
                     # print(e, 'batches shapes: ', batch_pos_train_edges.shape, batch_neg_train_edges.shape )
-                    train(model, optimizer, batch_pos_train_edges, batch_neg_train_edges,\
+                    training_batch_loss  = train(model, optimizer, batch_pos_train_edges, batch_neg_train_edges,\
                                                 e, edge_sub_type_idx)
 
-                    # t15 = time.time()
-                    # print('time for batchwise training ', t15 - t14)
                     wandb_step+=1
-                    # if e == 'drug_drug':
-                    #
-                    #     cell_line = idx_2_cell_line[edge_sub_type_idx]
-                    #     train_log(training_batch_loss, wandb_step, e, cell_line)
-                    # if e == 'gene_gene':
-                    #     # wandb_step += 1
-                    #     train_log(training_batch_loss, wandb_step, e, 'gene_gene')
+                    if e == 'drug_drug':
+                        cell_line = idx_2_cell_line[edge_sub_type_idx]
+                        train_log(training_batch_loss, wandb_step, e, cell_line)
+                    if e == 'gene_gene':
+                        # wandb_step += 1
+                        train_log(training_batch_loss, wandb_step, e, 'gene_gene')
 
                     wandb.log({'Epoch': epoch}, step=wandb_step)
 
 
-                    # batch_count += 1
-
-
-                ##train and val loss plot after whole epoch
+                ##train and val_es loss plot after whole epoch
                 if epoch % 2 == 0:
-                    loss_dd_train = compute_and_plot_loss(model, 'drug_drug', train_pos_edges_split_dict, train_neg_edges_split_dict,
-                                                              edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
-                    loss_gg_train = compute_and_plot_loss(model, 'gene_gene', train_pos_edges_split_dict, train_neg_edges_split_dict,
-                                                              edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
+                    # loss_dd_train = compute_and_plot_loss(model, 'drug_drug', train_pos_edges_split_dict, train_neg_edges_split_dict,
+                    #                                           edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
+                    # loss_gg_train = compute_and_plot_loss(model, 'gene_gene', train_pos_edges_split_dict, train_neg_edges_split_dict,
+                    #                                           edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
                     #
                     # loss_dg_train = compute_and_plot_loss(model, 'drug_target', train_pos_edges_split_dict,train_neg_edges_split_dict,
                     #                                           edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
                     #
                     # gd_train = compute_and_plot_loss(model, 'target_drug', train_pos_edges_split_dict, train_neg_edges_split_dict,
                     #                                           edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
+                    #
+                    # print('find memory consumption in loss_dd_val: before')
+                    # gpu_memory_usage()
+                    #
+                    #
+                    # loss_dd_val_es = compute_and_plot_loss(model, 'drug_drug', val_es_pos_edges_split_dict, val_es_neg_edges_split_dict,
+                    #                                         edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val_es', epoch, wandb_step)
 
-                    print('find memory consumption in loss_dd_val: before')
-                    gpu_memory_usage()
-
-
-                    loss_dd_val = compute_and_plot_loss(model, 'drug_drug', val_pos_edges_split_dict, val_neg_edges_split_dict,
-                                                            edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
-
-                    print('after: ')
-                    gpu_memory_usage()
-
-                    loss_gg_val = compute_and_plot_loss(model, 'gene_gene', val_pos_edges_split_dict, val_neg_edges_split_dict,
-                                                            edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
+                    # # print('after: ')
+                    # # gpu_memory_usage()
+                    #
+                    # loss_dd_val = compute_and_plot_loss(model, 'drug_drug', val_pos_edges_split_dict,
+                    #                                        val_neg_edges_split_dict,
+                    #                                        edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val',
+                    #                                        epoch, wandb_step)
+                    # loss_gg_val = compute_and_plot_loss(model, 'gene_gene', val_pos_edges_split_dict, val_neg_edges_split_dict,
+                    #                                         edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
 
                     # loss_dg_val = compute_and_plot_loss(model, 'drug_target', val_pos_edges_split_dict,val_neg_edges_split_dict,
                     #                                         edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
@@ -1328,38 +1339,53 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
                     # loss_gd_val = compute_and_plot_loss(model, 'target_drug', val_pos_edges_split_dict, val_neg_edges_split_dict,
                     #                                         edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
 
-                    if loss_dd_val < min_loss_dd_val:
-                        if best_model_no>0:
-                            del best_model
-                            # print('')
-                        best_model = copy.deepcopy(model)
+                    loss_dd_val_es = compute_loss(model, 'drug_drug', val_es_pos_edges_split_dict, val_es_neg_edges_split_dict,
+                                                   edge_type_wise_number_of_subtypes)
+
+                    if loss_dd_val_es < min_loss_dd_val_es:
+
+                        best_model_path = save_best_model(model, encoder_type, dd_decoder_type, h_sizes,
+                                        use_drug_feat_option, lr,
+                                        epochs, batch_size, dr, out_dir, use_drug_based_batch_end)
+
                         required_epoch = epoch
-                        min_loss_dd_val = loss_dd_val
+                        min_loss_dd_val_es = loss_dd_val_es
+                        # min_loss_dd_val = loss_dd_val
                         no_improvement_val_loss = 0
                         print('saving new model', best_model_no)
                         best_model_no +=1
 
-
-                    if loss_dd_val >= min_loss_dd_val:
+                    if loss_dd_val_es >= min_loss_dd_val_es:
                         no_improvement_val_loss += 1
                         if no_improvement_val_loss > patience:
-                            save_model_info_with_loss(min_loss_dd_val, encoder_type, dd_decoder_type, h_sizes,
+                            #save the model with loss on 'val' dataset. depending on this loss value I will decide on the
+                            #best hyperparamater later.
+                            del model
+                            gc.collect()
+
+                            best_model = SynverseModel(encoder=encoder, decoders=decoders)
+                            best_model.load_state_dict(torch.load(best_model_path))
+                            best_model.to(dev)
+
+                            best_model_dd_val_loss= compute_loss(best_model, 'drug_drug', val_pos_edges_split_dict,\
+                                         val_neg_edges_split_dict, edge_type_wise_number_of_subtypes)
+                            save_model_info_with_loss(best_model_dd_val_loss, encoder_type, dd_decoder_type, nndecoder_h_size, h_sizes,
                                                       use_drug_feat_option, lr,
                                                       epochs, batch_size, dr, out_dir, use_drug_based_batch_end)
-                            save_best_model(best_model, encoder_type, dd_decoder_type, h_sizes,
-                                                      use_drug_feat_option, lr,
-                                                      epochs, batch_size, dr, out_dir, use_drug_based_batch_end)
+
+                            del best_model
+                            gc.collect()
                             break
 
                 print('epoch: ', epoch, ' epoch time: ', time.time() - t10)
-            save_model_info_with_loss(min_loss_dd_val, encoder_type, dd_decoder_type, h_sizes,
-                                      use_drug_feat_option, lr,
-                                      epochs, batch_size, dr, out_dir, use_drug_based_batch_end)
-            save_best_model(best_model, encoder_type, dd_decoder_type, h_sizes,
-                            use_drug_feat_option, lr,
-                            epochs, batch_size, dr, out_dir, use_drug_based_batch_end)
 
-            #save result from the best model here
+
+
+            #save test result from the best model here
+            best_model = SynverseModel(encoder = encoder, decoders=decoders)
+            best_model.load_state_dict(torch.load(best_model_path))
+            best_model.to(dev)
+
             test_edge_type = 'drug_drug'
             # total_test_loss = 0
             for edge_sub_type in range(edge_type_wise_number_of_subtypes[test_edge_type]):
@@ -1375,28 +1401,16 @@ def run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_
                         (batch_wise_pos_pred, batch_wise_neg_pred, cell_line, idx_2_drug_node)
                     pos_df = pd.concat([pos_df, batch_wise_pos_df], axis=0)
                     neg_df = pd.concat([neg_df, batch_wise_neg_df], axis=0)
-                # print('cell_line: ', cell_line)
-                # print('\n')
 
-            # print('memory use at the end of end of each fold (before cleaning')
-            # gpu_memory_usage()
-            # print('reference count of model and best model vars: ', sys.getrefcount(model), sys.getrefcount(best_model))
-            del model
             del best_model
             gc.collect()
+            os.remove(best_model_path)
 
-            # print('memory use at the end of end of each fold (after cleaning): ')
-            # gpu_memory_usage()
 
-            # torch.cuda.empty_cache()
-        save_drug_drug_link_probability(pos_df, neg_df, encoder_type, dd_decoder_type, h_sizes, use_drug_feat_option,
-                                        lr, epochs, batch_size, dr, out_dir, use_drug_based_batch_end)
+        save_drug_drug_link_probability(pos_df, neg_df, encoder_type, dd_decoder_type, h_sizes,
+                                        use_drug_feat_option,
+                                        lr, epochs, batch_size, dr, out_dir, use_drug_based_batch_end, nndecoder_h_size)
 
 
     #write code for
     gc.collect()
-
-
-    # print('memory use at the end of five folds: ')
-    # gpu_memory_usage()
-    # torch.cuda.empty_cache()

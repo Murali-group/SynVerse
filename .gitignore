@@ -3,6 +3,8 @@ datasets/
 documents/
 inputs/
 outputs/
+code/wandb/
+code/submodules/
 
 # # Jupyter Notebook
 .ipynb_checkpoints

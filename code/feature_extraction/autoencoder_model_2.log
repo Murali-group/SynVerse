@@ -1,0 +1,6 @@
+INFO:root:layers for best model: [512]
+INFO:root:val loss for best model: tensor(3.1283, device='cuda:0')
+INFO:root:layers for best model: [1024]
+INFO:root:val loss for best model: tensor(3.0066, device='cuda:0')
+INFO:root:layers for best model: [4096, 1024]
+INFO:root:val loss for best model: tensor(2.8180, device='cuda:0')

@@ -5,8 +5,11 @@ class EvalScore:
     auroc: float
     early_prec: float
 
-def set_title_suffix(model_param):
+def set_title_suffix(dataset_params, model_param):
     title_suffix = ''
+
+    for key in dataset_params:
+        title_suffix = title_suffix + '_' + key + '_' + str(dataset_params[key])
     for key in model_param:
         title_suffix = title_suffix +'_' + key +'_' + str(model_param[key])
     return title_suffix

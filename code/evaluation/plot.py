@@ -8,10 +8,29 @@ import matplotlib.pyplot as plt
 import statistics
 import numpy as np
 import pandas as pd
+import seaborn as sns
 from evaluation.utils import keep_one_from_symmetric_pairs, sort_max_drug_first
 from evaluation.compute import  compute_roc_prc
 from evaluation.utils import EvalScore
 from textwrap import wrap
+
+def name_for_plot(alg_name):
+    if alg_name=='synverse':
+        return 'SynVerse'
+    elif alg_name=='synverse_nogenex':
+        return 'S_nogenex'
+    elif alg_name == 'synverse_v3':
+        return 'SynVerse_v3'
+    elif alg_name == 'synverse_v4':
+        return 'SynVerse_v4'
+    elif alg_name == 'synverse_tissuenet':
+        return 'SynVerse_multippi'
+    elif alg_name=='decagon':
+        return 'Decagon'
+    elif alg_name=='dtf':
+        return 'DTF'
+    elif alg_name=='deepsynergy':
+        return 'DeepSynergy'
 
 # from evaluation.utils import EvalScore, set_title_suffix
 ################## input: single model instance, plot: overall performance#########################
@@ -61,21 +80,17 @@ def plot_predicted_score_distribution(df, title_suffix, plot_dir):
     # plt.clf()
     plt.close()
 
-################## input: prediction score single model instance,
+
+
+
+################## input: prediction score single model instance, single run
 ################## plot: cell line wise evaluation score of a model #########################
-def scatter_plot_auprc_auroc(df, title_suffix, plot_dir):
-    cell_lines = df['cell_line'].unique()
+def scatter_plot_auprc_auroc_single_run(AUPRC, AUROC, title_suffix, plot_dir):
+
     # df = keep_one_from_symmetric_pairs(df.copy(), aggregate='max')
 
     # _, _, _, _, auprc, auc = compute_roc_prc(df)
     # print('all cell lines: AUPRC, AUROC', auprc, auc)
-
-    precision, recall, FPR, TPR, AUPRC, AUROC = {}, {}, {}, {}, {}, {}
-
-    for cell_line in cell_lines:
-        cell_line_specific_df = df[df['cell_line'] == cell_line]
-        precision[cell_line], recall[cell_line], FPR[cell_line], TPR[cell_line], AUPRC[cell_line], AUROC[cell_line] \
-            = compute_roc_prc(cell_line_specific_df)
 
     AUPRC_sorted_dict = dict(sorted(AUPRC.items(), key=lambda item: item[1], reverse=True))
     AUROC_sorted_dict = dict(sorted(AUROC.items(), key=lambda item: item[1], reverse=True))
@@ -132,6 +147,70 @@ def scatter_plot_auprc_auroc(df, title_suffix, plot_dir):
     # plt.clf()
     plt.close()
 
+    return AUPRC, AUROC
+
+
+def box_plot_auprc_auroc_all_runs(auprc_all_runs, auroc_all_runs, title_suffix, \
+                                  cell_line_condition, plot_dir):
+    '''
+    This function will plot auprc and auroc score for each cell line separately
+    across all the runs for a certain algorithm with a certain param setting.
+    input: auprc_all_runs: dict of dict. The keys for outer dict are the run numbers.
+    the keys for inner dictionary are the cell_line names. So, this contains auprc scores for each
+    cell line across all runs for a ceratin algo with certain param setting.
+    same goes for auroc_all_runs.
+    '''
+
+    #plot AUPRC
+    if cell_line_condition=='sep':
+        auprc_all_runs_df = pd.DataFrame(auprc_all_runs)
+    elif cell_line_condition=='combo':
+        auprc_all_runs_df = pd.DataFrame(auprc_all_runs, index = [0])
+    auprc_all_runs_df = auprc_all_runs_df.T
+
+    sns.boxplot(data=auprc_all_runs_df, whis=[0,1])
+
+
+    title_suffix = title_suffix.replace('use_','')
+    title_suffix = title_suffix.replace('sampling','')
+
+    file_title = 'AUPRC_all_runs_' + cell_line_condition + '_'+title_suffix
+    plt.xticks(rotation='vertical', fontsize=5)
+    plot_title = '\n'.join(wrap(file_title, 50))
+    plt.title(plot_title, loc='left')
+    plt.tight_layout(pad=1, w_pad=0.4, h_pad=0.5)
+
+    plot_filename = plot_dir + file_title + '.pdf'
+    plt.savefig(plot_filename, bbox_inches='tight')
+    plt.show()
+    # plt.clf()
+    plt.close()
+
+    # plot AUROC
+    if cell_line_condition=='sep':
+        auroc_per_cell_line_all_runs_df = pd.DataFrame(auroc_all_runs)
+    elif cell_line_condition =='combo':
+        auroc_per_cell_line_all_runs_df = pd.DataFrame(auroc_all_runs, index=[0])
+    auroc_per_cell_line_all_runs_df = auroc_per_cell_line_all_runs_df.T
+
+    sns.boxplot(data=auroc_per_cell_line_all_runs_df, whis=[0,1])
+
+    file_title = 'AUROC_all_runs_' + cell_line_condition + '_'+title_suffix
+    plt.xticks(rotation='vertical', fontsize=5)
+    plot_title = '\n'.join(wrap(file_title, 50))
+    plt.title(plot_title, loc='left')
+    plt.tight_layout(pad=1, w_pad=0.4, h_pad=0.5)
+
+    plot_filename = plot_dir + file_title + '.pdf'
+
+    plt.savefig(plot_filename, bbox_inches='tight')
+    plt.show()
+    # plt.clf()
+    plt.close()
+
+
+
+
 def plot_roc_prc(precision, recall, FPR, TPR, title_suffix, plot_dir):
     ## Make PR curves
 
@@ -184,9 +263,7 @@ def plot_roc_prc(precision, recall, FPR, TPR, title_suffix, plot_dir):
     plt.show()
     plt.close()
 
-
-
-def plot_best_models_auprc_auroc_e_prec(early_prec_k,neg_fact, eval_score_dict, model_param_dict, plot_dir):
+def plot_best_models_auprc_auroc_e_prec(early_prec_k,neg_fact, eval_score_dict, plot_dir):
     #eval_score_dict[alg] => is a list containing the performance of best-param-setting-model of 'alg'. This is a
     # list because it contains score from multiple runs
     auprc_data_all_alg = []
@@ -204,26 +281,54 @@ def plot_best_models_auprc_auroc_e_prec(early_prec_k,neg_fact, eval_score_dict, 
         auprc_data_all_alg.append(auprc_data)
         auroc_data_all_alg.append(auroc_data)
         e_prec_data_all_alg.append(e_prec_data)
-        plot_label.append(alg)
+
+        alg_name_for_plot = name_for_plot(alg)
+        plot_label.append(alg_name_for_plot)
 
         print('Parameter for best model: ' + alg)
-        print(model_param_dict[alg])
+    fig, ax = plt.subplots()
+    ax.margins(x=0)
 
     plt.boxplot(auprc_data_all_alg, labels=plot_label)
-    plt.xlabel('Algorithms')
-    plt.ylabel('AUPRC')
-    plt.title('comparing AUPRC of different algorithms')
+    print('AUPRC: ', auprc_data_all_alg)
+    # bplot = plt.boxplot(auprc_data_all_alg, labels=plot_label,
+    #                     patch_artist=True, widths=0.7, positions = [0,1,2])
+    #
+    # colors = ['pink', 'lightblue', 'lightgreen']
+    # for patch, color in zip(bplot['boxes'], colors):
+    #     patch.set_facecolor(color)
 
+    y_val = 1 / float(1 + neg_fact)
+    plt.axhline(y=y_val, color="gray", linestyle="--")
+    ax.set_ylim([0.5, 0.85])
+
+    plt.xlabel('Algorithms', fontsize=11)
+    plt.xticks(fontsize=8.5)
+    plt.ylabel('AUPRC', fontsize=11)
+    plt.title('Comparing AUPRC', fontsize=12)
+    # plt.tight_layout()
     plt.tight_layout()
+
     plt.savefig(plot_dir + 'compare_AUPRC.png', bbox_inches='tight')
     plt.savefig(plot_dir + 'compare_AUPRC.pdf', bbox_inches='tight')
     plt.show()
     plt.close()
+    print(plot_dir + 'compare_AUPRC.png')
 
+    #AUROC
+    fig, ax = plt.subplots()
     plt.boxplot(auroc_data_all_alg, labels=plot_label)
+    # bplot = plt.boxplot(auroc_data_all_alg, labels=plot_label, patch_artist=True)
+    # colors = ['pink', 'lightblue', 'lightgreen']
+    # for patch, color in zip(bplot['boxes'], colors):
+    #     patch.set_facecolor(color)
+
+    y_val = 0.5
+    plt.axhline(y=y_val, color="gray", linestyle="--")
+    ax.set_ylim([0.5, 0.85])
     plt.xlabel('Algorithms')
     plt.ylabel('AUROC')
-    plt.title('comparing AUROC of different algorithms')
+    plt.title('Comparing AUROC of different algorithms')
 
     plt.tight_layout()
     plt.savefig(plot_dir+'compare_AUROC.png', bbox_inches='tight')
@@ -231,15 +336,17 @@ def plot_best_models_auprc_auroc_e_prec(early_prec_k,neg_fact, eval_score_dict, 
     plt.show()
     plt.close()
 
+    #Early Prec
+    fig, ax = plt.subplots()
     plt.boxplot(e_prec_data_all_alg, labels=plot_label)
-    
+    # bplot = plt.boxplot(e_prec_data_all_alg, labels=plot_label, patch_artist=True)
+    # colors = ['pink', 'lightblue', 'lightgreen']
+    # for patch, color in zip(bplot['boxes'], colors):
+    #     patch.set_facecolor(color)
     #plot baseline
     y_val = 1/float(1+neg_fact)
-    # x = np.arange(0,1,0.1 )
-    # y = [y_val]*len(x)
-    # plt.plot(x,y)
-    plt.axhline(y=y_val, color='r', linestyle='-')
-
+    plt.axhline(y=y_val, color="gray", linestyle="--")
+    ax.set_ylim([0.5,0.85])
     plt.xlabel('Algorithms')
     plt.ylabel('Early_precision_at '+ str(early_prec_k))
     plt.title('comparing early precision of different algorithms')

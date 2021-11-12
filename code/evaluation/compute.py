@@ -5,6 +5,17 @@ from rpy2.robjects import FloatVector
 from sklearn.metrics import precision_recall_curve, roc_curve, auc
 import pandas as pd
 
+
+def compute_auprc_auroc_per_cell_line(df):
+
+    precision, recall, FPR, TPR, AUPRC, AUROC = {}, {}, {}, {}, {}, {}
+    cell_lines = df['cell_line'].unique()
+    for cell_line in cell_lines:
+        cell_line_specific_df = df[df['cell_line'] == cell_line]
+        precision[cell_line], recall[cell_line], FPR[cell_line], TPR[cell_line], AUPRC[cell_line], AUROC[cell_line] \
+            = compute_roc_prc(cell_line_specific_df)
+    return AUPRC, AUROC
+
 def compute_roc_prc(output_df):
     prroc = importr('PRROC')
     prCurve = prroc.pr_curve(scores_class0 = FloatVector(list(output_df['predicted'].values)),
@@ -17,10 +28,10 @@ def compute_roc_prc(output_df):
                                                       probas_pred=output_df['predicted'], pos_label=1)
     return prec, recall, fpr, tpr, prCurve[2][0], auc(fpr, tpr)
 
-def compute_prec_rec_at_each_rank(df, filename, force_run=True):
+def compute_prec_rec_at_each_rank(df, filename, force_run):
     ## input: df => contains  columns: 'drug_1', 'drug_2', 'cell_line','predicted', 'true' (both 1 and 0 labled pairs are present).
 
-    if(not os.path.exists(filename) | force_run==True):
+    if(not os.path.exists(filename)) | force_run==True:
         print('compute prec recall')
         #sort df according to descending order of prediction score
         df = df[['drug_1', 'drug_2', 'cell_line', 'predicted', 'true']].sort_values(by=['predicted'], ascending=False)

@@ -3,6 +3,8 @@ dataset_settings:
     # Base directory where datasets will be placed
     datasets_dir: "datasets"
     # list of mapping files, one per species. Will be placed in datasets/mapping/species/
+
+    cell_lines: 'datasets/drug-comb-db/cell_line.csv'
     mappings:
       #### Mapping options:
       # *mapping_file*: path to file. Can be gzipped
@@ -72,35 +74,36 @@ string_network_preparation_settings:
     string_nets: "combined_score"
     weight_method: add
     string_net_files: "9606-uniprot-links-full-v11.txt.gz"
-    string_dir: "datasets/networks/stringv11/" 
-    
-    
+    string_dir: "datasets/networks/stringv11/"
+
+
 ml_models_settings:
     algs:
         synverse:
-            should_run: True
-            h_sizes: [64]
-            batch_size: 4096
-            learning_rate: 0.001
-            epochs: 100
-            epoch_checks: [50,100,150,200,300,400]
-            weight_decay: 0
-            dropout: 0.4
-            max_margin: 0.1
-            bias: True
-            use_drug_feat: [True]
+          should_run: True
+          encoder: 'local'
+          decoder: 'nndecoder'
+          hsize: [[128, 64]]
+          nn_hsize: [[256,64]]
+          batch: 8000
+          lr: [ 0.0001 ]
+          e: 1000
+          dr: [ 0.2 ] # add dropout=0 later
+          bias: True
+          drugfeat: [ True ]
+          patience: 20
 
-
-        deepsynergy:
+        deepsynergy: #permanent
           should_run: False
-          layers: [ [ 4096, 2048, 1 ],[ 4096, 2048, 1024, 1 ],   [ 4096,4096,1 ], [ 2048, 2048,1 ] ]
-          learning_rate: [ 0.001, 0.0001 ]
-          in_hid_dropouts: [ [ 0,0 ],[ 0.2, 0.4 ] ]
-          #            dropout: [0,0.5]
-          batch_size: 1024
-          epochs: 400
+          layers: [[ 2048, 2048,1 ], [2048, 1024, 1],[ 4096, 4096,1 ], [ 4096, 2048,1 ],[ 2048, 2048, 2048,1 ], [ 2048, 1024, 512,1 ], [ 4096, 4096, 4096,1 ], [ 4096, 2048, 1024,1 ], [4096, 2048, 1024, 512, 1]]
+
+          learning_rate: [ 0.001, 0.0001, 0.00001 ]
+          in_hid_dropouts: [[0,0], [ 0.2, 0.4 ] ]
+          batch_size: 2048
+          epochs: 1000
           act_func: 'relu'
-          norm: 'tanh'
+          norm: 'no' #not being used currently
+          patience: 30
 
         decagon:
             should_run: False
@@ -114,19 +117,16 @@ ml_models_settings:
             bias: True
             use_drug_feat: [True]
 
-
-
-
         svm:
             should_run: False
-        
+
         gbr:
             should_run: False
     cross_val:
-        test_frac: 0.1
+        val_frac: 0.1
         neg_fact: 1
         folds: 5
-        runs: 1
+        runs: 5
         #1. Leave drug combination out in all cell line (leave_comb) 2. Random Cross Validation (random)
         #                  3. Leave one-drug out (lod) 4.Leave one-cell line out(loc)
 #        types: ['leave_comb', 'leave_drug', 'leave_cell', 'random']
@@ -141,11 +141,15 @@ synergy_data_settings:
       net_create_val: 0
       performance_eval_val: 0
     top_k_percent_pairs: 10
-    number_of_top_cell_lines: 10
-        
-    
-project_dir: '/home/tasnina/Projects/SynVerse/'
-inputs: 
+    number_of_top_cell_lines: 20
+
+autoencoder_settings:
+    epochs: 1000
+    h_sizes_and_out: [[256],[512],[256,64],[2048, 512],[1024, 256],[4096, 1024, 256],[2048, 512, 128],[1024,256,64]]
+
+machine_name: 'csbgpu'
+project_dir: '/home/grads/tasnina/Projects/SynVerse/'
+inputs:
     ppi: 'inputs/networks/'
         # mat: /c"+str(string_cutoff)+"_combined_score_sparse_net.mat"
         # nodes: "inputs/networks/c"+str(string_cutoff)+"_combined_score_node_ids.txt"
@@ -154,8 +158,12 @@ inputs:
         target: "inputs/drugs/drug_target_map.tsv"
         maccs_keys : "inputs/drugs/single_drugs_maccskeys_features.tsv"
         maccs_keys_targets: "inputs/drugs/single_drugs_maccskeys_target_features.tsv"
-
+    cell_lines:
+        Z_SCORE: "inputs/cell_lines/cell_lines_expression_Z_SCORE.tsv"
+        REGULATION:  "inputs/cell_lines/cell_lines_expression_REGULATION.tsv"
+        compressed_gene_expression: "inputs/cell_lines/models_07_13_can_use/compressed_gene_expression_manual.tsv"
     synergy_dir: "inputs/synergy/"
+
     synergy: "inputs/synergy/synergy_labels.tsv"
 
 output_dir:

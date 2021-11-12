@@ -31,7 +31,7 @@ def create_drug_drug_pairs_feature(drug_maccs_keys_targets_feature_df, cell_line
     drug_1_2_maccs_keys_targets_cell_lines.rename(columns=new_cols_1, inplace=True)
     drug_2_1_maccs_keys_targets_cell_lines.rename(columns=new_cols_2, inplace=True)
 
-    print(len(drug_1_2_maccs_keys_targets_cell_lines.columns), len(drug_2_1_maccs_keys_targets_cell_lines.columns))
+    # print(len(drug_1_2_maccs_keys_targets_cell_lines.columns), len(drug_2_1_maccs_keys_targets_cell_lines.columns))
 
     drugs_cell_lines = pd.concat([drug_1_2_maccs_keys_targets_cell_lines, drug_2_1_maccs_keys_targets_cell_lines], \
                                  axis=0)
@@ -60,21 +60,26 @@ def create_syn_non_syn_feat_labels(drug_maccs_keys_targets_feature_df, cell_line
     return feat_df, label
 
 
-def save_drug_syn_probability(pos_df, neg_df, layer_setup, lr, input_dropout, dropout, batch_size, epochs, act_func,
-                              run_, out_dir):
-    # inputs: df with link prediction probability after applying sigmoid on models predicted score for an edges(positive, negative)
-    pos_out_file = out_dir + 'run_' + str(run_) + '/' + \
-                   '/pos_val_scores' + '_layers_' + str(layer_setup) + '_e_' + str(epochs) + '_lr_' + str(
-        lr) + '_batch_' + str(batch_size) + '_dr_' + \
-                   str(input_dropout) + '_' + str(dropout) + '_act_' + str(act_func) + '.tsv'
-
-    neg_out_file = out_dir + 'run_' + str(run_) + '/' + \
-                   '/neg_val_scores' + '_layers_' + str(layer_setup) + '_e_' + str(epochs) + '_lr_' + str(
-        lr) + '_batch_' + str(batch_size) + '_dr_' + \
-                   str(input_dropout) + '_' + str(dropout) + '_act_' + str(act_func) + '.tsv'
-
-    os.makedirs(os.path.dirname(pos_out_file), exist_ok=True)
-    os.makedirs(os.path.dirname(neg_out_file), exist_ok=True)
-
-    pos_df.to_csv(pos_out_file, sep='\t')
-    neg_df.to_csv(neg_out_file, sep='\t')
+def normalize(X, means1=None, std1=None, means2=None, std2=None, feat_filt=None, norm='tanh_norm'):
+    if std1 is None:
+        std1 = np.nanstd(X, axis=0)
+    if feat_filt is None:
+        feat_filt = std1!=0
+    X = X[:,feat_filt]
+    X = np.ascontiguousarray(X)
+    if means1 is None:
+        means1 = np.mean(X, axis=0)
+    X = (X-means1)/std1[feat_filt]
+    if norm == 'norm':
+        return(X, means1, std1, feat_filt)
+    elif norm == 'tanh':
+        return(np.tanh(X), means1, std1, feat_filt)
+    elif norm == 'tanh_norm':
+        X = np.tanh(X)
+        if means2 is None:
+            means2 = np.mean(X, axis=0)
+        if std2 is None:
+            std2 = np.std(X, axis=0)
+        X = (X-means2)/std2
+        X[:,std2==0]=0
+        return(X, means1, std1, means2, std2, feat_filt)

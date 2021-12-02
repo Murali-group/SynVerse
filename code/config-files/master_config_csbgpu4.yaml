@@ -79,102 +79,153 @@ string_network_preparation_settings:
 
 ml_models_settings:
     algs:
-      synverse:
-        should_run: True
-        encoder: 'local'
-        decoder: 'nndecoder'
-        hsize: [ [ 128, 64 ] ]
-        nn_hsize: [[ 256,64 ] ]
-        batch: 8000
-        lr: [ 0.0001 ]
-        e: 1000
-        dr: [ 0.4 ] # add dropout=0 later
-        bias: True
-        drugfeat: [ True ]
-        patience: 20
-
-      synverse_nogenex:
-        should_run: False
-        encoder: 'local'
-        decoder: 'nndecoder'
-        hsize: [ [ 128, 64 ] ]
-        nn_hsize: [ [ 256,64 ] ]
-        batch: 8000
-        lr: [ 0.0001 ]
-        e: 1000
-        dr: [ 0.2 ] # add dropout=0 later
-        bias: True
-        drugfeat: [ True ]
-        patience: 20
-
-      synverse_v3:
-        should_run: False
-        encoder: 'local'
-        decoder: 'dedicom'
-        hsize: [ [ 512, 128, 64 ] ]
-        nn_hsize: [ [ 256,64 ] ]
-        batch: 8000
-        lr: [ 0.0001 ]
-        e: 1000
-        dr: [ 0.2 ] # add dropout=0 later
-        bias: True
-        drugfeat: [ True ]
-        patience: 20
-        norm: [ 'no' ]
+        synverse:
+          should_run: True
+          encoder: [ 'local' ]
+          conv: [ 'GCN' ]
+          hsize: [ [ 128, 64 ] ]
+          decoder: [ 'nn' ]
+          nn_hsize: [ [ 256,64 ] ]
+          batch: [ 8000 ]
+          lr: [ 0.001 ]
+          e: [ 1000 ]
+          dr: [ 0.4 ] # add dropout=0 later
+          bias: [ True ]
+          drugfeat: [ True ]
+          patience: [ 30 ]
 
 
-      deepsynergy: #permanent
-        should_run: False
-        layers: [ [512, 256, 1],[ 2048, 2048,1 ], [ 2048, 1024, 1 ],[ 4096, 4096,1 ], [ 4096, 2048,1 ],[ 2048, 2048, 2048,1 ], [ 2048, 1024, 512,1 ], [ 4096, 4096, 4096,1 ], [ 4096, 2048, 1024,1 ], [ 4096, 2048, 1024, 512, 1 ] ]
-        lr: [ 0.001, 0.0001 ]
-        dr: [ [ 0.2, 0.4 ] ]
-        norm: ['norm', 'tanh', 'tanh_norm','no']
-        batch: 2048
-        e: 1000
-        act : 'relu'
-        patience: 30
-        use_genex : True
-        use_target: False
+        synverse_nogenex:
+          should_run: False
+          encoder: [ 'local_v2' ]
+          conv: [ 'GCN' ]
+          hsize: [ [ 128, 64 ] ]
+          decoder: [ 'nn_nogenex' ]
+          nn_hsize: [ [ 256,64 ] ]
+          batch: [ 8000 ]
+          lr: [ 0.001 ]
+          e: [ 1000 ]
+          dr: [ 0.2 ] # add dropout=0 later
+          bias: [ True ]
+          drugfeat: [ True ]
+          patience: [ 30 ]
 
-      decagon:
-        should_run: False
-        encoder: 'local'
-        decoder: 'dedicom'
-        hsize: [ [ 128, 64 ] ]
-        batch: 8000
-        lr: [ 0.0001 ]
-        e: 1000
-        dr: [ 0.4 ]
-        bias: True
-        drugfeat: [ True ]
-        patience: 20
 
-      svm:
-        should_run: False
+        decagon:
+          should_run: False
+          encoder: [ 'local_v2' ]
+          conv: [ 'GCN' ]
+          hsize: [ [ 128, 64 ] ]
+          decoder: [ 'dedicom' ]
+          batch: [ 8000 ]
+          lr: [ 0.001 ]
+          e: [ 1000 ]
+          dr: [ 0.4 ]
+          bias: [ True ]
+          drugfeat: [ True ]
+          patience: [ 30 ]
 
-      gbr:
-        should_run: False
-    cross_val:
-        val_frac: 0.1
-        neg_fact: 1
-        folds: 5
-        #1. Leave drug combination out in all cell line (leave_comb) 2. Random Cross Validation (random)
-        #                  3. Leave one-drug out (lod) 4.Leave one-cell line out(loc)
-#        types: ['leave_comb', 'leave_drug', 'leave_cell_line', 'random']
-        types: ['leave_comb']
-    runs: 1
+        synverse_v4:
+          should_run: False
+          encoder: ['local_v2']
+          conv: ['GAT']
+          hsize: [ [ 128, 64 ] ]
+          decoder: ['nn']
+          nn_hsize: [ [ 256,64 ] ]
+          batch: [8000]
+          lr: [ 0.001 ]
+          e: [1000]
+          dr: [ 0.2 ] # add dropout=0 later
+          bias: [True]
+          drugfeat: [ True ]
+          patience: [30]
+
+
+        synverse_tissuenet:
+          should_run: False
+          encoder: [ 'local' ]
+          conv: [ 'GCN' ]
+          decoder: [ 'dedicom' ]
+          gg_decoder: [ 'dedicom' ]
+          hsize: [ [ 128, 64 ] ]
+          batch: [ 16000 ]
+          lr: [ 0.001 ]
+          e: [ 1000 ]
+          dr: [ 0.4 ] # add dropout=0 later
+          bias: [ True ]
+          drugfeat: [ True ]
+          patience: [ 30 ]
+
+
+        deepsynergy: #best model
+          should_run: False
+          layers: [ [ 2048, 2048,1 ] ]
+          lr: [ 0.001 ]
+          dr: [ [ 0.2, 0.4 ] ]
+          norm: [ 'tanh_norm' ]
+          batch: [2048]
+          e: [10]
+          act: ['relu']
+          patience: [2]
+          use_genex: [False, True]
+          use_target: [False, True]
+          use_maccs: [False, True]
+
+
+
+        svm:
+          should_run: False
+          gamma: ['auto']
+          c: [1, 5, 10, 100]
+          kernel: ['linear', 'poly', 'rbf', 'sigmoid']
+          use_genex: [True]
+          use_target: [True]
+
+
+
+        gbr:
+          should_run: False
+          learning_rate: [0.001, 0.0001, 0.1]
+          max_depth : [2, 4, 10]
+          n_estimators: [100, 1000, 50]
+          use_genex: True
+          use_target: True
+
+
+        dtf:
+          should_run: False
+          nn_struct: [[1024, 1024, 512], [2048, 2048, 1024], [2048, 1024, 512], [2048, 2048, 2048],
+          [ 1024, 1024, 1024 ], [ 2048, 2048 ], [ 1024, 1024 ], [ 512, 512 ], [ 2048, 2014 ], [ 1024, 512 ] ]
+          learning_rate: [0.0001]
+          norm: ['norm','tanh', 'tanh_norm']
+          dr: [[0, 0], [0.2, 0.5]]
+
+split:
+    sampling: 'semi_random'
+    neg_frac: 1
+    val_frac: 0.1
+    folds: 5
+
+    #1. Leave drug combination out in all cell line (leave_comb) 2. Random Cross Validation (random)
+    #                  3. Leave one-drug out (lod) 4.Leave one-cell line out(loc)
+#        types: ['leave_comb', 'leave_drug', 'leave_cell_line', leave_comb_cell_line','test_rare_cell_lines', 'random']
+    type: 'leave_comb'
+runs: 5
 
 synergy_data_settings:
-    min_pairs: 50
-    max_pairs: 50000 #maximum number of pairs present across all cell lines is less than 50,000. So, want to put no limit on maix pairs then put max_pairs= 50,000
-    threshold:
-      should_apply: True
-      val: 0
-      net_create_val: 0
-      performance_eval_val: 0
-    top_k_percent_pairs: 10
-    number_of_top_cell_lines: 20
-    number_of_test_cell_lines: 10
+    apply_range: False
+    min: 50
+    max: 50000 #maximum number of pairs present across all cell lines is less than 50,000. So, want to put no limit on maix pairs then put max_pairs= 50,000
+
+    apply_threshold: False #should apply threshold to determine synergy?
+    threshold: 0
+
+    take_top: True #or should take some top k percent pairs as synergistic
+    n_top_cell_lines: 20
+    percent: 10
+
+    n_rare_cell_lines: 10
+
 
 genex_data_settings:
   reduce_dim: True
@@ -208,4 +259,7 @@ inputs:
     synergy: "inputs/synergy/synergy_labels.tsv"
 
 output_dir:
-    "outputs/"
+  split: "outputs/split/"
+  result: "outputs/result/"
+  viz :  "outputs/viz/"
+

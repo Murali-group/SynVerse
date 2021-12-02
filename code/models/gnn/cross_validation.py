@@ -7,6 +7,57 @@ import copy
 import pickle
 import os
 
+
+def prepare_cross_val_folds(folds_pos_drug_drug_edges, folds_neg_drug_drug_edges, \
+                            synergy_df, non_synergy_df, adj_mats_init, neg_sampling_type, neg_fact, number_of_folds,
+                            cross_val_dir):
+    # cross validation folds contain only drug_pair index from synergy_df. Convert validation folds into list of (drug-idx, drug-idx, cell_line_idx) pairs.
+    # after the following two processing both pos and neg cross validation folds will contain both (x,y,cell_line) and (y,x,cell_line tuples.)
+    edges_all_cell_line = list(zip(synergy_df['Drug1_idx'], synergy_df['Drug2_idx'], synergy_df['Cell_line_idx']))
+
+    temp_folds_1 = {i: {'test': [], 'train': [], 'val': [], 'val_es': []} for i in range(number_of_folds)}
+    for fold in folds_pos_drug_drug_edges:
+        # print('test: ', fold, len(cross_validation_folds[fold]), cross_validation_folds[fold])
+        for split_type in ['test', 'train', 'val', 'val_es']:
+            temp_folds_1[fold][split_type] = [edges_all_cell_line[x] for x in
+                                              folds_pos_drug_drug_edges[fold][split_type]]
+            temp_folds_1[fold][split_type] += [(drug_2_idx, drug_1_idx, cell_line_idx) for
+                                               drug_1_idx, drug_2_idx, cell_line_idx in
+                                               temp_folds_1[fold][split_type]]
+    folds_pos_drug_drug_edges = temp_folds_1
+
+    # cross validation folds contain only drug_pair index from non_synergy_df. Convert validation folds into list of (drug-idx, drug-idx) pairs.
+    temp_folds_2 = {i: {'test': [], 'train': [], 'val': [], 'val_es': []} for i in range(number_of_folds)}
+    neg_edges_all_cell_line = list(
+        zip(non_synergy_df['Drug1_idx'], non_synergy_df['Drug2_idx'], non_synergy_df['Cell_line_idx']))
+    for fold in folds_neg_drug_drug_edges:
+        # print('test: ', fold, len(cross_validation_folds[fold]), cross_validation_folds[fold])
+        for split_type in ['test', 'train', 'val', 'val_es']:
+            temp_folds_2[fold][split_type] = [neg_edges_all_cell_line[x] for x in
+                                              folds_neg_drug_drug_edges[fold][split_type]]
+            temp_folds_2[fold][split_type] += [(drug_2_idx, drug_1_idx, cell_line_idx) for
+                                               drug_1_idx, drug_2_idx, cell_line_idx in
+                                               temp_folds_2[fold][split_type]]
+        # print(temp_cross_validation_folds[fold][0:10], cross_validation_folds_pos_drug_drug_edges[fold][0:10])
+    folds_neg_drug_drug_edges = temp_folds_2
+
+    non_drug_drug_edge_types = ['gene_gene', 'drug_target']
+    # non_drug_drug_edge_types = ['drug_target']
+    pos_non_drug_drug_edges = create_cross_val_split_non_drug_drug_edges \
+        (number_of_folds, adj_mats_init, non_drug_drug_edge_types, cross_val_dir)
+
+    if neg_sampling_type == 'degree_based':
+        folds_neg_non_drug_drug_edges = create_degree_based_neg_cross_val_split_non_drug_drug_edges \
+            (number_of_folds, adj_mats_init, non_drug_drug_edge_types, neg_fact, cross_val_dir)
+    elif (neg_sampling_type == 'semi_random') | (neg_sampling_type == 'no'):
+        folds_neg_non_drug_drug_edges = create_semi_random_neg_cross_val_split_non_drug_drug_edges \
+            (number_of_folds, adj_mats_init, non_drug_drug_edge_types, neg_fact, cross_val_dir)
+
+    return folds_pos_drug_drug_edges, folds_neg_drug_drug_edges, \
+           pos_non_drug_drug_edges, folds_neg_non_drug_drug_edges
+
+
+
 def create_cross_val_split_non_drug_drug_edges(number_of_folds, adj_mats_init, non_drug_drug_edge_types, cross_val_dir):
 
     pickle_file = cross_val_dir + '/pos_non_drug_drug.pickle'

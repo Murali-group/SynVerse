@@ -30,15 +30,23 @@ import torch.nn as nn
 from torch.nn import Parameter
 import torch.nn.functional as F
 import torch_geometric.transforms as T
-from torch_geometric.nn import GCNConv, SAGEConv, GATConv, TransformerConv, RGCNConv
+from torch_geometric.nn import GCNConv, GAE, VGAE, SAGEConv, GMMConv, GATConv
+from torch_geometric.data import InMemoryDataset
+from torch_geometric.data import Data
+from sklearn.decomposition import PCA
+from torch.utils.tensorboard import SummaryWriter
+from torch_geometric.utils import to_undirected, negative_sampling
+from torch_geometric.nn.models import InnerProductDecoder
 from torch_geometric.nn.inits import reset
 
 import models.gnn.gnn_utils as utils
-import models.gnn.cross_validation_multippi as cross_val
+import models.gnn.cross_validation as cross_val
 from models.gnn.gnn_minibatch import MinibatchHandler
 from models.gnn.BipartiteGCN import BipartiteGCN
+
 import logging
-logging.basicConfig(filename='synverse_model.log', filemode='a', level=logging.DEBUG)
+logging.basicConfig(filename='decagon_model.log', filemode='a', level=logging.DEBUG)
+
 
 import wandb
 import nvidia_smi
@@ -47,12 +55,22 @@ import nvidia_smi
 EPS = 1e-15
 MAX_LOGVAR = 10
 dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 process = psutil.Process(os.getpid())
 
-conv_dict = {'GCN': GCNConv, 'SAGE': SAGEConv, 'GAT': GATConv, 'Trans': TransformerConv}
 
+def gpu_memory_usage():
+    nvidia_smi.nvmlInit()
+    handle = nvidia_smi.nvmlDeviceGetHandleByIndex(0)
+    # card id 0 hardcoded here, there is also a call to get all available card ids, so we could iterate
 
+    info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
 
+    # print("Total memory:", (info.total)/(1024*1024))
+    print("Free memory:", (info.free)/(1024*1024))
+    print("Used memory:", (info.used)/(1024*1024))
+
+    nvidia_smi.nvmlShutdown()
 
 
 def sigmoid(x):
@@ -98,6 +116,7 @@ def compute_drug_drug_link_probability(cell_line_specific_edges_pos, cell_line_s
                                                                                                     ascending=False)
         return pos_df, neg_df
 
+
 def compute_loss(model, edge_type, pos_edges_split_dict, neg_edges_split_dict,
                           edge_type_wise_number_of_subtypes):
     total_loss = 0
@@ -126,44 +145,21 @@ def compute_loss(model, edge_type, pos_edges_split_dict, neg_edges_split_dict,
 
 
 
+
+
 def compute_and_plot_loss(model, edge_type, pos_edges_split_dict, neg_edges_split_dict, \
                            edge_type_wise_number_of_subtypes, idx_2_cell_line, train_or_val, epoch, wandb_step):
-    # total_loss = 0
-    # n_cell_lines = 0
-    # for edge_sub_type in range(edge_type_wise_number_of_subtypes[edge_type]):
-    #     cell_line_wise_loss = 0
-    #     for split_idx in range(len(pos_edges_split_dict[edge_type][edge_sub_type])):
-    #         pos_edges = pos_edges_split_dict[edge_type][edge_sub_type][split_idx].to(dev)
-    #         neg_edges = neg_edges_split_dict[edge_type][edge_sub_type][split_idx].to(dev)
-    #         batch_wise_pos_pred, batch_wise_neg_pred, loss = val(model, pos_edges,
-    #                                                                    neg_edges, edge_type,
-    #                                                                    edge_sub_type)
-    #         cell_line_wise_loss += loss
-    #     cell_line_wise_loss = cell_line_wise_loss/float(len(pos_edges_split_dict[edge_type][edge_sub_type]))
-    #     if not torch.isnan(cell_line_wise_loss):
-    #         total_loss += cell_line_wise_loss.to('cpu').detach().item()
-    #         n_cell_lines+=1
-    #
-    #     # if edge_type == 'drug_drug':
-    #     #     cell_line = idx_2_cell_line[edge_sub_type]
-    #     #     cell_line_wise_title = train_or_val + '_loss_' + cell_line
-    #     #     wandb.log({cell_line_wise_title: cell_line_wise_loss}, step=wandb_step)
-    # avg_loss = total_loss/float(n_cell_lines)
-    # print('edge_type avg loss: ', edge_type, avg_loss)
-    # wandb.log({train_or_val+ '_loss_'+ edge_type: avg_loss}, step=wandb_step)
+
     avg_loss = compute_loss(model, edge_type, pos_edges_split_dict, neg_edges_split_dict,
                           edge_type_wise_number_of_subtypes)
+    print('avg_loss',avg_loss)
     wandb.log({train_or_val + '_loss_' + edge_type: avg_loss}, step=wandb_step)
 
     return avg_loss
 
 
 
-
-
-
-
-class SynverseModel(torch.nn.Module):
+class DecagonModel(torch.nn.Module):
     r"""The Graph Auto-Encoder model from the
     `"Variational Graph Auto-Encoders" <https://arxiv.org/abs/1611.07308>`_
     paper based on user-defined encoder and decoder models.
@@ -177,10 +173,10 @@ class SynverseModel(torch.nn.Module):
     """
 
     def __init__(self, encoder, decoders):
-        super(SynverseModel, self).__init__()
+        super(DecagonModel, self).__init__()
         self.encoder = encoder
         self.decoders = decoders
-        SynverseModel.reset_parameters(self)
+        DecagonModel.reset_parameters(self)
 
     def reset_parameters(self):
         reset(self.encoder)
@@ -208,6 +204,7 @@ class SynverseModel(torch.nn.Module):
             z (Tensor): The latent space :math:`\mathbf{Z}`.
             pos_edge_index (LongTensor): The positive edges to train against.
         """
+
         pos_loss = -torch.log(self.decoders[edge_type](z, batch_pos_edge_index,
                     edge_sub_type_idx, sigmoid=True) + EPS).mean()
 
@@ -218,7 +215,11 @@ class SynverseModel(torch.nn.Module):
         return pos_loss + neg_loss
 
     def predict(self,  z, batch_pos_edge_index, batch_neg_edge_index, edge_type, edge_sub_type_idx):
-
+        #it will return two torch tensors with 4 rows. In each tensor,
+        # first row =  source node
+        # second row = target node
+        # third row = predicted edge prob
+        # forth row = true edge prob (0 or 1)
         pos_pred = self.decoders[edge_type](z, batch_pos_edge_index, edge_sub_type_idx, sigmoid=True)
         neg_pred = self.decoders[edge_type](z, batch_neg_edge_index, edge_sub_type_idx, sigmoid=True)
 
@@ -238,33 +239,6 @@ class SynverseModel(torch.nn.Module):
         return pos_pred, neg_pred, loss
 
 
-    # def test(self, z, pos_edge_index, neg_edge_index):
-    #     r"""Given latent variables :obj:`z`, positive edges
-    #     :obj:`pos_edge_index` and negative edges :obj:`neg_edge_index`,
-    #     computes area under the ROC curve (AUC) and average precision (AP)
-    #     scores.
-    #
-    #     Args:
-    #         z (Tensor): The latent space :math:`\mathbf{Z}`.
-    #         pos_edge_index (LongTensor): The positive edges to evaluate
-    #             against.
-    #         neg_edge_index (LongTensor): The negative edges to evaluate
-    #             against.
-    #     """
-    #     pos_y = z.new_ones(pos_edge_index.size(1))
-    #     neg_y = z.new_zeros(neg_edge_index.size(1))
-    #     y = torch.cat([pos_y, neg_y], dim=0)
-    #
-    #     pos_pred = self.decoder(z, pos_edge_index, sigmoid=True)
-    #     neg_pred = self.decoder(z, neg_edge_index, sigmoid=True)
-    #
-    #     pred = torch.cat([pos_pred, neg_pred], dim=0)
-    #
-    #     y, pred = y.detach().cpu().numpy(), pred.detach().cpu().numpy()
-    #     pr, rec, thresholds = precision_recall_curve(y, pred)
-    #     pd.DataFrame([y, pred], index=['true', 'pred']).T.to_csv('preds.csv')
-    #     pd.DataFrame([pr, rec, thresholds], index=['pr', 'rec', 'thres']).T.to_csv('pr.csv')
-    #     return utils.precision_at_k(y, pred, pos_edge_index.size(1)), average_precision_score(y, pred)
 
 class Encoder(torch.nn.Module): # in this function I have used one weight matrix for all drug_drug cell_lines
     #h_sizes is an array. containing the gradual node number decrease from initial hidden_layer output  to final output_dim.\
@@ -292,13 +266,18 @@ class Encoder(torch.nn.Module): # in this function I have used one weight matrix
                         self.hidden[str(hid_layer_no)][edge_type] =\
                             (EdgeTypeSpecGCNLayerLocal(input_feat_dim, h_sizes[hid_layer_no], \
                             bias, dr, edge_type, edge_subtype_dict[edge_type], n_drugs, n_genes))
-
-
+                    elif encoder_type=='global':
+                        self.hidden[str(hid_layer_no)][edge_type] = \
+                            (EdgeTypeSpecGCNLayerGlobal(input_feat_dim, h_sizes[hid_layer_no], bias, dr, edge_type,
+                                                        n_drugs, n_genes))
                 else:
                     if encoder_type == 'local':
                         self.hidden[str(hid_layer_no)][edge_type] = \
                             (EdgeTypeSpecGCNLayerLocal(h_sizes[hid_layer_no - 1], h_sizes[hid_layer_no], bias, dr, edge_type, edge_subtype_dict[edge_type], n_drugs, n_genes))
-
+                    elif encoder_type == 'global':
+                        self.hidden[str(hid_layer_no)][edge_type] = \
+                            (EdgeTypeSpecGCNLayerGlobal(h_sizes[hid_layer_no - 1], h_sizes[hid_layer_no], bias, dr,
+                            edge_type, n_drugs, n_genes))
 
 
     def forward(self):
@@ -350,7 +329,7 @@ class EdgeTypeSpecGCNLayerLocal(torch.nn.Module):
 
         if edge_type in ['gene_gene', 'drug_drug']: #might change here to incorporate cellline spec weights in encoder
             for edge_subtype in range(n_edge_subtype):
-                self.gcn.append(GCNConv(self.in_channel, self.out_channel, bias = bias))
+                self.gcn.append(GCNConv(self.in_channel, self.out_channel, bias = bias, add_self_loops=True, cached=False))
         elif edge_type == 'target_drug':
             for edge_subtype in range(n_edge_subtype):
                 self.gcn.append(BipartiteGCN(self.in_channel, self.out_channel, bias = bias, adj_shape = (n_genes, n_drugs)))
@@ -371,8 +350,10 @@ class EdgeTypeSpecGCNLayerLocal(torch.nn.Module):
         edge_index_list = train_pos_edges_dict[self.edge_type]  # might change here to incorporate cellline spec weights in encoder
         for subtype in range(len(edge_index_list)):
             x1 = F.dropout(x.float(), p=self.dr, training=True)
-            x1 = F.relu(self.gcn[subtype](x1, edge_index_list[subtype]))
+            x1 = F.relu(self.gcn[subtype](x1, edge_index_list[subtype])) #temporary commentout
+            # x1 = self.gcn[subtype](x1, edge_index_list[subtype])
             output += x1
+        # Nure: look into this normalization
         output = F.normalize(output, dim=1, p=2)  # p=2 means l2-normalization
         del x
         del x1
@@ -381,7 +362,7 @@ class EdgeTypeSpecGCNLayerLocal(torch.nn.Module):
         return output
 
 class EdgeTypeSpecGCNLayerGlobal(torch.nn.Module):  # in this function I have used one weight matrix for all drug_drug cell_lines
-    def __init__(self, in_channel, out_channel, bias, dr,edge_type, n_drugs, n_genes):
+    def __init__(self, in_channel, out_channel, bias, dr, edge_type, n_drugs, n_genes):
         super(EdgeTypeSpecGCNLayerGlobal, self).__init__()
         self.in_channel = in_channel
         self.out_channel = out_channel
@@ -422,56 +403,6 @@ class EdgeTypeSpecGCNLayerGlobal(torch.nn.Module):  # in this function I have us
         output = F.normalize(output, dim=1, p=2) #p=2 means l2-normalization
 
         del x
-        del x1
-        # print('edge type done:', edge_type)
-        return output
-
-class EdgeTypeSpecGCNLayerRel(torch.nn.Module):  # in this function I have used one weight matrix for all drug_drug cell_lines
-    def __init__(self, in_channel, out_channel, bias, dr, edge_type, n_edge_subtype, n_drugs, n_genes):
-        super(EdgeTypeSpecGCNLayerRel, self).__init__()
-        self.in_channel = in_channel
-        self.out_channel = out_channel
-        self.n_drugs = n_drugs
-        self.n_genes = n_genes
-        self.dr = dr
-        self.edge_type = edge_type
-
-        if edge_type in ['gene_gene', 'drug_drug']: #might change here to incorporate cellline spec weights in encoder
-            self.gcn = RGCNConv(self.in_channel, self.out_channel, num_relations =n_edge_subtype,  bias = bias, root_weight=True)
-        else:
-            if(edge_type == 'target_drug'):
-                self.gcn = BipartiteGCN(self.in_channel, self.out_channel, bias = bias, adj_shape = (n_genes, n_drugs))
-            elif (edge_type == 'drug_target'):
-                self.gcn = BipartiteGCN(self.in_channel, self.out_channel, bias = bias, adj_shape = (n_drugs, n_genes))
-            else:
-                print('unknown edge type')
-
-    def forward(self, node_feat_dict, train_pos_edges_dict):
-
-        source_node = self.edge_type.split('_')[0].replace('target', 'gene')
-        target_node = self.edge_type.split('_')[1].replace('target', 'gene')
-
-
-        x = node_feat_dict[source_node]
-        # output = torch.zeros(list(node_feat_dict[target_node].size())[0], self.out_channel).to(dev)
-
-
-        edge_index_list = train_pos_edges_dict[self.edge_type]
-
-        subtype_idx = 0
-        edge_type = []
-        for edge_index in edge_index_list:
-            #here edge_type is a tensor containing the type of each edge in edge_index
-            edge_type = edge_type + list([subtype_idx]*(int(edge_index.size()[1])))
-            subtype_idx +=1
-
-        edge_type = torch.LongTensor(edge_type).to(dev)
-        x1 = F.dropout(x.float(), p=self.dr, training=True)
-        output = self.gcn(x1, edge_index,edge_type=edge_type)
-        output = F.relu(output)
-        output = F.normalize(output, dim=1, p=2) #p=2 means l2-normalization
-
-        del x  # Nure: will it delete the original feature from node_feat_dict?
         del x1
         # print('edge type done:', edge_type)
         return output
@@ -604,42 +535,14 @@ class FeedforwardNeuralNetModel(nn.Module):
         self.sigmoid = nn.Sigmoid()
         self.relu = nn.ReLU()
 
-
     def forward(self, x):
         out = self.layers[0](x)
         for i in range(1, len(self.layers)):
             # Non-linearity
             out = self.relu(out)
-
-            #can use batch norm here.
             out = self.layers[i](out)
         return out
 
-
-# def normalize(X, means1=None, std1=None, means2=None, std2=None, feat_filt=None, norm='tanh_norm'):
-#     if std1 is None:
-#         std1 = np.nanstd(X, axis=0)
-#     if feat_filt is None:
-#         feat_filt = std1!=0
-#     X = X[:,feat_filt]
-#     X = np.ascontiguousarray(X)
-#     if means1 is None:
-#         means1 = np.mean(X, axis=0)
-#     X = (X-means1)/std1[feat_filt]
-#     if norm == 'norm':
-#         return(X, means1, std1, feat_filt)
-#     elif norm == 'tanh':
-#         return(np.tanh(X), mean
-#         s1, std1, feat_filt)
-#     elif norm == 'tanh_norm':
-#         X = np.tanh(X)
-#         if means2 is None:
-#             means2 = np.mean(X, axis=0)
-#         if std2 is None:
-#             std2 = np.std(X, axis=0)
-#         X = (X-means2)/std2
-#         X[:,std2==0]=0
-#         return(X, means1, std1, means2, std2, feat_filt)
 
 class NNDecoder(torch.nn.Module):
     #this decoder is applicable for only drug_drug edge prediction
@@ -650,7 +553,7 @@ class NNDecoder(torch.nn.Module):
 
         self.hidden_layer_setup = hidden_layer_setup
         self.out_layer = 1
-        self.input_dim = w_dim
+
         self.feed_forward_model = FeedforwardNeuralNetModel \
             (w_dim, self.hidden_layer_setup, self.out_layer).to(dev)
 
@@ -667,64 +570,12 @@ class NNDecoder(torch.nn.Module):
                 torch.cat((drug1_embed, drug2_embed, gene_expression), axis=1).\
                 type(torch.FloatTensor).to(dev)
 
-            assert concatenated_drug_drug_genex_embedding.size()[1]==self.input_dim, print('problem with input dim')
+            # print('size: ', concatenated_drug_drug_genex_embedding.size())
+
             #now feed the input to nn model
             score = self.feed_forward_model(concatenated_drug_drug_genex_embedding)
             score = torch.flatten(score)
             return torch.sigmoid(score) if sigmoid else score
-
-
-# class TFDecoder(torch.nn.Module):
-#     def __init__(self, num_nodes, TFIDs):
-#         super(TFDecoder, self).__init__()
-#         self.TFIDs = list(TFIDs)
-#         self.num_nodes = num_nodes
-#         self.in_dim = 1  # one relation type
-#         # self.weight = nn.Parameter(torch.Tensor(len(self.TFIDs)))
-#         self.weight = nn.Parameter(torch.Tensor(self.num_nodes))
-#         self.reset_parameters()
-#val
-#     def forward(self, z, edge_index, sigmoid=True):
-#         # newWeight = torch.zeros(self.num_nodes).to(dev)
-#         # nCnt = 0
-#         # for idx in self.TFIDs:
-#         #    newWeight[idx] = self.weight[nCnt]
-#         #    nCnt += 1
-#         zNew = torch.mul(z.t(), self.weight).t()
-#         # print(self.weight[0])#, newWeight[850])
-#         # sys.exit()
-#         value = (zNew[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
-#
-#         return torch.sigmoid(value) if sigmoid else value
-#
-#     def reset_parameters(self):
-#         self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
-#
-#
-# class RESCALDecoder(torch.nn.Module):
-#     def __init__(self, out_dim):
-#         super(RESCALDecoder, self).__init__()
-#         self.out_dim = out_dim
-#         self.in_dim = 1  # one relation type
-#         self.weight = nn.Parameter(torch.Tensor(self.out_dim, self.out_dim))
-#         self.reset_parameters()
-#
-#     def forward(self, z, edge_index, sigmoid=True):
-#         # zNew = z.clone()*self.weight
-#         zNew = torch.matmul(z.clone(), self.weight)
-#         # zNew = z*self.weight
-#         # print(edge_index)
-#         # print(zNew.shape,self.weight)
-#         value = (zNew[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
-#
-#         # self.weight[edge_index[0]]
-#         # print(value, edge_index)
-#         # value = (1 * z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
-#         # print(edge_index.shape,value.shape)
-#         return torch.sigmoid(value) if sigmoid else value
-#
-#     def reset_parameters(self):
-#         self.weight.data.normal_(std=1 / np.sqrt(self.in_dim))
 
 
 def train(model, optimizer,  batch_pos_train_edges, batch_neg_train_edges, edge_type, edge_sub_type_idx ):
@@ -732,8 +583,6 @@ def train(model, optimizer,  batch_pos_train_edges, batch_neg_train_edges, edge_
     model.train()
     optimizer.zero_grad()
     z = model.encode()
-
-    #normalize z and gene expression data here
     loss = model.recon_loss(z, batch_pos_train_edges, batch_neg_train_edges, edge_type, edge_sub_type_idx)
     loss.backward()
     optimizer.step()
@@ -746,8 +595,6 @@ def val(model, pos_edge_index, neg_edge_index, edge_type, edge_sub_type_idx):
 
     with torch.no_grad():
         z = model.encode()
-
-    #normalize z and gene expression data here
     pos_pred, neg_pred, val_loss = model.predict(z, pos_edge_index, neg_edge_index, edge_type, edge_sub_type_idx)
     return pos_pred, neg_pred, val_loss
 
@@ -759,18 +606,11 @@ def prepare_drug_feat(drug_maccs_keys_feature_df, drug_node_2_idx, n_drugs, use_
         drug_maccs_keys_feature_df = drug_maccs_keys_feature_df.sort_values(by=['drug_idx'])
         assert len(drug_maccs_keys_feature_df) == n_drugs, 'problem in drug feat creation'
         drug_feat = torch.tensor(drug_maccs_keys_feature_df.drop(columns=['pubchem_cid']).set_index('drug_idx').to_numpy())
-        # drug_num_feat = drug_feat.shape[1]
-        # drug_nonzero_feat = np.count_nonzero(drug_feat)
-        #
-        # drug_feat = sp.csr_matrix(drug_feat)
-        # drug_feat = utils.sparse_to_tuple(drug_feat.tocoo())
+
 
     else:
         # #one hot encoding for drug features
         drug_feat = torch.tensor(np.identity(n_drugs))
-
-        # drug_nonzero_feat, drug_num_feat = drug_feat.shape
-        # drug_feat = utils.sparse_to_tuple(drug_feat.tocoo())
 
     return drug_feat
 
@@ -802,7 +642,7 @@ def prepare_train_edges(cross_validation_folds_pos_drug_drug_edges, cross_valida
     test_neg_edges_dict = {edge_type: [] for edge_type in edge_types}
 
 
-    '''prepare drug drug edges'''
+    # set drug drug edges
 
     # all_folds_pos_edges = get_set_containing_all_folds(cross_validation_folds_pos_drug_drug_edges)
     train_pos_drug_drug_edges_set =  set(cross_validation_folds_pos_drug_drug_edges[fold_no]['train'])
@@ -869,41 +709,40 @@ def prepare_train_edges(cross_validation_folds_pos_drug_drug_edges, cross_valida
     non_drug_drug_edge_types = ['gene_gene', 'target_drug', 'drug_target']
 
     for edge_type in non_drug_drug_edge_types:
-        for idx  in cross_validation_folds_pos_non_drug_drug_edges[edge_type]: #idx =each cellline for gene_gene_edges,
-        # idx= 0 for drug_target, target_drug edges
-            val_pos_non_drug_drug_edges_set = set(cross_validation_folds_pos_non_drug_drug_edges[edge_type][idx][fold_no])
-            all_folds_pos_edges = get_set_containing_all_folds(cross_validation_folds_pos_non_drug_drug_edges[edge_type][idx])
-            train_pos_non_drug_drug_edges_set = all_folds_pos_edges.difference(val_pos_non_drug_drug_edges_set)
 
-            val_neg_non_drug_drug_edges_set = set(cross_validation_folds_neg_non_drug_drug_edges[edge_type][idx][fold_no])
-            all_folds_neg_edges = get_set_containing_all_folds(cross_validation_folds_neg_non_drug_drug_edges[edge_type][idx])
-            train_neg_non_drug_drug_edges_set = all_folds_neg_edges.difference(val_neg_non_drug_drug_edges_set)
+        val_pos_non_drug_drug_edges_set = set(cross_validation_folds_pos_non_drug_drug_edges[edge_type][fold_no])
+        all_folds_pos_edges = get_set_containing_all_folds(cross_validation_folds_pos_non_drug_drug_edges[edge_type])
+        train_pos_non_drug_drug_edges_set = all_folds_pos_edges.difference(val_pos_non_drug_drug_edges_set)
+
+        val_neg_non_drug_drug_edges_set = set(cross_validation_folds_neg_non_drug_drug_edges[edge_type][fold_no])
+        all_folds_neg_edges = get_set_containing_all_folds(cross_validation_folds_neg_non_drug_drug_edges[edge_type])
+        train_neg_non_drug_drug_edges_set = all_folds_neg_edges.difference(val_neg_non_drug_drug_edges_set)
 
 
-            train_pos_source_nodes = [d1 for d1, d2 in train_pos_non_drug_drug_edges_set]
-            train_pos_target_nodes = [d2 for d1, d2 in train_pos_non_drug_drug_edges_set]
-            train_pos_edges = torch.stack(
-                [torch.LongTensor(train_pos_source_nodes), torch.LongTensor(train_pos_target_nodes)], dim=0).to(dev)
+        train_pos_source_nodes = [d1 for d1, d2 in train_pos_non_drug_drug_edges_set]
+        train_pos_target_nodes = [d2 for d1, d2 in train_pos_non_drug_drug_edges_set]
+        train_pos_edges = torch.stack(
+            [torch.LongTensor(train_pos_source_nodes), torch.LongTensor(train_pos_target_nodes)], dim=0).to(dev)
 
-            train_neg_source_nodes = [d1 for d1, d2 in train_neg_non_drug_drug_edges_set]
-            train_neg_target_nodes = [d2 for d1, d2 in train_neg_non_drug_drug_edges_set]
-            train_neg_edges = torch.stack(
-                [torch.LongTensor(train_neg_source_nodes), torch.LongTensor(train_neg_target_nodes)], dim=0).to(dev)
+        train_neg_source_nodes = [d1 for d1, d2 in train_neg_non_drug_drug_edges_set]
+        train_neg_target_nodes = [d2 for d1, d2 in train_neg_non_drug_drug_edges_set]
+        train_neg_edges = torch.stack(
+            [torch.LongTensor(train_neg_source_nodes), torch.LongTensor(train_neg_target_nodes)], dim=0).to(dev)
 
-            val_pos_source_nodes = [d1 for d1, d2 in val_pos_non_drug_drug_edges_set]
-            val_pos_target_nodes = [d2 for d1, d2 in val_pos_non_drug_drug_edges_set]
-            val_pos_edges = torch.stack(
-                [torch.LongTensor(val_pos_source_nodes), torch.LongTensor(val_pos_target_nodes)], dim=0)
+        val_pos_source_nodes = [d1 for d1, d2 in val_pos_non_drug_drug_edges_set]
+        val_pos_target_nodes = [d2 for d1, d2 in val_pos_non_drug_drug_edges_set]
+        val_pos_edges = torch.stack(
+            [torch.LongTensor(val_pos_source_nodes), torch.LongTensor(val_pos_target_nodes)], dim=0)
 
-            val_neg_source_nodes = [d1 for d1, d2 in val_neg_non_drug_drug_edges_set]
-            val_neg_target_nodes = [d2 for d1, d2  in val_neg_non_drug_drug_edges_set]
-            val_neg_edges = torch.stack(
-                [torch.LongTensor(val_neg_source_nodes), torch.LongTensor(val_neg_target_nodes)], dim=0)
+        val_neg_source_nodes = [d1 for d1, d2 in val_neg_non_drug_drug_edges_set]
+        val_neg_target_nodes = [d2 for d1, d2  in val_neg_non_drug_drug_edges_set]
+        val_neg_edges = torch.stack(
+            [torch.LongTensor(val_neg_source_nodes), torch.LongTensor(val_neg_target_nodes)], dim=0)
 
-            train_pos_edges_dict[edge_type].append(train_pos_edges)
-            train_neg_edges_dict[edge_type].append(train_neg_edges)
-            val_pos_edges_dict[edge_type].append(val_pos_edges)
-            val_neg_edges_dict[edge_type].append(val_neg_edges)
+        train_pos_edges_dict[edge_type].append(train_pos_edges)
+        train_neg_edges_dict[edge_type].append(train_neg_edges)
+        val_pos_edges_dict[edge_type].append(val_pos_edges)
+        val_neg_edges_dict[edge_type].append(val_neg_edges)
 
     return train_pos_edges_dict, train_neg_edges_dict, val_pos_edges_dict, val_neg_edges_dict,val_es_pos_edges_dict, val_es_neg_edges_dict, test_pos_edges_dict, test_neg_edges_dict,
 
@@ -942,7 +781,7 @@ def prepare_pred_score_for_saving(pos_pred, neg_pred, cell_line, idx_2_drug_node
     return pos_df, neg_df
 
 def save_drug_drug_link_probability(pos_df, neg_df, encoder_type, decoder_type, h_sizes, use_drug_feat_option, lr, \
-                                    epochs, batch_size, dr, out_dir, drug_based_batch_end, nndecoder_h_size):
+                                    epochs, batch_size, dr, out_dir, drug_based_batch_end):
     #inputs: df with link prediction probability after applying sigmoid on models predicted score for an edges(positive, negative)
 
     if drug_based_batch_end:
@@ -950,13 +789,13 @@ def save_drug_drug_link_probability(pos_df, neg_df, encoder_type, decoder_type, 
     else:
         extra_direction_on_out_dir = ''
 
-    pos_out_file = out_dir+\
-                    extra_direction_on_out_dir + 'pos_val_scores'+'_encoder_' +encoder_type+'_decoder_' + decoder_type + '_hsize_'+str(h_sizes)+\
-                   '_'+str(nndecoder_h_size)+'_drugfeat_'+ str(use_drug_feat_option)+'_e_'+str(epochs) +'_lr_'+str(lr) +'_batch_'+ str(batch_size)\
-                   +'_dr_'+ str(dr)+'.tsv'
-    neg_out_file = out_dir + extra_direction_on_out_dir + 'neg_val_scores'+'_encoder_' +encoder_type+'_decoder_' + decoder_type + '_hsize_'+str(h_sizes)+\
-                   '_'+str(nndecoder_h_size) + '_drugfeat_'+str(use_drug_feat_option)+'_e_'+str(epochs) +'_lr_'+str(lr) +'_batch_'+ str(batch_size) +\
-                   '_dr_'+ str(dr)+'.tsv'
+    pos_out_file = out_dir\
+                   + extra_direction_on_out_dir + 'pos_val_scores'+'_encoder_' +encoder_type+'_decoder_' + decoder_type + '_hsize_'+str(h_sizes)\
+                   +'_drugfeat_'+ str(use_drug_feat_option)+'_e_'+str(epochs) +'_lr_'+str(lr) +'_batch_'+ str(batch_size)\
+                   +'_dr_'+ str(dr) + '.tsv'
+    neg_out_file = out_dir + extra_direction_on_out_dir + 'neg_val_scores'+ '_encoder_' +encoder_type+'_decoder_' + decoder_type + '_hsize_'+str(h_sizes)\
+                    + '_drugfeat_'+str(use_drug_feat_option)+'_e_'+str(epochs) +'_lr_'+str(lr) +'_batch_'+ str(batch_size)\
+                    +'_dr_'+ str(dr) + '.tsv'
 
     os.makedirs(os.path.dirname(pos_out_file), exist_ok=True)
     os.makedirs(os.path.dirname(neg_out_file), exist_ok=True)
@@ -964,7 +803,7 @@ def save_drug_drug_link_probability(pos_df, neg_df, encoder_type, decoder_type, 
     pos_df.to_csv(pos_out_file, sep='\t')
     neg_df.to_csv(neg_out_file, sep='\t')
 
-def save_model_info_with_loss(min_val_loss,  encoder_type, decoder_type, h_sizes, nndecoder_h_size, use_drug_feat_option, lr, \
+def save_model_info_with_loss(min_val_loss, encoder_type, decoder_type, h_sizes, use_drug_feat_option, lr, \
                                     epochs, batch_size, dr, out_dir, drug_based_batch_end, fold_no):
     #inputs: df with link prediction probability after applying sigmoid on models predicted score for an edges(positive, negative)
 
@@ -974,10 +813,11 @@ def save_model_info_with_loss(min_val_loss,  encoder_type, decoder_type, h_sizes
         extra_direction_on_out_dir = ''
 
 
-    model_info = '_encoder_' + encoder_type + '_decoder_' + decoder_type + '_hsize_' + str(h_sizes) + '_'+str(nndecoder_h_size)+\
-    '_drugfeat_' + str(use_drug_feat_option) + '_e_' + str(epochs) + '_lr_' + str(lr) + '_batch_' + str(batch_size) \
+    model_info = '_encoder_' + encoder_type + '_decoder_' + decoder_type + '_hsize_' + str(h_sizes)\
+    +'_drugfeat_' + str(use_drug_feat_option) + '_e_' + str(epochs) + '_lr_' + str(lr) + '_batch_' + str(batch_size) \
     + '_dr_' + str(dr)+'_'
-    out_file = out_dir + model_info + extra_direction_on_out_dir + 'model_val_loss.txt'
+
+    out_file = out_dir +model_info+ extra_direction_on_out_dir + 'model_val_loss.txt'
 
     os.makedirs(os.path.dirname(out_file), exist_ok=True)
     if fold_no==0:
@@ -990,7 +830,7 @@ def save_model_info_with_loss(min_val_loss,  encoder_type, decoder_type, h_sizes
     f.close()
 
 
-def save_best_model(best_model,encoder_type, decoder_type, h_sizes, use_drug_feat_option, lr, \
+def save_best_model(best_model, encoder_type, decoder_type, h_sizes, use_drug_feat_option, lr, \
                                     epochs, batch_size, dr, out_dir, drug_based_batch_end):
     #inputs: df with link prediction probability after applying sigmoid on models predicted score for an edges(positive, negative)
 
@@ -999,9 +839,9 @@ def save_best_model(best_model,encoder_type, decoder_type, h_sizes, use_drug_fea
     else:
         extra_direction_on_out_dir = ''
 
-    model_file = out_dir + extra_direction_on_out_dir + 'model_file'+ '_encoder_' + encoder_type + '_decoder_' + decoder_type + '_hsize_' + str(h_sizes) + \
-    '_drugfeat_' + str(use_drug_feat_option) + '_e_' + str(epochs) + '_lr_' + str(lr) + '_batch_' + str(batch_size) \
-    + '_dr_' + str(dr)+'.p'
+    model_file = out_dir + extra_direction_on_out_dir + 'model_file_encoder_' + encoder_type + '_decoder_' + decoder_type + '_hsize_' + str(h_sizes)\
+    +'_drugfeat_' + str(use_drug_feat_option) + '_e_' + str(epochs) + '_lr_' + str(lr) + '_batch_' + str(batch_size) \
+    + '_dr_' + str(dr) +'.p'
 
     os.makedirs(os.path.dirname(model_file), exist_ok=True)
 
@@ -1019,69 +859,44 @@ def train_log(loss, wandb_step, edge_type, edge_name):
 
 
 
-def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_keys_feature_df, synergy_df, non_synergy_df,
-                       cell_line_2_idx, cell_line_2_tissue_dict, idx_2_cell_line,
-                       cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges,
-                       cross_val_dir, neg_sampling_type,
-                       out_dir, synverse_params,
-                       config_map, use_drug_based_batch_end, do_save_best_model = False):
+def run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df, drug_maccs_keys_feature_df, \
+                      gene_expression_feature_df, synergy_df, non_synergy_df, \
+                      cell_line_2_idx, idx_2_cell_line,
+                      cross_validation_folds_pos_drug_drug_edges, cross_validation_folds_neg_drug_drug_edges,
+                      cross_val_dir, neg_sampling_type,
+                      out_dir, decagon_params,
+                      config_map, use_drug_based_batch_end):
 
     t1 = time.time()
     #model setup
-    # conv = synverse_params['conv']
-    encoder_type = synverse_params['encoder']
-    dd_decoder_type = synverse_params['decoder']
-    gg_decoder_type = synverse_params['gg_decoder']
 
-    dd_gg_decoder_type = dd_decoder_type +'_'+gg_decoder_type
-    h_sizes = synverse_params['hsize'] # only hidden and output_layer
-    nndecoder_h_size = synverse_params['nn_hsize']
+    encoder_type = decagon_params['encoder']
+    dd_decoder_type = decagon_params['decoder']
+    h_sizes = decagon_params['hsize'] # only hidden and output_layer
 
-    lr = synverse_params['lr']
-    epochs = synverse_params['e']
-    dr = synverse_params['dr']
+    lr = decagon_params['lr']
+    epochs = decagon_params['e']
+    dr = decagon_params['dr']
 
-    batch_size = synverse_params['batch']
-    bias = synverse_params['bias']
-    patience = synverse_params['patience']
-    # norm = synverse_params['norm']
+    batch_size = decagon_params['batch']
+    bias = decagon_params['bias']
+    patience = decagon_params['patience']
 
-    # reduce_dim = synverse_params['reduce_dim']
+
+
 
     neg_fact = config_map['ml_models_settings']['cross_val']['neg_fact']
     number_of_folds = config_map['ml_models_settings']['cross_val']['folds']
     number_of_folds = config_map['ml_models_settings']['cross_val']['folds']
 
 
+    gene_adj = nx.adjacency_matrix(nx.convert_matrix.from_scipy_sparse_matrix(ppi_sparse_matrix,\
+                                                create_using=nx.Graph(),edge_attribute=None))
+    gene_degrees = np.array(gene_adj.sum(axis=0)).squeeze()
     genes_in_ppi = gene_node_2_idx.keys()
 
-    # create gene-gene synergy network for each cell line separately
-    total_cell_lines = len(cell_line_2_idx.values())
-    n_genes = len(genes_in_ppi)
-    gene_gene_adj_list = []
-
-    for tissue in ppi_dict:
-        ppi_df = ppi_dict[tissue]
-        ppi_df['p1'] = ppi_df['p1'].astype(str).apply(lambda x: gene_node_2_idx[x])
-        ppi_df['p2'] = ppi_df['p2'].astype(str).apply(lambda x: gene_node_2_idx[x])
-
-    for cell_line_idx in range(total_cell_lines):
-        #     print('cell_line_idx',cell_line_idx)
-        cell_line_name = idx_2_cell_line[cell_line_idx]
-        tissue_name = cell_line_2_tissue_dict[cell_line_name]
-
-        ppi_df = ppi_dict[tissue_name]
-        edges = list(zip(ppi_df['p1'], ppi_df['p2']))
-
-        mat = np.zeros((n_genes, n_genes))
-        for p1, p2 in edges:
-            mat[p1, p2] = mat[p2, p1] = 1.
-
-        gene_gene_adj_list.append(sp.csr_matrix(mat))
-        print(cell_line_name, cell_line_idx)
-
-    del ppi_dict
-
+    synergistics_drugs = set(list(synergy_df['Drug1_pubchem_cid'])).union(set(list(synergy_df['Drug2_pubchem_cid'])))
+    # print('number of drugs after applying threshold on synergy data:', len(synergistics_drugs))
     drug_nodes = drug_target_df['pubchem_cid'].unique()
     drug_node_2_idx = {node: i for i, node in enumerate(drug_nodes)}
     idx_2_drug_node =  {i: node for i, node in enumerate(drug_nodes)}
@@ -1090,6 +905,7 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
 
     # now create drug_target adjacency matrix where gene nodes are in same order as they are in gene_net
     n_drugs = len(drug_target_df['drug_idx'].unique())
+    n_genes = len(genes_in_ppi)
 
     row = list(drug_target_df['drug_idx'])
     col = list(drug_target_df['gene_idx'])
@@ -1097,19 +913,28 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
     drug_target_adj = sp.csr_matrix((data, (row, col)),shape=(n_drugs, n_genes))
     target_drug_adj = drug_target_adj.transpose(copy=True)
 
+    # index all the cell lines
+    cell_lines = synergy_df['Cell_line'].unique()
+    # cell_line_2_idx = {cell_line: i for i, cell_line in enumerate(cell_lines)}
+    # idx_2_cell_line = {i: cell_line for i, cell_line in enumerate(cell_lines)}
+    # print('number of cell lines: ',len(cell_lines_2_idx.keys()))
 
     synergy_df['Drug1_idx'] = synergy_df['Drug1_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
     synergy_df['Drug2_idx'] = synergy_df['Drug2_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
     synergy_df['Cell_line_idx'] = synergy_df['Cell_line'].astype(str).apply(lambda x: cell_line_2_idx[x])
+
 
     non_synergy_df['Drug1_idx'] = non_synergy_df['Drug1_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
     non_synergy_df['Drug2_idx'] = non_synergy_df['Drug2_pubchem_cid'].astype(str).apply(lambda x: drug_node_2_idx[x])
     non_synergy_df['Cell_line_idx'] = non_synergy_df['Cell_line'].astype(str).apply(lambda x: cell_line_2_idx[x])
 
     # create drug-drug synergy network for each cell line separately
+    total_cell_lines = len(cell_line_2_idx.values())
     drug_drug_adj_list = []
 
     tagetted_genes = len(drug_target_df['uniprot_id'].unique())
+    n_drugdrug_rel_types = total_cell_lines
+
     for cell_line_idx in range(total_cell_lines):
         #     print('cell_line_idx',cell_line_idx)
         df = synergy_df[synergy_df['Cell_line_idx'] == cell_line_idx][['Drug1_idx', 'Drug2_idx',
@@ -1136,7 +961,7 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
     # data representation
     edge_types = ['gene_gene', 'target_drug', 'drug_target', 'drug_drug']
     adj_mats_init = {}
-    adj_mats_init['gene_gene'] = gene_gene_adj_list
+    adj_mats_init['gene_gene'] = [gene_adj]
     adj_mats_init['target_drug'] = [target_drug_adj]
     adj_mats_init['drug_target'] = [drug_target_adj]
     adj_mats_init['drug_drug'] = drug_drug_adj_list
@@ -1181,14 +1006,15 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
     non_drug_drug_edge_types = ['gene_gene', 'drug_target']
     # non_drug_drug_edge_types = ['drug_target']
     cross_validation_folds_pos_non_drug_drug_edges = cross_val.create_cross_val_split_non_drug_drug_edges\
-        (number_of_folds, adj_mats_init, non_drug_drug_edge_types,  total_cell_lines, cross_val_dir)
-
+        (number_of_folds, adj_mats_init, non_drug_drug_edge_types, cross_val_dir)
+    # cross_validation_folds_neg_non_drug_drug_edges = cross_val.create_degree_dist_neg_cross_val_split_non_drug_drug_edges\
+    #     (number_of_folds, adj_mats_init, non_drug_drug_edge_types, neg_fact, cross_val_dir)
     if neg_sampling_type == 'degree_based':
         cross_validation_folds_neg_non_drug_drug_edges = cross_val.create_degree_based_neg_cross_val_split_non_drug_drug_edges\
-            (number_of_folds, adj_mats_init, non_drug_drug_edge_types, neg_fact, total_cell_lines, cross_val_dir)
+            (number_of_folds, adj_mats_init, non_drug_drug_edge_types, neg_fact, cross_val_dir)
     elif (neg_sampling_type == 'semi_random')|(neg_sampling_type == 'no'):
         cross_validation_folds_neg_non_drug_drug_edges = cross_val.create_semi_random_neg_cross_val_split_non_drug_drug_edges\
-            (number_of_folds, adj_mats_init, non_drug_drug_edge_types, neg_fact,total_cell_lines, cross_val_dir)
+            (number_of_folds, adj_mats_init, non_drug_drug_edge_types, neg_fact, cross_val_dir)
 
 
     ######################## NODE FEATURE MATRIX CREATION ###########################################
@@ -1197,16 +1023,18 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
     gene_feat = torch.tensor(np.identity(n_genes)).to(dev)
 
     # features (drugs)
-    use_drug_feat_option = synverse_params['drugfeat']
+    use_drug_feat_option = decagon_params['drugfeat']
 
     model_no = 0
     # for use_drug_feat_option in use_drug_feat_options:
     drug_feat = prepare_drug_feat(drug_maccs_keys_feature_df, drug_node_2_idx, n_drugs, use_drug_feat_option)
     drug_feat = drug_feat.to(dev)
 
-    node_feat_dict = {'gene': gene_feat, 'drug' : drug_feat}
+    # t4 = time.time()
+    # print('time for drug feat preparation: ', t4 - t3)
 
-    ''' MODEL Preparation'''
+    node_feat_dict = {'gene': gene_feat, 'drug' : drug_feat}
+    ##########write training code here##################
 
     pos_df = pd.DataFrame()
     neg_df = pd.DataFrame()
@@ -1218,7 +1046,7 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
     machine_name = config_map['machine_name']
     for fold_no in range(number_of_folds):
         best_model_no = 0
-        project_name = 'synverse_tissuenet_' + machine_name
+        project_name = 'decagon_' + machine_name
         with wandb.init(project=project_name, config=config_map):
             config_map = wandb.config
             ###################################### Prepare DATA ########################################
@@ -1274,12 +1102,11 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
 
 
             encoder = Encoder(h_sizes, bias , dr, encoder_type,node_feat_dict, train_pos_edges_dict,
-                              edge_types,edge_type_wise_number_of_subtypes, n_drugs, n_genes)
+                              edge_types,edge_type_wise_number_of_subtypes,\
+                              n_drugs, n_genes)
 
-            decoder_names = {'gene_gene': gg_decoder_type , 'target_drug': 'bilinear',
+            decoder_names = {'gene_gene': 'bilinear', 'target_drug': 'bilinear',\
                              'drug_target': 'bilinear', 'drug_drug':dd_decoder_type}
-
-
 
             decoders = nn.ModuleDict()
             for edge_type in edge_types:
@@ -1291,14 +1118,13 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
                 elif decoder_names[edge_type]=='dedicom':
                     decoders[edge_type] = DedicomDecoder(edge_type, n_sub_types, h_sizes[-1])
 
-            model = SynverseModel(encoder = encoder, decoders=decoders).to(dev)
+
+
+            model = DecagonModel(encoder = encoder, decoders=decoders).to(dev)
             print('model_no: ',model_no)
             print('fold_no: ',fold_no)
             model_no +=1
 
-            # model_param = model.state_dict()
-            # model_param = model.parameters()
-            # print(model_param)
             optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
             print('learning rate: ', lr, 'h_sizes: ', h_sizes, 'optimizer: ', optimizer)
@@ -1315,7 +1141,6 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
             for epoch in range(1, epochs+1):
                 t10 = time.time()
                 #shuffle each training tensor  at the beginning of each epoch
-
 
                 train_pos_edges_dict = minibatch_handlder.shuffle_train_edges(train_pos_edges_dict)
                 train_neg_edges_dict = minibatch_handlder.shuffle_train_edges(train_neg_edges_dict)
@@ -1343,27 +1168,23 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
                             break
 
                     # t13 = time.time()
-                    e, edge_sub_type_idx, batch_num = minibatch_handlder.next_minibatch_multippi()
+                    e, edge_sub_type_idx, batch_num = minibatch_handlder.next_minibatch()
 
                     batch_pos_train_edges = train_pos_edges_split_dict[e][edge_sub_type_idx][batch_num].to(dev)
-
-                    batch_neg_train_edges = train_neg_edges_split_dict[e][edge_sub_type_idx][batch_num].to(dev)
-
-                    # if(batch_pos_train_edges.size()[0]==0)|(batch_neg_train_edges.size()[0]==0):
                     #
-                    #     print('problem in batch creation ')
+                    batch_neg_train_edges = train_neg_edges_split_dict[e][edge_sub_type_idx][batch_num].to(dev)
 
                     # print(e, 'batches shapes: ', batch_pos_train_edges.shape, batch_neg_train_edges.shape )
                     training_batch_loss  = train(model, optimizer, batch_pos_train_edges, batch_neg_train_edges,\
                                                 e, edge_sub_type_idx)
 
                     wandb_step+=1
-                    # if e == 'drug_drug':
-                    #     cell_line = idx_2_cell_line[edge_sub_type_idx]
-                    #     train_log(training_batch_loss, wandb_step, e, cell_line)
-                    # if e == 'gene_gene':
-                    #     # wandb_step += 1
-                    #     train_log(training_batch_loss, wandb_step, e, 'gene_gene')
+                    if e == 'drug_drug':
+                        cell_line = idx_2_cell_line[edge_sub_type_idx]
+                        train_log(training_batch_loss, wandb_step, e, cell_line)
+                    if e == 'gene_gene':
+                        # wandb_step += 1
+                        train_log(training_batch_loss, wandb_step, e, 'gene_gene')
 
                     wandb.log({'Epoch': epoch}, step=wandb_step)
 
@@ -1372,13 +1193,13 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
                 if epoch % 2 == 0:
                     loss_dd_train = compute_and_plot_loss(model, 'drug_drug', train_pos_edges_split_dict, train_neg_edges_split_dict,
                                                               edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
-                    loss_gg_train = compute_and_plot_loss(model, 'gene_gene', train_pos_edges_split_dict, train_neg_edges_split_dict,
-                                                              edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
-
+                    # loss_gg_train = compute_and_plot_loss(model, 'gene_gene', train_pos_edges_split_dict, train_neg_edges_split_dict,
+                    #                                           edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
+                    #
                     # loss_dg_train = compute_and_plot_loss(model, 'drug_target', train_pos_edges_split_dict,train_neg_edges_split_dict,
                     #                                           edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
                     #
-                    #loss gd_train = compute_and_plot_loss(model, 'target_drug', train_pos_edges_split_dict, train_neg_edges_split_dict,
+                    # gd_train = compute_and_plot_loss(model, 'target_drug', train_pos_edges_split_dict, train_neg_edges_split_dict,
                     #                                           edge_type_wise_number_of_subtypes, idx_2_cell_line, 'train', epoch, wandb_step)
                     #
                     # print('find memory consumption in loss_dd_val: before')
@@ -1395,8 +1216,8 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
                                                            val_neg_edges_split_dict,
                                                            edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val',
                                                            epoch, wandb_step)
-                    loss_gg_val = compute_and_plot_loss(model, 'gene_gene', val_pos_edges_split_dict, val_neg_edges_split_dict,
-                                                            edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
+                    # loss_gg_val = compute_and_plot_loss(model, 'gene_gene', val_pos_edges_split_dict, val_neg_edges_split_dict,
+                    #                                         edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
 
                     # loss_dg_val = compute_and_plot_loss(model, 'drug_target', val_pos_edges_split_dict,val_neg_edges_split_dict,
                     #                                         edge_type_wise_number_of_subtypes, idx_2_cell_line, 'val', epoch, wandb_step)
@@ -1409,9 +1230,9 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
 
                     if loss_dd_val_es < min_loss_dd_val_es:
 
-
-                        best_model_path = save_best_model(model, encoder_type, dd_gg_decoder_type, h_sizes,
-                                        use_drug_feat_option, lr, epochs, batch_size, dr, out_dir, use_drug_based_batch_end)
+                        best_model_path = save_best_model(model, encoder_type, dd_decoder_type, h_sizes,
+                                        use_drug_feat_option, lr,
+                                        epochs, batch_size, dr, out_dir, use_drug_based_batch_end)
 
                         required_epoch = epoch
                         min_loss_dd_val_es = loss_dd_val_es
@@ -1428,13 +1249,13 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
                             del model
                             gc.collect()
 
-                            best_model = SynverseModel(encoder=encoder, decoders=decoders)
+                            best_model = DecagonModel(encoder=encoder, decoders=decoders)
                             best_model.load_state_dict(torch.load(best_model_path))
                             best_model.to(dev)
 
                             best_model_dd_val_loss= compute_loss(best_model, 'drug_drug', val_pos_edges_split_dict,\
                                          val_neg_edges_split_dict, edge_type_wise_number_of_subtypes)
-                            save_model_info_with_loss(best_model_dd_val_loss, encoder_type, dd_gg_decoder_type,h_sizes, nndecoder_h_size,
+                            save_model_info_with_loss(best_model_dd_val_loss, encoder_type, dd_decoder_type, h_sizes,
                                                       use_drug_feat_option, lr,
                                                       epochs, batch_size, dr, out_dir, use_drug_based_batch_end, fold_no)
 
@@ -1447,7 +1268,7 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
 
 
             #save test result from the best model here
-            best_model = SynverseModel(encoder = encoder, decoders=decoders)
+            best_model = DecagonModel(encoder = encoder, decoders=decoders)
             best_model.load_state_dict(torch.load(best_model_path))
             best_model.to(dev)
 
@@ -1469,12 +1290,12 @@ def run_synverse_model(ppi_dict, gene_node_2_idx, drug_target_df, drug_maccs_key
 
             del best_model
             gc.collect()
-            if not do_save_best_model:
-                os.remove(best_model_path)
+            os.remove(best_model_path)
 
-        save_drug_drug_link_probability(pos_df, neg_df, encoder_type, dd_gg_decoder_type, h_sizes,
+
+        save_drug_drug_link_probability(pos_df, neg_df, encoder_type, dd_decoder_type, h_sizes,
                                         use_drug_feat_option,
-                                        lr, epochs, batch_size, dr, out_dir, use_drug_based_batch_end, nndecoder_h_size)
+                                        lr, epochs, batch_size, dr, out_dir, use_drug_based_batch_end)
 
 
     #write code for

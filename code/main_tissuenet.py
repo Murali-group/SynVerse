@@ -14,22 +14,19 @@
 import argparse
 import yaml
 #from tqdm import tqdm
-import numpy as np
 #from scipy import sparse
-from scipy.io import loadmat
-import pandas as pd
-import os
-import  time
 import utils
 from utils import *
 import pickle
 import matplotlib.pyplot as plt
-import re
 import models.gnn.run_synverse_tissuenet as synverse_tissuenet
+import pandas as pd
+import numpy as np
+import os
+from data_split import cross_validation as cross_val
 
 
-import cross_validation as cross_val
-import evaluation.evaluation_handler as evaluation_handler
+# import evaluation.evaluation_handler as evaluation_handler
 
 def parse_args():
     parser = setup_opts()
@@ -60,28 +57,21 @@ def setup_opts():
     group.add_argument('--exp-score', type=str, default='Z_SCORE',
                        help="gene expression score to consider. Options: 'Z_SCORE', 'REGULATION' ")
 
-    group.add_argument('--drug_based_batch_end', action = 'store_true',
+    group.add_argument('--drug-based-batch-end', action = 'store_true',
                        help="if true, at each epoch once all the drug_drug batches are used for training, the epoch ends")
 
 
-    #DATA preprocessing params
-    group.add_argument('--apply-threshold', action='store_true',
-                       help="apply threshold to determine synergistic or not")
 
     ################### VARYING SETTINGS #####################################################
-    group.add_argument('--cvdir', type=str, default="train_test_val_tissuenet_v1",
+    group.add_argument('--cvdir', type=str, default="refactor",
                        help="folder to save cross validation folds ")
-    group.add_argument('--sampling', type=str, default="semi_random",
-                       help="two types of negative sampling: 'semi_random', 'degree_based',"
-                            " 'no'('no' means we will not do any sampling, rather drug-comb-db pairs which"
-                            "will be considered as non-synergistic) ")
 
     group.add_argument('--save-model', action='store_true',
                        help="true means the trained model will be saved")
     #evaluation arguments
     group.add_argument('--force-cvdir', action = 'store_true')
-    group.add_argument('--train', action = 'store_false')
-    group.add_argument('--eval', action = 'store_true')
+    group.add_argument('--train', action = 'store_true')
+    group.add_argument('--eval', action = 'store_false')
     ############################################################################################
 
     group.add_argument('--recall', type=float,
@@ -89,7 +79,6 @@ def setup_opts():
                        help="recall value for early precision")
 
     return parser
-
 
 def prepare_synergy_pairs(synergy_df,number_of_top_cell_lines,top_k_percent, apply_threshold=False ):
     ##***load drug-drug synergy dataset. This contains drugs for which we have atleast one target info before removing non-PPI targets
@@ -367,51 +356,55 @@ def main(config_map, **kwargs):
     type_wise_neg_cross_folds = {cross_val_type: dict() for cross_val_type in cross_val_types}
 
     # generate model prediction and result
-    if kwargs.get('train')==True:
+    if kwargs.get('train') == True:
         for run_ in range(number_of_runs):
             print("RUN NO:", run_)
 
-            for cross_val_type in cross_val_types:
-                cross_val_dir = config_map['project_dir'] + config_map['output_dir'] + 'cross_val/' + cross_val_type + '/' + \
-                                'pairs_' + str(min_pairs_per_cell_line) + '_' + \
-                                str(max_pairs_per_cell_line) + '_th_' + str(threshold)+'_cell_lines_' + str(number_of_top_cell_lines)+ \
-                                '_percent_'+ str(top_k_percent)+\
-                                '_' + 'neg_' + str(neg_fact) + '_neg_sampling_' + neg_sampling_type +'_val_frac_'+str(val_frac)+'_'+kwargs.get('cvdir') + '/run_' + str(run_) + '/'
+            out_params = prepare_output_prefix(split_type, config_map, **kwargs) + '/run_' + str(run_) + '/'
+            cross_val_dir = config_map['project_dir'] + config_map['output_dir']['split'] + out_params
 
-                pos_train_test_val_file = cross_val_dir + 'pos_train_test_val.pkl'
-                neg_train_test_val_file = cross_val_dir + 'neg_train_test_val.pkl'
-                non_syn_file = cross_val_dir + 'non_synergy.tsv'
-                syn_file = cross_val_dir + 'synergy.tsv'
-                if (not os.path.exists(pos_train_test_val_file))|(not os.path.exists(neg_train_test_val_file))|\
-                        (not os.path.exists(non_syn_file))|(force_cvdir == True):
+            pos_train_test_val_file = cross_val_dir + 'pos_train_test_val.pkl'
+            neg_train_test_val_file = cross_val_dir + 'neg_train_test_val.pkl'
+            non_syn_file = cross_val_dir + 'non_synergy.tsv'
+            syn_file = cross_val_dir + 'synergy.tsv'
+            if (not os.path.exists(pos_train_test_val_file)) | (not os.path.exists(neg_train_test_val_file)) | \
+                    (not os.path.exists(non_syn_file)) | (force_cvdir == True):
+                # only cross validation splits
 
-                    # only cross validation splits
-                    type_wise_pos_cross_folds[cross_val_type], type_wise_neg_cross_folds[cross_val_type],\
-                    non_synergy_df = cross_val.create_test_val_train_cross_val_folds\
-                        (synergy_df,init_non_synergy_df, cross_val_type, number_of_folds, neg_fact, val_frac, neg_sampling_type)
+                pos_folds, neg_folds, \
+                non_synergy_df = cross_val.create_test_val_train_cross_val_folds \
+                    (synergy_df, init_non_synergy_df, split_type, number_of_folds, neg_fact, val_frac,
+                     neg_sampling_type,
+                     number_of_test_cell_lines)
 
-                    print('non_syn type: ',type(non_synergy_df))
+                print('non_syn type: ', type(non_synergy_df))
 
-                    os.makedirs(os.path.dirname(pos_train_test_val_file), exist_ok=True)
+                os.makedirs(os.path.dirname(pos_train_test_val_file), exist_ok=True)
 
-                    #pkl dump the train_test_val pos and neg fold
+                # pkl dump the train_test_val pos and neg fold
 
-                    with open(pos_train_test_val_file, 'wb') as handle:
-                        pickle.dump(type_wise_pos_cross_folds[cross_val_type], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    with open(neg_train_test_val_file, 'wb') as handle:
-                        pickle.dump(type_wise_neg_cross_folds[cross_val_type], handle,protocol=pickle.HIGHEST_PROTOCOL)
-                    non_synergy_df.to_csv(non_syn_file, index=True, sep='\t')
-                    synergy_df.to_csv(syn_file, index=True, sep='\t')
+                with open(pos_train_test_val_file, 'wb') as handle:
+                    pickle.dump(pos_folds, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                with open(neg_train_test_val_file, 'wb') as handle:
+                    pickle.dump(neg_folds, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                non_synergy_df.to_csv(non_syn_file, index=True, sep='\t')
+                synergy_df.to_csv(syn_file, index=True, sep='\t')
 
-                non_synergy_df = pd.read_csv(non_syn_file, sep='\t', index_col=0, dtype={'Drug1_pubchem_cid': str, \
-                                                                                         'Drug2_pubchem_cid': str,
-                                                                                         'Cell_line': str,
-                                                                                         'Loewe_label': int})
-                with open(pos_train_test_val_file, 'rb') as handle:
-                    type_wise_pos_cross_folds[cross_val_type] = pickle.load(handle)
-                with open(neg_train_test_val_file, 'rb') as handle:
-                    type_wise_neg_cross_folds[cross_val_type] = pickle.load(handle)
+            non_synergy_df = pd.read_csv(non_syn_file, sep='\t', index_col=0, dtype={'Drug1_pubchem_cid': str, \
+                                                                                     'Drug2_pubchem_cid': str,
+                                                                                     'Cell_line': str,
+                                                                                     'Loewe_label': int})
+            with open(pos_train_test_val_file, 'rb') as handle:
+                pos_folds = pickle.load(handle)
+            with open(neg_train_test_val_file, 'rb') as handle:
+                neg_folds = pickle.load(handle)
 
+            # print('final number of drug pairs going into training: ', len(synergy_df))
+            for alg in should_run_algs:
+                result_dir = config_map['project_dir'] + config_map['output_dir']['result'] + alg + '/' + out_params
+                os.makedirs(result_dir, exist_ok=True)
+
+                params_list = prepare_alg_param_list(alg, config_map)
                 # print('final number of drug pairs going into training: ', len(synergy_df))
                 for alg in should_run_algs:
                     out_dir = config_map['project_dir'] + config_map['output_dir'] + alg + '/' + cross_val_type + '/' + \
@@ -439,41 +432,6 @@ def main(config_map, **kwargs):
                                                         out_dir,synverse_params,  config_map,
                                                         use_drug_based_batch_end=kwargs.get('drug_based_batch_end'))
 
-    #############Model Selection ###################
-    # if kwargs.get('model_selection')==True:
-    #     for alg in should_runfloat_algs:
-    #         if (alg=='gnn'):
-    #             synverse_params = prepare_synverse_param_settings(config_map, dd_decoder_type)
-
-
-    ################### PLOT ######################################
-    if kwargs.get('eval') == True:
-        for cross_val_type in cross_val_types:
-            param_settings_dict = {alg: [] for alg in should_run_algs} #this will contain the hyperparam and model param options considered for each alg
-            for alg in should_run_algs:
-                if alg == 'synverse':
-                    param_settings_dict[alg] = prepare_synverse_param_settings(config_map)
-                if alg == 'synverse_v2':
-                    param_settings_dict[alg] = prepare_synverse_v2_param_settings(config_map)
-                if alg == 'synverse_v3':
-                    param_settings_dict[alg] = prepare_synverse_v3_param_settings(config_map)
-                if alg == 'synverse_v4':
-                    param_settings_dict[alg] = prepare_synverse_v4_param_settings(config_map)
-
-                if alg == 'synverse_nogenex':
-                    param_settings_dict[alg] = prepare_synverse_nogenex_param_settings(config_map)
-                if alg == 'decagon':
-                    param_settings_dict[alg] = prepare_decagon_param_settings(config_map)
-
-                if alg == 'deepsynergy':
-                    param_settings_dict[alg] = prepare_deepsynergy_param_settings(config_map)
-
-                if alg == 'dtf':
-                    param_settings_dict[alg] = prepare_dtf_param_settings(config_map)
-
-            # evaluation_handler.evaluate(should_run_algs, param_settings_dict, cross_val_type, kwargs, config_map)
-            # evaluation_handler.find_best_param(should_run_algs, param_settings_dict, cross_val_type, kwargs, config_map)
-            evaluation_handler.plot_best_models(should_run_algs, param_settings_dict, cross_val_type, kwargs, config_map)
 if __name__ == "__main__":
     config_map, kwargs = parse_args()
     main(config_map, **kwargs)

@@ -313,7 +313,7 @@ print(synergy_df['Drug1_pubchem_cid'].unique())
 drugbank_drug_target_grouped_df = drugbank_drug_target_df.groupby('pubchem_cid')['drug_name'].unique().reset_index()
 drugbank_drug_target_grouped_df['#drug_name_per_pubchem_cid'] = drugbank_drug_target_grouped_df['drug_name'].                                                            apply(lambda x: len(x))
 
-drugbank_drug_target_df_multiple_drugname_per_pubchem_id =            drugbank_drug_target_grouped_df[drugbank_drug_target_grouped_df['#drug_name_per_pubchem_cid']>1]
+drugbank_drug_target_df_multiple_drugname_per_pubchem_id = drugbank_drug_target_grouped_df[drugbank_drug_target_grouped_df['#drug_name_per_pubchem_cid']>1]
 print(drugbank_drug_target_df_multiple_drugname_per_pubchem_id)
 
 
@@ -324,7 +324,7 @@ print(drugbank_drug_target_df_multiple_drugname_per_pubchem_id)
 TTD_drug_target_grouped_df = TTD_drug_target_df.groupby('pubchem_cid')['drug_name'].unique().reset_index()
 TTD_drug_target_grouped_df['#drug_name_per_pubchem_cid'] = TTD_drug_target_grouped_df['drug_name'].                                                            apply(lambda x: len(x))
 
-TTD_drug_target_multiple_drugname_per_pubchem_id_df =            TTD_drug_target_grouped_df[TTD_drug_target_grouped_df['#drug_name_per_pubchem_cid']>1]
+TTD_drug_target_multiple_drugname_per_pubchem_id_df = TTD_drug_target_grouped_df[TTD_drug_target_grouped_df['#drug_name_per_pubchem_cid']>1]
 print(TTD_drug_target_multiple_drugname_per_pubchem_id_df)
 print('total pubchem id with multiple drug name:', len(TTD_drug_target_multiple_drugname_per_pubchem_id_df))
 
@@ -336,7 +336,7 @@ print('total pubchem id with multiple drug name:', len(TTD_drug_target_multiple_
 drugbank_drug_target_grouped_df = drugbank_drug_target_df.groupby('drug_name')['pubchem_cid'].unique().reset_index()
 drugbank_drug_target_grouped_df['#pubchem_cid_per_drug'] = drugbank_drug_target_grouped_df['pubchem_cid'].                                                            apply(lambda x: len(x))
 
-drugbank_drug_target_df_multiple_pubchem_id_per_drugname =            drugbank_drug_target_grouped_df[drugbank_drug_target_grouped_df['#pubchem_cid_per_drug']>1]
+drugbank_drug_target_df_multiple_pubchem_id_per_drugname = drugbank_drug_target_grouped_df[drugbank_drug_target_grouped_df['#pubchem_cid_per_drug']>1]
 print(drugbank_drug_target_df_multiple_pubchem_id_per_drugname)
 
 
@@ -347,7 +347,7 @@ print(drugbank_drug_target_df_multiple_pubchem_id_per_drugname)
 TTD_drug_target_grouped_df = TTD_drug_target_df.groupby('drug_name')['pubchem_cid'].unique().reset_index()
 TTD_drug_target_grouped_df['#pubchem_cid_per_drug'] = TTD_drug_target_grouped_df['pubchem_cid'].                                                            apply(lambda x: len(x))
 
-TTD_drug_target_df_multiple_pubchem_id_per_drugname =            TTD_drug_target_grouped_df[TTD_drug_target_grouped_df['#pubchem_cid_per_drug']>1]
+TTD_drug_target_df_multiple_pubchem_id_per_drugname = TTD_drug_target_grouped_df[TTD_drug_target_grouped_df['#pubchem_cid_per_drug']>1]
 print(TTD_drug_target_df_multiple_pubchem_id_per_drugname)
 
 

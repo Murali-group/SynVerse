@@ -17,8 +17,16 @@ import pandas as pd
 import os
 import copy
 from utils import *
-from utils import cell_line_based_negative_sampling_degree_based
-from utils import cell_line_based_negative_sampling_semi_random
+from data_split.negative_sampling import cell_line_based_negative_sampling_degree_based
+from data_split.negative_sampling import cell_line_based_negative_sampling_semi_random
+
+
+def get_cell_lines_in_folds(folds, n_folds,synergy_df):
+    cell_lines_each_folds = {i: {'test': [], 'train': [], 'val': [], 'val_es': []} for i in range(n_folds)}
+    for fold in range(n_folds):
+        for split_type in ['train', 'test', 'val', 'val_es']:
+            cell_lines_each_folds[fold][split_type]=list(synergy_df[synergy_df.index.isin([folds[fold][split_type]])]['Cell_line'].unique())
+    return cell_lines_each_folds
 
 def is_neg_pos_dataset_non_overlapping(synergy_df, non_synergy_df):
     synergy_set = set(zip(synergy_df['Drug1_pubchem_cid'], synergy_df['Drug2_pubchem_cid'], synergy_df['Cell_line']))
@@ -203,56 +211,64 @@ def leave_cell_line_cross_val(synergy_df, number_of_folds, val_frac, cell_lines_
 
 
 
-def leave_comb_cell_line_cross_val(synergy_df_init, num_folds, val_frac, prev_folds=None):
+def leave_comb_cell_line_cross_val(synergy_df_init, num_folds, val_frac,cell_lines_each_folds=None, prev_folds=None):
+
+
     n_pairs_in_test = int(len(synergy_df_init)/num_folds)
     n_pairs_in_val = int(len(synergy_df_init)*val_frac)
     folds = {i: {'test': [], 'train': [], 'val': [], 'val_es':[]} for i in range(num_folds)}
+    if prev_folds == None:
+        for i in range(num_folds):
+            synergy_df = copy.deepcopy(synergy_df_init)
+            while True:
+                # print('remaining cell lines: ', synergy_df['Cell_line'].unique())
+                drug_cell_line_triplets = list(zip(synergy_df['Drug1_pubchem_cid'], synergy_df['Drug2_pubchem_cid'],
+                            synergy_df['Cell_line']))
+                drug_cell_line_triplet = random.sample(drug_cell_line_triplets, 1)
+                drug_pairs = [(x, y) for x, y, z in drug_cell_line_triplet]
+                cell_lines = [z for x, y, z in drug_cell_line_triplet]
 
-    for i in range(num_folds):
-        synergy_df = copy.deepcopy(synergy_df_init)
-        while True:
-            # print('remaining cell lines: ', synergy_df['Cell_line'].unique())
-            drug_cell_line_triplets = list(zip(synergy_df['Drug1_pubchem_cid'], synergy_df['Drug2_pubchem_cid'],
-                        synergy_df['Cell_line']))
-            drug_cell_line_triplet = random.sample(drug_cell_line_triplets, 1)
-            drug_pairs = [(x, y) for x, y, z in drug_cell_line_triplet]
-            cell_lines = [z for x, y, z in drug_cell_line_triplet]
+                # find all the index of synergy_df for which drug_pairs\
+                # or cell line matches with the sampled drug_cell_line_triplet
+                df = synergy_df[synergy_df[['Drug1_pubchem_cid', 'Drug2_pubchem_cid']].
+                                 apply(tuple, axis=1).isin(drug_pairs)]
+                df1 = synergy_df[synergy_df['Cell_line'].isin(cell_lines)]
+                df = pd.concat([df,df1], axis=0)
+                print('n triplets: ', len(df))
+                # print('selected cell line: ', df['Cell_line'].unique())
 
-            # find all the index of synergy_df for which drug_pairs\
-            # or cell line matches with the sampled drug_cell_line_triplet
-            df = synergy_df[synergy_df[['Drug1_pubchem_cid', 'Drug2_pubchem_cid']].
-                             apply(tuple, axis=1).isin(drug_pairs)]
-            df1 = synergy_df[synergy_df['Cell_line'].isin(cell_lines)]
-            df = pd.concat([df,df1], axis=0)
-            print('n triplets: ', len(df))
-            # print('selected cell line: ', df['Cell_line'].unique())
+                # selected_triplets = set(zip(df['Drug1_pubchem_cid'], df['Drug2_pubchem_cid'], df['Cell_line']))
+                buffer = 50
+                if len(folds[i]['test']) < n_pairs_in_test-buffer:
+                    folds[i]['test'] = folds[i]['test'] + list((df.index))
+                    print('test: ', 'n triplets: ', len(df))
+                elif len(folds[i]['val']) < n_pairs_in_val-buffer:
+                    folds[i]['val'] = folds[i]['val'] + list((df.index))
+                    print('val: ', 'n triplets: ', len(df))
+                elif len(folds[i]['val_es']) < n_pairs_in_val-buffer:
+                    folds[i]['val_es'] = folds[i]['val_es'] + list((df.index))
+                    print('val_es: ', 'n triplets: ', len(df))
+                else:
+                    folds[i]['train'] = list(synergy_df.index)
+                    print('train: ', 'n triplets: ', len(synergy_df))
+                    break
+                synergy_df = synergy_df[~synergy_df.index.isin(list(df.index))]
 
-            # selected_triplets = set(zip(df['Drug1_pubchem_cid'], df['Drug2_pubchem_cid'], df['Cell_line']))
-            buffer = 50
-            if len(folds[i]['test']) < n_pairs_in_test-buffer:
-                folds[i]['test'] = folds[i]['test'] + list((df.index))
-                print('test: ', 'n triplets: ', len(df))
-            elif len(folds[i]['val']) < n_pairs_in_val-buffer:
-                folds[i]['val'] = folds[i]['val'] + list((df.index))
-                print('val: ', 'n triplets: ', len(df))
-            elif len(folds[i]['val_es']) < n_pairs_in_val-buffer:
-                folds[i]['val_es'] = folds[i]['val_es'] + list((df.index))
-                print('val_es: ', 'n triplets: ', len(df))
-            else:
-                folds[i]['train'] = list(synergy_df.index)
-                print('train: ', 'n triplets: ', len(synergy_df))
-                break
-            synergy_df = synergy_df[~synergy_df.index.isin(list(df.index))]
+            for split in ['train','test','val','val_es']:
+                l = synergy_df_init[synergy_df_init.index.isin(folds[i][split])]['Cell_line'].unique()
+                print('fold: ', i, 'split: ', split, l)
+    else:
+            #so this is for no_synegry_df
+            for fold in range(num_folds):
+                for split_type in ['train', 'test', 'val', 'val_es']:
+                    df_1 =  synergy_df_init[synergy_df_init['Cell_line'].\
+                                                   isin(cell_lines_each_folds[fold][split_type])]
+                    df_1_drug_pairs = list(zip(df_1['Drug1_pubchem_cid'],df_1['Drug2_pubchem_cid']))
 
-        for split in ['train','test','val','val_es']:
-            l = synergy_df_init[synergy_df_init.index.isin(folds[i][split])]['Cell_line'].unique()
-            print('fold: ', i, 'split: ', split, l)
-
-    if prev_folds!=None:
-        #so this is for no_synegry_df
-        for fold in range(num_folds):
-            for split_type in ['train', 'test', 'val', 'val_es']:
-                folds[fold][split_type] = random.sample(folds[fold][split_type], len(prev_folds[fold][split_type]))
+                    folds[fold][split_type] = list(df_1.index)  #add all triplet from certain cell lines
+                    folds[fold][split_type] += list(synergy_df_init[synergy_df_init[['Drug1_pubchem_cid', 'Drug2_pubchem_cid']].
+                                 apply(tuple, axis=1).isin(df_1_drug_pairs)].index)
+                    folds[fold][split_type] = random.sample(folds[fold][split_type], len(prev_folds[fold][split_type]))
 
     return folds
 
@@ -424,11 +440,11 @@ def create_test_val_train_cross_val_folds(synergy_df, init_non_synergy_df, cross
         non_synergy_df=pd.DataFrame()
         for cell_line in cell_lines:
             if neg_sampling_type == 'degree_based':
-                neg_df = cell_line_based_negative_sampling_degree_based(cell_line, synergy_df, neg_fact+0.5)
+                neg_df = cell_line_based_negative_sampling_degree_based(cell_line, synergy_df, neg_fact+0.75)
                 non_synergy_df = pd.concat([non_synergy_df, neg_df], axis=0)
                 print('neg cell line: ', cell_line)
             elif neg_sampling_type == 'semi_random':
-                neg_df = cell_line_based_negative_sampling_semi_random(cell_line, synergy_df, neg_fact+0.5)
+                neg_df = cell_line_based_negative_sampling_semi_random(cell_line, synergy_df, neg_fact+0.75)
                 non_synergy_df = pd.concat([non_synergy_df, neg_df], axis=0)
                 print('neg cell line: ', cell_line)
             elif neg_sampling_type == 'no':
@@ -437,8 +453,15 @@ def create_test_val_train_cross_val_folds(synergy_df, init_non_synergy_df, cross
         non_synergy_df.reset_index(drop=True, inplace= True)
 
         # split the negative edges
-        neg_folds = leave_comb_cell_line_cross_val(non_synergy_df, number_of_folds, val_frac,
-                                                folds)
+        cell_lines_each_folds = get_cell_lines_in_folds(folds, number_of_folds, synergy_df)
+        neg_folds = leave_comb_cell_line_cross_val(non_synergy_df, number_of_folds, val_frac, cell_lines_each_folds, folds)
+
+
+
+        for fold in range(number_of_folds):
+            for split in ['train', 'test','val', 'val_es']:
+                print('actual neg fact:', float(len(folds[fold][split])) / len(neg_folds[fold][split]))
+                assert (float(len(folds[fold][split])) / len(neg_folds[fold][split]) == neg_fact), 'problem in neg_fact'
 
     elif cross_val_type == 'random':
 

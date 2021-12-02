@@ -36,7 +36,7 @@ from torch_geometric.nn.inits import reset
 import models.gnn.gnn_utils as utils
 import models.gnn.cross_validation as cross_val
 from models.gnn.gnn_minibatch import MinibatchHandler
-from models.gnn.BipartiteGCN import BipartiteGCN
+from models.gnn.encoder_modules  import BipartiteGCN
 import logging
 logging.basicConfig(filename='synverse_model.log', filemode='a', level=logging.DEBUG)
 
@@ -1223,7 +1223,7 @@ def run_synverse_nogenex_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_d
                 elif decoder_names[edge_type]=='dedicom':
                     decoders[edge_type] = DedicomDecoder(edge_type, n_sub_types, h_sizes[-1])
 
-                elif decoder_names[edge_type] == 'nndecoder':
+                elif decoder_names[edge_type] == 'nn':
                     #the size of the input is concatenation of (drug1, drug2 , cell_line_spec_gene_expression)
                     #here, h_sizes[-1] is the output dimension of embedding layer i.e. final dim of embedded drugs
                     # and len(gene_expression_feature_df.columns) is the #of gene expression features

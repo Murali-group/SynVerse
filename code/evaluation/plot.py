@@ -263,25 +263,17 @@ def plot_roc_prc(precision, recall, FPR, TPR, title_suffix, plot_dir):
     plt.show()
     plt.close()
 
-def plot_best_models_auprc_auroc_e_prec(early_prec_k,neg_fact, eval_score_dict, plot_dir):
+def plot_best_models_auprc(eval_score_dict,y_threshold, plot_dir):
     #eval_score_dict[alg] => is a list containing the performance of best-param-setting-model of 'alg'. This is a
     # list because it contains score from multiple runs
     auprc_data_all_alg = []
-    auroc_data_all_alg = []
-    e_prec_data_all_alg = []
     plot_label = []
     for alg in eval_score_dict:
         auprc_data = []
-        auroc_data = []
-        e_prec_data = []
         for run_ in range(len(eval_score_dict[alg])):
             auprc_data.append(eval_score_dict[alg][run_].auprc)
-            auroc_data.append(eval_score_dict[alg][run_].auroc)
-            e_prec_data.append(eval_score_dict[alg][run_].early_prec)
-        auprc_data_all_alg.append(auprc_data)
-        auroc_data_all_alg.append(auroc_data)
-        e_prec_data_all_alg.append(e_prec_data)
 
+        auprc_data_all_alg.append(auprc_data)
         alg_name_for_plot = name_for_plot(alg)
         plot_label.append(alg_name_for_plot)
 
@@ -289,17 +281,11 @@ def plot_best_models_auprc_auroc_e_prec(early_prec_k,neg_fact, eval_score_dict, 
     fig, ax = plt.subplots()
     ax.margins(x=0)
 
+
     plt.boxplot(auprc_data_all_alg, labels=plot_label)
     print('AUPRC: ', auprc_data_all_alg)
-    # bplot = plt.boxplot(auprc_data_all_alg, labels=plot_label,
-    #                     patch_artist=True, widths=0.7, positions = [0,1,2])
-    #
-    # colors = ['pink', 'lightblue', 'lightgreen']
-    # for patch, color in zip(bplot['boxes'], colors):
-    #     patch.set_facecolor(color)
 
-    y_val = 1 / float(1 + neg_fact)
-    plt.axhline(y=y_val, color="gray", linestyle="--")
+    plt.axhline(y=y_threshold, color="gray", linestyle="--")
     ax.set_ylim([0.5, 0.85])
 
     plt.xlabel('Algorithms', fontsize=11)
@@ -309,57 +295,92 @@ def plot_best_models_auprc_auroc_e_prec(early_prec_k,neg_fact, eval_score_dict, 
     # plt.tight_layout()
     plt.tight_layout()
 
-    plt.savefig(plot_dir + 'compare_AUPRC.png', bbox_inches='tight')
-    plt.savefig(plot_dir + 'compare_AUPRC.pdf', bbox_inches='tight')
+    plt.savefig(plot_dir + '_'.join(plot_label)+ '_compare_AUPRC.png', bbox_inches='tight')
+    plt.savefig(plot_dir +'_'.join(plot_label)+ '_compare_AUPRC.pdf', bbox_inches='tight')
     plt.show()
     plt.close()
     print(plot_dir + 'compare_AUPRC.png')
 
-    #AUROC
+
+
+
+def plot_best_models_auroc(eval_score_dict, plot_dir):
+    # eval_score_dict[alg] => is a list containing the performance of best-param-setting-model of 'alg'. This is a
+    # list because it contains score from multiple runs
+
+    auroc_data_all_alg = []
+    plot_label = []
+    for alg in eval_score_dict:
+
+        auroc_data = []
+
+        for run_ in range(len(eval_score_dict[alg])):
+
+            auroc_data.append(eval_score_dict[alg][run_].auroc)
+
+        auroc_data_all_alg.append(auroc_data)
+
+        alg_name_for_plot = name_for_plot(alg)
+        plot_label.append(alg_name_for_plot)
+
+        print('Parameter for best model: ' + alg)
+
+
+    # AUROC
     fig, ax = plt.subplots()
     plt.boxplot(auroc_data_all_alg, labels=plot_label)
-    # bplot = plt.boxplot(auroc_data_all_alg, labels=plot_label, patch_artist=True)
-    # colors = ['pink', 'lightblue', 'lightgreen']
-    # for patch, color in zip(bplot['boxes'], colors):
-    #     patch.set_facecolor(color)
 
-    y_val = 0.5
-    plt.axhline(y=y_val, color="gray", linestyle="--")
+    plt.axhline(y=0.5, color="gray", linestyle="--")
     ax.set_ylim([0.5, 0.85])
     plt.xlabel('Algorithms')
     plt.ylabel('AUROC')
     plt.title('Comparing AUROC of different algorithms')
 
     plt.tight_layout()
-    plt.savefig(plot_dir+'compare_AUROC.png', bbox_inches='tight')
-    plt.savefig(plot_dir + 'compare_AUROC.pdf', bbox_inches='tight')
+    plt.savefig(plot_dir + '_'.join(plot_label) + '_compare_AUROC.png', bbox_inches='tight')
+    plt.savefig(plot_dir + '_'.join(plot_label) + '_compare_AUROC.pdf', bbox_inches='tight')
     plt.show()
     plt.close()
 
-    #Early Prec
+
+
+def plot_best_models_e_prec(eval_score_dict, early_prec_k, y_threshold, plot_dir):
+    # eval_score_dict[alg] => is a list containing the performance of best-param-setting-model of 'alg'. This is a
+    # list because it contains score from multiple runs
+
+    e_prec_data_all_alg = []
+    plot_label = []
+    for alg in eval_score_dict:
+        e_prec_data = []
+        for run_ in range(len(eval_score_dict[alg])):
+            e_prec_data.append(eval_score_dict[alg][run_].early_prec)
+
+        e_prec_data_all_alg.append(e_prec_data)
+
+        alg_name_for_plot = name_for_plot(alg)
+        plot_label.append(alg_name_for_plot)
+
+        print('Parameter for best model: ' + alg)
+
+
+    # Early Prec
     fig, ax = plt.subplots()
     plt.boxplot(e_prec_data_all_alg, labels=plot_label)
-    # bplot = plt.boxplot(e_prec_data_all_alg, labels=plot_label, patch_artist=True)
-    # colors = ['pink', 'lightblue', 'lightgreen']
-    # for patch, color in zip(bplot['boxes'], colors):
-    #     patch.set_facecolor(color)
-    #plot baseline
-    y_val = 1/float(1+neg_fact)
-    plt.axhline(y=y_val, color="gray", linestyle="--")
-    ax.set_ylim([0.5,0.85])
+
+
+    plt.axhline(y=y_threshold, color="gray", linestyle="--")
+    ax.set_ylim([0.5, 0.85])
     plt.xlabel('Algorithms')
-    plt.ylabel('Early_precision_at '+ str(early_prec_k))
+    plt.ylabel('Early_precision_at ' + str(early_prec_k))
     plt.title('comparing early precision of different algorithms')
 
     plt.tight_layout()
-    plt.savefig(plot_dir + 'compare_early_prec_'+str(early_prec_k).replace('.','_') +'.png', bbox_inches='tight')
-    plt.savefig(plot_dir + 'compare_early_prec_'+str(early_prec_k).replace('.','_') +'.pdf', bbox_inches='tight')
+    plt.savefig(plot_dir + '_'.join(plot_label) + '_compare_early_prec_' + str(early_prec_k).replace('.', '_') + '.png',
+                bbox_inches='tight')
+    plt.savefig(plot_dir + '_'.join(plot_label) + '_compare_early_prec_' + str(early_prec_k).replace('.', '_') + '.pdf',
+                bbox_inches='tight')
     plt.show()
     plt.close()
-
-
-
-
 
 ########### input: performance score from multiple instances/run/ of one algorithm. in the input dictionary the auprc/auroc
 # score are both for a prediction on a   cell line  (under the key=cell line name) and

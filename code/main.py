@@ -14,29 +14,29 @@
 import argparse
 import yaml
 #from tqdm import tqdm
-import numpy as np
 #from scipy import sparse
 from scipy.io import loadmat
-import pandas as pd
-import os
-import  time
 import utils
 from utils import *
 import pickle
 import matplotlib.pyplot as plt
+import os
+import pandas as pd
+import numpy as np
 #import subprocess
 # sys.path.insert(0, '/home/tasnina/Projects/Synverse/')
-# import models.gnn.run_synverse as synverse
+import models.gnn.run_synverse as synverse
 # import models.gnn.run_synverse_nogenex as synverse_nogenex
 # import models.gnn.run_synverse_v2 as synverse_v2
 # import models.gnn.run_synverse_v3 as synverse_v3
 # import models.gnn.run_synverse_v4 as synverse_v4
 
 
-import models.gnn.run_decagon as decagon
+# import models.gnn.run_decagon as decagon
 # import models.deepsynergy as deepsynergy
 
-import cross_validation as cross_val
+from data_split import cross_validation as cross_val
+
 import evaluation.evaluation_handler as evaluation_handler
 
 def parse_args():
@@ -47,7 +47,6 @@ def parse_args():
         #config_map = yaml.load(conf, Loader=yaml.FullLoader)
         config_map = yaml.load(conf)
     # TODO check to make sure the inputs are correct in config_map
-
     return config_map, kwargs
 
 
@@ -72,24 +71,17 @@ def setup_opts():
                        help="if true, at each epoch once all the drug_drug batches are used for training, the epoch ends")
 
 
-    #DATA preprocessing params
-    group.add_argument('--apply-threshold', action='store_true',
-                       help="apply threshold to determine synergistic or not")
 
     ################### VARYING SETTINGS #####################################################
-    group.add_argument('--cvdir', type=str, default="train_test_val2_finalv_1",
+    group.add_argument('--cvdir', type=str, default="refactor",
                        help="folder to save cross validation folds ")
-    group.add_argument('--sampling', type=str, default="semi_random",
-                       help="two types of negative sampling: 'semi_random', 'degree_based',"
-                            " 'no'('no' means we will not do any sampling, rather drug-comb-db pairs which"
-                            "will be considered as non-synergistic) ")
 
     group.add_argument('--save-model', action='store_true',
                        help="true means the trained model will be saved")
     #evaluation arguments
     group.add_argument('--force-cvdir', action = 'store_true')
-    group.add_argument('--train', action = 'store_false')
-    group.add_argument('--eval', action = 'store_true')
+    group.add_argument('--train', action = 'store_true')
+    group.add_argument('--eval', action = 'store_false')
     ############################################################################################
 
     group.add_argument('--recall', type=float,
@@ -144,11 +136,6 @@ def prepare_synergy_pairs(synergy_df,number_of_top_cell_lines,top_k_percent, app
         non_syn_cell_line_df =cell_line_df_init[~cell_line_df_init.index.isin(cell_line_df.index)]
         non_synergy_df = pd.concat([non_synergy_df, non_syn_cell_line_df], axis=0, ignore_index=True)
 
-        # hist_data = list(cell_line_df['Loewe'])
-        # plt.hist(hist_data, weights=np.zeros_like(hist_data) + 1. / len(hist_data), bins=10)
-        # plt.title(cell_line)
-        # plt.show()
-        # plt.clf()
 
         synergy_df_new = pd.concat([synergy_df_new, cell_line_df], axis = 0, ignore_index=True)
     synergy_df_new['Loewe_label'] =  pd.Series(np.ones(len(synergy_df_new)), dtype=int)
@@ -176,7 +163,7 @@ def prepare_synergy_pairs(synergy_df,number_of_top_cell_lines,top_k_percent, app
     return synergy_df_new, non_synergy_df
 
 
-def preprocess_inputs(string_cutoff,minimum_number_of_synergistic_pairs_per_cell_line,maximum_number_of_synergistic_pairs_per_cell_line,
+def preprocess_inputs(string_cutoff,
                       synergy_df, init_non_synergy_df, use_non_syn_df_in_preprocess, config_map):
     #outputs: ppi_sparse_matrix: protein-protein interaction matrix from STRING with cutoff at 700
     # gene_node_2_idx (dictionray): PPI gene to index
@@ -186,9 +173,6 @@ def preprocess_inputs(string_cutoff,minimum_number_of_synergistic_pairs_per_cell
     # drug_maccs_keys_feature_df:
     # synergy_df:
     project_dir = config_map['project_dir']
-    # synergy_file = project_dir + config_map['inputs']['synergy']
-    # number_of_top_cell_lines = config_map['synergy_data_settings']['number_of_top_cell_lines']
-    # top_k_percent = config_map['synergy_data_settings']['top_k_percent_pairs']
 
     drug_target_file = project_dir + config_map['inputs']['drug']['target']
 
@@ -303,29 +287,24 @@ def main(config_map, **kwargs):
 
     #synergy data settings
     string_cutoff = config_map['string_network_preparation_settings']['string_cutoff']
-    min_pairs_per_cell_line = config_map['synergy_data_settings']['min_pairs']
-    max_pairs_per_cell_line =  config_map['synergy_data_settings']['max_pairs']
-    threshold = config_map['synergy_data_settings']['threshold']['val']
-    number_of_top_cell_lines = config_map['synergy_data_settings']['number_of_top_cell_lines']
-    number_of_test_cell_lines = config_map['synergy_data_settings']['number_of_test_cell_lines']
-    top_k_percent = config_map['synergy_data_settings']['top_k_percent_pairs']
+    number_of_top_cell_lines = config_map['synergy_data_settings']['n_top_cell_lines']
+    number_of_test_cell_lines = config_map['synergy_data_settings']['n_rare_cell_lines']
+    top_k_percent = config_map['synergy_data_settings']['percent']
 
     #cell line specific gene expression data settings
     exp_score = kwargs.get('exp_score')
     init_gene_expression_file_path =  config_map['project_dir']+config_map['inputs']['cell_lines'][exp_score]
-    compressed_gene_expression_dir =  os.path.dirname(init_gene_expression_file_path)
-    # num_compressed_gene = config_map['autoencoder_settings']['num_compressed_gene']
+
 
     # cross val settings
-    # test_frac = config_map['ml_models_settings']['cross_val']['test_frac']
-    val_frac = config_map['ml_models_settings']['cross_val']['val_frac']
-    cross_val_types = config_map['ml_models_settings']['cross_val']['types']
-    number_of_folds = config_map['ml_models_settings']['cross_val']['folds']
-    neg_fact = config_map['ml_models_settings']['cross_val']['neg_fact']
-    neg_sampling_type = kwargs.get('sampling')
-    apply_threshold = kwargs.get('apply_threshold')
+    val_frac = config_map['split']['val_frac']
+    split_type = config_map['split']['type']
+    number_of_folds = config_map['split']['folds']
+    neg_fact = config_map['split']['neg_frac']
+    neg_sampling_type = config_map['split']['sampling']
+    apply_threshold = config_map['synergy_data_settings']['apply_threshold']
 
-    number_of_runs = config_map['ml_models_settings']['runs']
+    number_of_runs = config_map['runs']
     algs = config_map['ml_models_settings']['algs']
     project_dir = config_map['project_dir']
     synergy_file = project_dir + config_map['inputs']['synergy']
@@ -350,7 +329,8 @@ def main(config_map, **kwargs):
 
     #then keep only top percent/thrsholded pairs of number_of_top_cell_lines
     #synergy_df and non_synergy_df have the same cell lines in them
-    synergy_df, init_non_synergy_df = prepare_synergy_pairs(synergy_df, number_of_top_cell_lines, top_k_percent, apply_threshold)
+    synergy_df, init_non_synergy_df = prepare_synergy_pairs(synergy_df, number_of_top_cell_lines, top_k_percent, \
+                                                            apply_threshold)
 
 
     #after the following operation both synergy_df and gene_expression_feature_df will have same cell lines in them
@@ -365,14 +345,15 @@ def main(config_map, **kwargs):
     gene_expression_feature_df.set_index('cell_line_index', inplace=True, drop=True)
 
 
-    #procesing network data
+
     if neg_sampling_type=='no':
         use_non_syn_df_in_preprocess=True
     else:
         use_non_syn_df_in_preprocess = False
 
+    # procesing network data
     ppi_sparse_matrix, gene_node_2_idx, drug_target_df, synergy_df, init_non_synergy_df = \
-        preprocess_inputs(string_cutoff, min_pairs_per_cell_line, max_pairs_per_cell_line, synergy_df,\
+        preprocess_inputs(string_cutoff, synergy_df,\
                           init_non_synergy_df, use_non_syn_df_in_preprocess, config_map)
 
     print('final drug pairs per cell line', synergy_df.groupby('Cell_line').count())
@@ -382,260 +363,127 @@ def main(config_map, **kwargs):
                                             init_non_synergy_df,use_non_syn_df_in_preprocess,  config_map)
 
 
-
     should_run_algs = []
     for alg in algs:
         if algs[alg]['should_run'] == True:
             should_run_algs.append(alg)
     print('should_run_algs: ', should_run_algs)
 
-    # dict of dict to hold different types of cross val split folds
-    type_wise_pos_cross_folds = {cross_val_type: dict() for cross_val_type in cross_val_types}
-    type_wise_neg_cross_folds = {cross_val_type: dict() for cross_val_type in cross_val_types}
-
     # generate model prediction and result
     if kwargs.get('train')==True:
         for run_ in range(number_of_runs):
             print("RUN NO:", run_)
 
-            for cross_val_type in cross_val_types:
-                if cross_val_type != 'test_rare_cell_lines':
-                    out_params = cross_val_type + '/' + \
-                                'pairs_' + str(min_pairs_per_cell_line) + '_' + \
-                                str(max_pairs_per_cell_line) + '_th_' + str(threshold) + '_cell_lines_' + str(
-                                    number_of_top_cell_lines) + \
-                                '_percent_' + str(top_k_percent) + \
-                                '_' + 'neg_' + str(neg_fact) + '_neg_sampling_' + neg_sampling_type + '_val_frac_' + str(val_frac) + '_'\
-                                 + kwargs.get('cvdir') + '/run_' + str(run_) + '/'
-                else:
-                    out_params = cross_val_type + '/' + \
-                                'pairs_' + str(min_pairs_per_cell_line) + '_' + \
-                                str(max_pairs_per_cell_line) + '_th_' + str(threshold) + '_cell_lines_' + str(
-                                number_of_top_cell_lines) + '_' + \
-                                str(number_of_test_cell_lines) + \
-                                '_percent_' + str(top_k_percent) + '_' + 'neg_' + str(neg_fact) + \
-                                '_neg_sampling_' + neg_sampling_type + '_val_frac_' + str(val_frac) + '_' + \
-                                kwargs.get('cvdir') + '/run_' + str(run_) + '/'
+            out_params = prepare_output_prefix(split_type, config_map, **kwargs) + '/run_' + str(run_) + '/'
+            cross_val_dir = config_map['project_dir'] + config_map['output_dir']['split'] + out_params
 
-                cross_val_dir = config_map['project_dir'] + config_map['output_dir'] + 'cross_val/' +out_params
+            pos_train_test_val_file = cross_val_dir + 'pos_train_test_val.pkl'
+            neg_train_test_val_file = cross_val_dir + 'neg_train_test_val.pkl'
+            non_syn_file = cross_val_dir + 'non_synergy.tsv'
+            syn_file = cross_val_dir + 'synergy.tsv'
+            if (not os.path.exists(pos_train_test_val_file))|(not os.path.exists(neg_train_test_val_file))|\
+                    (not os.path.exists(non_syn_file))|(force_cvdir == True):
 
+                # only cross validation splits
 
-                pos_train_test_val_file = cross_val_dir + 'pos_train_test_val.pkl'
-                neg_train_test_val_file = cross_val_dir + 'neg_train_test_val.pkl'
-                non_syn_file = cross_val_dir + 'non_synergy.tsv'
-                syn_file = cross_val_dir + 'synergy.tsv'
-                if (not os.path.exists(pos_train_test_val_file))|(not os.path.exists(neg_train_test_val_file))|\
-                        (not os.path.exists(non_syn_file))|(force_cvdir == True):
+                pos_folds, neg_folds,\
+                non_synergy_df = cross_val.create_test_val_train_cross_val_folds\
+                    (synergy_df,init_non_synergy_df, split_type, number_of_folds, neg_fact, val_frac, neg_sampling_type,
+                     number_of_test_cell_lines)
 
-                    # only cross validation splits
+                print('non_syn type: ',type(non_synergy_df))
 
-                    type_wise_pos_cross_folds[cross_val_type], type_wise_neg_cross_folds[cross_val_type],\
-                    non_synergy_df = cross_val.create_test_val_train_cross_val_folds\
-                        (synergy_df,init_non_synergy_df, cross_val_type, number_of_folds, neg_fact, val_frac, neg_sampling_type,
-                         number_of_test_cell_lines)
+                os.makedirs(os.path.dirname(pos_train_test_val_file), exist_ok=True)
 
-                    print('non_syn type: ',type(non_synergy_df))
+                #pkl dump the train_test_val pos and neg fold
 
-                    os.makedirs(os.path.dirname(pos_train_test_val_file), exist_ok=True)
+                with open(pos_train_test_val_file, 'wb') as handle:
+                    pickle.dump(pos_folds, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                with open(neg_train_test_val_file, 'wb') as handle:
+                    pickle.dump(neg_folds, handle,protocol=pickle.HIGHEST_PROTOCOL)
+                non_synergy_df.to_csv(non_syn_file, index=True, sep='\t')
+                synergy_df.to_csv(syn_file, index=True, sep='\t')
 
-                    #pkl dump the train_test_val pos and neg fold
+            non_synergy_df = pd.read_csv(non_syn_file, sep='\t', index_col=0, dtype={'Drug1_pubchem_cid': str, \
+                                                                                     'Drug2_pubchem_cid': str,
+                                                                                     'Cell_line': str,
+                                                                                     'Loewe_label': int})
+            with open(pos_train_test_val_file, 'rb') as handle:
+                pos_folds = pickle.load(handle)
+            with open(neg_train_test_val_file, 'rb') as handle:
+                neg_folds = pickle.load(handle)
 
-                    with open(pos_train_test_val_file, 'wb') as handle:
-                        pickle.dump(type_wise_pos_cross_folds[cross_val_type], handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    with open(neg_train_test_val_file, 'wb') as handle:
-                        pickle.dump(type_wise_neg_cross_folds[cross_val_type], handle,protocol=pickle.HIGHEST_PROTOCOL)
-                    non_synergy_df.to_csv(non_syn_file, index=True, sep='\t')
-                    synergy_df.to_csv(syn_file, index=True, sep='\t')
+            # print('final number of drug pairs going into training: ', len(synergy_df))
+            for alg in should_run_algs:
+                result_dir = config_map['project_dir'] + config_map['output_dir']['result'] + alg + '/' + out_params
+                os.makedirs(result_dir, exist_ok=True)
 
-                non_synergy_df = pd.read_csv(non_syn_file, sep='\t', index_col=0, dtype={'Drug1_pubchem_cid': str, \
-                                                                                         'Drug2_pubchem_cid': str,
-                                                                                         'Cell_line': str,
-                                                                                         'Loewe_label': int})
-                with open(pos_train_test_val_file, 'rb') as handle:
-                    type_wise_pos_cross_folds[cross_val_type] = pickle.load(handle)
-                with open(neg_train_test_val_file, 'rb') as handle:
-                    type_wise_neg_cross_folds[cross_val_type] = pickle.load(handle)
+                params_list = prepare_alg_param_list(alg, config_map)
 
-                # print('final number of drug pairs going into training: ', len(synergy_df))
-                for alg in should_run_algs:
-                    out_dir = config_map['project_dir'] + config_map['output_dir'] + alg + '/' + out_params
-
-                    os.makedirs(out_dir, exist_ok=True)
-
-                    if alg=='synverse':
-                        print('Model running: ', alg)
-
-                        synverse_params_list = prepare_synverse_param_settings(config_map)
-
-                        for synverse_params in synverse_params_list:
-                            print(' synverse_params :',synverse_params)
-                            synverse.run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df,
-                                                        drug_maccs_keys_feature_df, gene_expression_feature_df,
-                                                        synergy_df, non_synergy_df,
-                                                        cell_line_2_idx, idx_2_cell_line,
-                                                        type_wise_pos_cross_folds[cross_val_type],
-                                                        type_wise_neg_cross_folds[cross_val_type],
-                                                        cross_val_dir, neg_sampling_type,
-                                                        out_dir,synverse_params,  config_map,
-                                                        use_drug_based_batch_end=kwargs.get('drug_based_batch_end'))
-                    if alg == 'synverse_v2':
-                        print('Model running: ', alg)
-
-                        synverse_v2_params_list = prepare_synverse_v2_param_settings(config_map)
-
-                        for synverse_v2_params in synverse_v2_params_list:
-                            print(' synverse_params :', synverse_v2_params)
-                            synverse_v2.run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df,
-                                                        drug_maccs_keys_feature_df, gene_expression_feature_df,
-                                                        synergy_df, non_synergy_df,
-                                                        cell_line_2_idx, idx_2_cell_line,
-                                                        type_wise_pos_cross_folds[cross_val_type],
-                                                        type_wise_neg_cross_folds[cross_val_type],
-                                                        cross_val_dir, neg_sampling_type,
-                                                        out_dir, synverse_v2_params, config_map,
-                                                        use_drug_based_batch_end=kwargs.get('drug_based_batch_end'))
-
-                    if alg == 'synverse_v3':
-                        print('Model running: ', alg)
-
-                        synverse_v3_params_list = prepare_synverse_v3_param_settings(config_map)
-
-                        for synverse_v3_params in synverse_v3_params_list:
-                            print(' synverse_params :', synverse_v3_params)
-                            synverse_v3.run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df,
-                                                        drug_maccs_keys_feature_df, gene_expression_feature_df,
-                                                        synergy_df, non_synergy_df,
-                                                        cell_line_2_idx, idx_2_cell_line,
-                                                        type_wise_pos_cross_folds[cross_val_type],
-                                                        type_wise_neg_cross_folds[cross_val_type],
-                                                        cross_val_dir, neg_sampling_type,
-                                                        out_dir, synverse_v3_params, config_map,
-                                                        use_drug_based_batch_end=kwargs.get('drug_based_batch_end'))
-                    if alg == 'synverse_v4':
-                        print('Model running: ', alg)
-
-                        synverse_v4_params_list = prepare_synverse_v4_param_settings(config_map)
-
-                        for synverse_v4_params in synverse_v4_params_list:
-                            print(' synverse_params :', synverse_v4_params)
-                            synverse_v4.run_synverse_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df,
-                                                        drug_maccs_keys_feature_df, gene_expression_feature_df,
-                                                        synergy_df, non_synergy_df,
-                                                        cell_line_2_idx, idx_2_cell_line,
-                                                        type_wise_pos_cross_folds[cross_val_type],
-                                                        type_wise_neg_cross_folds[cross_val_type],
-                                                        cross_val_dir, neg_sampling_type,
-                                                        out_dir, synverse_v4_params, config_map,
-                                                        use_drug_based_batch_end=kwargs.get('drug_based_batch_end'))
-
-                    if alg=='synverse_nogenex':
-                        print('Model running: ', alg)
-
-                        synverse_nogenex_params_list = prepare_synverse_nogenex_param_settings(config_map)
-                        for synverse_nogenex_params in synverse_nogenex_params_list:
-                            print(' synverse_params :',synverse_nogenex_params)
-                            synverse_nogenex.run_synverse_nogenex_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df,
-                                                        drug_maccs_keys_feature_df,
-                                                        synergy_df, non_synergy_df,
-                                                        cell_line_2_idx, idx_2_cell_line,
-                                                        type_wise_pos_cross_folds[cross_val_type],
-                                                        type_wise_neg_cross_folds[cross_val_type],
-                                                        cross_val_dir, neg_sampling_type,
-                                                        out_dir,synverse_nogenex_params,  config_map,
-                                                        use_drug_based_batch_end=kwargs.get('drug_based_batch_end'))
+                if alg in ['synverse', 'synverse_v4','decagon','synverse_nogenex']:
+                    print('Model running: ', alg)
+                    for synverse_params in params_list:
+                        print(' synverse_params :',synverse_params)
+                        synverse.run_synverse_model(alg, ppi_sparse_matrix, gene_node_2_idx, drug_target_df,
+                                                    drug_maccs_keys_feature_df,
+                                                    synergy_df, non_synergy_df,
+                                                    cell_line_2_idx, idx_2_cell_line,
+                                                    pos_folds,
+                                                    neg_folds,
+                                                    cross_val_dir, neg_sampling_type,
+                                                    result_dir,synverse_params,  config_map,
+                                                    gene_expression_feature_df)
 
 
+                if alg == 'deepsynergy':
+                    print('Model running: ', alg)
 
-                    if alg=='deepsynergy':
-                        print('Model running: ', alg)
-                        # use_genex = kwargs.get('use_genex')
-                        # use_target = kwargs.get('use_target')
-                        ds_params_list = prepare_deepsynergy_param_settings(config_map)
-                        for ds_params in ds_params_list:
-                            deepsynergy.run_deepsynergy_model(drug_maccs_keys_targets_feature_df, drug_maccs_keys_feature_df,
-                                                              gene_expression_feature_df,
-                                                              synergy_df, non_synergy_df, cell_line_2_idx, idx_2_cell_line,
-                                                              type_wise_pos_cross_folds[cross_val_type],
-                                                              type_wise_neg_cross_folds[cross_val_type],
-                                                              ds_params, out_dir, config_map)
+                    for ds_params in params_list:
+                        deepsynergy.run_deepsynergy_model(copy.deepcopy(drug_maccs_keys_targets_feature_df),
+                                                          gene_expression_feature_df,
+                                                          synergy_df, non_synergy_df, cell_line_2_idx, idx_2_cell_line,
+                                                          pos_folds,
+                                                          neg_folds,
+                                                          ds_params, result_dir, config_map)
 
-                    if alg=='svm':
-                        print('Model running: ', alg)
-                        use_genex = kwargs.get('use_genex')
-                        use_target = kwargs.get('use_target')
-                        svm_params_list = prepare_svm_param_settings(config_map)
-                        for svm_params in svm_params_list:
-                            svm.run_svm_model(drug_maccs_keys_targets_feature_df, drug_maccs_keys_feature_df,
-                                                              gene_expression_feature_df,use_genex,use_target,
-                                                              synergy_df, non_synergy_df, cell_line_2_idx, idx_2_cell_line,
-                                                              type_wise_pos_cross_folds[cross_val_type],
-                                                              type_wise_neg_cross_folds[cross_val_type],
-                                                              svm_params, out_dir, config_map)
 
-                    if alg=='gbr':
-                        print('Model running: ', alg)
-                        use_genex = kwargs.get('use_genex')
-                        use_target = kwargs.get('use_target')
-                        gbr_params_list = prepare_gbr_param_settings(config_map)
-                        for gbr_params in gbr_params_list:
-                            gbr.run_gbr_model(drug_maccs_keys_targets_feature_df, drug_maccs_keys_feature_df,
-                                                              gene_expression_feature_df,use_genex,use_target,
-                                                              synergy_df, non_synergy_df, cell_line_2_idx, idx_2_cell_line,
-                                                              type_wise_pos_cross_folds[cross_val_type],
-                                                              type_wise_neg_cross_folds[cross_val_type],
-                                                              gbr_params, out_dir, config_map)
+                if alg=='svm':
+                    print('Model running: ', alg)
+                    use_genex = kwargs.get('use_genex')
+                    use_target = kwargs.get('use_target')
 
-                    if alg == 'decagon':
-                        print('Model running: ', alg)
+                    for svm_params in params_list:
+                        svm.run_svm_model(drug_maccs_keys_targets_feature_df, drug_maccs_keys_feature_df,
+                                                          gene_expression_feature_df,use_genex,use_target,
+                                                          synergy_df, non_synergy_df, cell_line_2_idx, idx_2_cell_line,
+                                                          pos_folds,
+                                                          neg_folds,
+                                                          svm_params, result_dir, config_map)
 
-                        decagon_params_list = prepare_decagon_param_settings(config_map)
+                if alg=='gbr':
+                    print('Model running: ', alg)
+                    use_genex = kwargs.get('use_genex')
+                    use_target = kwargs.get('use_target')
 
-                        for decagon_params in decagon_params_list:
-                            print(' decagon_params :', decagon_params)
-                            decagon.run_decagon_model(ppi_sparse_matrix, gene_node_2_idx, drug_target_df,
-                                                        drug_maccs_keys_feature_df, gene_expression_feature_df,
-                                                        synergy_df, non_synergy_df,
-                                                        cell_line_2_idx, idx_2_cell_line,
-                                                        type_wise_pos_cross_folds[cross_val_type],
-                                                        type_wise_neg_cross_folds[cross_val_type],
-                                                        cross_val_dir, neg_sampling_type,
-                                                        out_dir, decagon_params, config_map,
-                                                        use_drug_based_batch_end=kwargs.get('drug_based_batch_end'))
+                    for gbr_params in params_list:
+                        gbr.run_gbr_model(drug_maccs_keys_targets_feature_df, drug_maccs_keys_feature_df,
+                                                          gene_expression_feature_df,use_genex,use_target,
+                                                          synergy_df, non_synergy_df, cell_line_2_idx, idx_2_cell_line,
+                                                          pos_folds,
+                                                          neg_folds,
+                                                          gbr_params, result_dir, config_map)
 
 
 
     ################### PLOT ######################################
     if kwargs.get('eval') == True:
-        for cross_val_type in cross_val_types:
-            param_settings_dict = {alg: [] for alg in should_run_algs} #this will contain the hyperparam and model param options considered for each alg
-            for alg in should_run_algs:
-                if alg == 'synverse':
-                    param_settings_dict[alg] = prepare_synverse_param_settings(config_map)
-                if alg == 'synverse_v2':
-                    param_settings_dict[alg] = prepare_synverse_v2_param_settings(config_map)
-                if alg == 'synverse_v3':
-                    param_settings_dict[alg] = prepare_synverse_v3_param_settings(config_map)
-                if alg == 'synverse_v4':
-                    param_settings_dict[alg] = prepare_synverse_v4_param_settings(config_map)
-
-                if alg == 'synverse_nogenex':
-                    param_settings_dict[alg] = prepare_synverse_nogenex_param_settings(config_map)
-
-                if alg == 'synverse_tissuenet':
-                    param_settings_dict[alg] = prepare_synverse_tissuenet_param_settings(config_map)
-
-                if alg == 'decagon':
-                    param_settings_dict[alg] = prepare_decagon_param_settings(config_map)
-
-                if alg == 'deepsynergy':
-                    param_settings_dict[alg] = prepare_deepsynergy_param_settings(config_map)
-
-                if alg == 'dtf':
-                    param_settings_dict[alg] = prepare_dtf_param_settings(config_map)
-
-            # evaluation_handler.evaluate(should_run_algs, param_settings_dict, cross_val_type, kwargs, config_map)
-            # evaluation_handler.find_best_param(should_run_algs, param_settings_dict, cross_val_type, kwargs, config_map)
-            evaluation_handler.plot_best_models(should_run_algs, param_settings_dict, cross_val_type, kwargs, config_map)
+        param_settings_dict = {alg: [] for alg in should_run_algs} #this will contain the hyperparam and model param options considered for each alg
+        for alg in should_run_algs:
+                param_settings_dict[alg] = prepare_alg_param_list(alg, config_map)
+        # evaluation_handler.evaluate(should_run_algs, param_settings_dict, cross_val_type, kwargs, config_map)
+        # evaluation_handler.find_best_param(should_run_algs, param_settings_dict, cross_val_type, kwargs, config_map)
+        out_params = prepare_output_prefix(split_type, config_map, **kwargs)
+        evaluation_handler.plot_best_models(should_run_algs, param_settings_dict, out_params, kwargs, config_map)
 if __name__ == "__main__":
     config_map, kwargs = parse_args()
     main(config_map, **kwargs)

@@ -15,9 +15,6 @@ class GCN_Encoder(nn.Module):
         # self.relu = nn.ReLU()
         # self.dropout = nn.Dropout(config['gnn_dropout'])
         self.batch_norm = config['batch_norm']
-
-
-
         #add convolutional layers
         gnn_n_layers = config['gnn_num_layers']
         gnn_layer_dims = []

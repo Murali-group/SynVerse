@@ -68,6 +68,7 @@ def run_SynVerse(inputs, params, **kwargs):
     dfeat_dict = {}
     dfeat_dim_dict={}
     dfeat_names = [f['name'] for f in drug_features]
+
     if ('1hot' in dfeat_names):
         one_hot_feat= pd.DataFrame(np.eye(len(drug_pids)))
         one_hot_feat['pid'] = drug_pids
@@ -235,7 +236,6 @@ def main(config_map, **kwargs):
     else:
         # config_map = load_yaml_file(config_map)
         input_dir = config_map['input_settings']['input_dir']
-        dataset_dir = config_map['dataset_dir']
         output_dir = config_map['output_settings']['output_dir']
 
         inputs = types.SimpleNamespace()
@@ -261,7 +261,6 @@ def main(config_map, **kwargs):
         params.drug_chemprop_dir = input_dir + '/drug/drug_chemprop'
         params.out_dir = output_dir
         params.split_dir = input_dir + 'splits'
-
         run_SynVerse(inputs, params, **kwargs)
 
 

@@ -252,8 +252,6 @@ def get_edge_type_split_train_test(df, test_frac, tolerance=0.05):
     return train_df, best_test_df
 
 
-
-
 def get_edge_type_n_split(df, n_folds):
 
     '''

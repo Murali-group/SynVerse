@@ -5,15 +5,11 @@ import copy
 
 import torch
 import torch.nn as nn
-from torch_geometric.nn import GATConv
-import torch.nn.functional as F
-from torch_geometric.nn import global_max_pool as gmp
-from models.GNN_data import GNN_data
 torch.set_default_dtype(torch.float64)
-import numpy as np
 
 from models.encoders.drug.gcn_encoder import GCN_Encoder
 from models.decoders.mlp import MLP
+
 class Encoder_MLP_wrapper(nn.Module):
     def __init__(self, drug_encoder_list, cell_encoder_list, dfeat_dim_dict, cfeat_dim_dict, config):
         super().__init__()
@@ -37,6 +33,7 @@ class Encoder_MLP_wrapper(nn.Module):
                 self.gcn_encoder = GCN_Encoder(self.dfeat_dim_dict['mol_graph'], config)
                 #update the drug feat dim with the dimension of generated embedding
                 self.dfeat_out_dim['mol_graph'] = self.gcn_encoder.out_dim
+        # TODO: other drug encoders.
 
         #TODO: cell line encoder
 
@@ -69,6 +66,7 @@ class Encoder_MLP_wrapper(nn.Module):
                 data_list = [drug_feat[feat_name][x] for x in range(len(drug_feat[feat_name].keys()))]
                 drug_embed_raw.append(self.gcn_encoder(data_list, device))
                 embedded_feat.append(feat_name)
+            #TODO add more encoder here. e.g., SMILES , transformer
 
         #now concatenate any raw drug features present in drug_feat
         for feat_name in drug_feat:
@@ -130,7 +128,6 @@ class Encoder_MLP_wrapper(nn.Module):
 
         x = self.concat_feat(batch_triplets, drug_embeds, cell_embeds)
         x = x.to(device)
-
         x = self.mlp(x)
         return x
 

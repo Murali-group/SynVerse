@@ -1,0 +1,139 @@
+'''
+Define the mlp model here.
+'''
+import copy
+
+import torch
+import torch.nn as nn
+from torch_geometric.nn import GATConv
+import torch.nn.functional as F
+from torch_geometric.nn import global_max_pool as gmp
+from models.GNN_data import GNN_data
+torch.set_default_dtype(torch.float64)
+import numpy as np
+
+from models.encoders.drug.gcn_encoder import GCN_Encoder
+from models.decoders.mlp import MLP
+class Encoder_MLP_wrapper(nn.Module):
+    def __init__(self, drug_encoder_list, cell_encoder_list, dfeat_dim_dict, cfeat_dim_dict, config):
+        super().__init__()
+        #TODO remove the following hardcoded values later.
+        self.chosen_config = config
+
+        self.dfeat_dim_dict = dfeat_dim_dict
+        self.cfeat_dim_dict = cfeat_dim_dict
+
+        self.dfeat_out_dim = copy.deepcopy(dfeat_dim_dict)
+        self.cfeat_out_dim = copy.deepcopy(cfeat_dim_dict)
+
+        self.drug_encoder_list = drug_encoder_list if drug_encoder_list is not None else []
+        self.cell_encoder_list = cell_encoder_list if cell_encoder_list is not None else []
+
+
+
+        #drug encoder
+        for drug_encoder in self.drug_encoder_list:
+            if (drug_encoder['feat'] == 'mol_graph') & (drug_encoder['encoder'] == 'GCN'):
+                self.gcn_encoder = GCN_Encoder(self.dfeat_dim_dict['mol_graph'], config)
+                #update the drug feat dim with the dimension of generated embedding
+                self.dfeat_out_dim['mol_graph'] = self.gcn_encoder.out_dim
+
+        #TODO: cell line encoder
+
+
+        #MLP synergy predictor
+        # input_size = 8451 #TODO figure out input_size here
+        drug_dim = 0
+        cell_dim = 0
+        for feat_name in self.dfeat_out_dim:
+            drug_dim += self.dfeat_out_dim[feat_name]
+        for feat_name in self.cfeat_out_dim:
+            cell_dim+= self.cfeat_out_dim[feat_name]
+
+        input_size = drug_dim*2+cell_dim
+        self.mlp = MLP(input_size, config)
+
+
+    def drug_encoder_wrap(self, drug_feat, device):
+        # For each ( feature_name: encoder, e.g., smiles:GCN ) from self.drug_encoder_dict
+        # pass feature matrix(smiles) to GCN and get embedding of drugs.
+        #return a dict with key='feature_name-encoder', e.g., 'smiles_GCN' and value=embedding.
+        drug_embed_raw = []
+        embedded_feat=[]
+        for drug_encoder in self.drug_encoder_list:
+            feat_name=drug_encoder['feat']
+            encoder_name = drug_encoder['encoder']
+            if (feat_name == 'mol_graph') & (encoder_name == 'GCN'):
+                #TODO fix it.
+                #create a list of drug_graphs where in index i, the molecular graph of drug i is present.
+                data_list = [drug_feat[feat_name][x] for x in range(len(drug_feat[feat_name].keys()))]
+                drug_embed_raw.append(self.gcn_encoder(data_list, device))
+                embedded_feat.append(feat_name)
+
+        #now concatenate any raw drug features present in drug_feat
+        for feat_name in drug_feat:
+            if feat_name not in embedded_feat: #features for which no encoder is given
+                drug_embed_raw.append(torch.from_numpy(drug_feat[feat_name]).to(device))
+
+        #get the final features of drugs by concatenating both embedding and raw features
+        drug_final_embeds = torch.cat(drug_embed_raw, dim=1).to(device)
+        return drug_final_embeds
+
+    def cell_line_encoder_wrap(self, cell_line_feat, device):
+        # For each ( feature_name: encoder, e.g., genex:autoencoder ) from self.cell_line_encoder_dict
+        # pass feature matrix(genex) to autoencoder and get embedding of drugs.
+        # return a dict with key='feature_name-encoder', e.g., 'genex_autoencoder' and value=embedding.
+
+        # now concatenate any raw cell features present in cell_line_feat
+        cell_embed_raw_feats = []
+        embedded_feat=[]
+        for feat_name in cell_line_feat:
+            # if (self.cell_encoder_dict is not None):
+            if feat_name not in embedded_feat:  # features for which no encoder is given
+                cell_embed_raw_feats.append(torch.from_numpy(cell_line_feat[feat_name]).to(device))
+        # concat raw feats of drugs
+        cell_final_embeds = torch.cat(cell_embed_raw_feats, dim=1).to(device)
+        # get the final features of drugs by concatenating both embedding and raw features
+        return cell_final_embeds
+
+    def concat_feat(self, batch_triplets, drug_X, cell_X):
+        '''
+        :param x: tensor: triplets for a batch
+        :param drug_feat: dict: key=feature name, value = drug feature as numpy array where
+                          row i is the feature for drug idx with i.
+        :param cell_line_feat: dict: key=feature name, value = cell line feature as numpy array where
+                          row i is the feature for cell line idx with i.
+        :return: concat features of drug_pair and cell line appearing in each triplet
+            in the current batch and return it.
+        '''
+
+        drug1s = batch_triplets[:, 0].flatten()
+        drug2s = batch_triplets[:, 1].flatten()
+        cell_lines = batch_triplets[:, 2].flatten()
+        # Use indexing to fetch all necessary features directly
+        source_features = drug_X[drug1s]
+        target_features = drug_X[drug2s]
+        edge_features = cell_X[cell_lines]
+        # Concatenate the features along the second axis (column-wise concatenation)
+        # concatenation: source-target-edge_type
+        # concatenated_features = np.concatenate([source_features, target_features, edge_features], axis=1)
+        mlp_ready_feats = torch.cat((source_features, target_features, edge_features), dim=1)
+        return mlp_ready_feats
+
+    def forward(self, batch_triplets, drug_feat, cell_line_feat, device):
+
+        #batch_drugs: find out the drugs in the current batch
+        #batch_cell_lines: find out the drugs in the current batch
+
+        drug_embeds = self.drug_encoder_wrap(drug_feat, device)
+        cell_embeds = self.cell_line_encoder_wrap( cell_line_feat, device)
+
+        x = self.concat_feat(batch_triplets, drug_embeds, cell_embeds)
+        x = x.to(device)
+
+        x = self.mlp(x)
+        return x
+
+    def number_of_parameters(self):
+        return (sum(p.numel() for p in self.parameters() if p.requires_grad))
+

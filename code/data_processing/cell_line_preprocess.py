@@ -117,7 +117,7 @@ def extract_ccle_data(ccle_expr_file, ccle_cell_id_file, processed_filename, for
         #The columns in ccle_df are now for each cell line. Replace the ccle defined cell line names with primary cell line names.
         #This primary cell line names will be matched with cell line names present in synergy dataset later.
         ccle_df.rename(name_mappings, inplace=True, axis=1)
-        # rename cell line names removing ‘ ’, ‘_’, ‘-’, lowercase
+        # # rename cell line names removing ‘ ’, ‘_’, ‘-’, lowercase
         converted_ccle_cell_line_names = {x: convert_cell_line_name(x) for x in ccle_df.columns}
         ccle_df.rename(converted_ccle_cell_line_names, axis=1, inplace=True)
 
@@ -140,7 +140,6 @@ def extract_ccle_data(ccle_expr_file, ccle_cell_id_file, processed_filename, for
         # save processed CCLE expr file
         os.makedirs(os.path.dirname(processed_filename), exist_ok=True)
         ccle_df.to_csv(processed_filename, index=False, sep='\t')
-
 
     ccle_df = pd.read_csv(processed_filename, sep='\t')
     cell_lines = set(ccle_df['cell_line_name'])

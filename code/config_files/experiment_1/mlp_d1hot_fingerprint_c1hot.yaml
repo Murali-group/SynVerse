@@ -7,69 +7,79 @@ input_settings:
   input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
 
   drug_features:
+
+    - name: 'MACCS'
+      preprocess: null
+      norm: null
+      use: [ true, false ]
+
+    - name: 'ECFP_4'
+      preprocess: null
+      norm: null
+      use: [ true, false ]
+
+    - name: 'MFP' #morgan fingerprint
+      preprocess: null
+      norm: null
+      use: [ true, false ]
+
     - name: '1hot'
       preprocess: null
       norm: null
-      use: [true]
-#    - name: 'MACCS'
-#      preprocess: null
-#    - name: 'MFP'
-#      preprocess: null
-#    - name: 'ECFP_4'
-#      preprocess: null
+      use: [ true, false ]
+
+
 
   cell_line_features:
     - name: '1hot'
       preprocess: null
       norm: null
       use: [true]
-    - name: 'genex'
-      preprocess: 'lincs_1000'
-      norm: 'std'
-      use: [false]
 
   models:
      - name: 'MLP'
        epochs: 1000
-       hp_range: { 'lr': [ 1e-5, 1e-2 ], 'optimizer': [ 'Adam', 'SGD' ] , 'sgd_momentum': [ 0.0, 0.99 ] ,
+       hp_range: { 'lr': [ 1e-5, 1e-4 ], 'optimizer': [ 'Adam', 'SGD' ] , 'sgd_momentum': [ 0.0, 0.99 ] ,
                    'num_hid_layers': [ 1,3 ] , 'hid_0': [ 64, 2048 ] , 'hid_1': [ 64,2048 ] , 'hid_2': [ 64, 2048 ] ,
                    'in_dropout_rate': [ 0.0, 0.5 ] ,'hid_dropout_rate': [ 0.0, 0.5 ] }
-#       hp: { 'lr': 0.0001, 'optimizer': 'Adam','num_hid_layers': 2 , 'hid_0': 1024, 'hid_1': 256,
-#             'in_dropout_rate': 0.2,'hid_dropout_rate': 0.3 }
-       hp: {'hid_0': 1077, 'hid_dropout_rate': 0.2697798807963333, 'in_dropout_rate': 0.17927761184927016, 'lr': 0.0026381808734015385,
+
+       hp: {'hid_0': 1077, 'hid_dropout_rate': 0.2697798807963333, 'in_dropout_rate': 0.17927761184927016, 'lr': 0.00016381808734015385,
               'num_hid_layers': 2, 'optimizer': 'SGD', 'hid_1': 113, 'sgd_momentum': 0.21730082740135556}
 
   splits:
-    - type: 'leave_drug'
-      test_frac: 0.2
-      n_folds: 5
 
     - type: 'leave_comb'
       test_frac: 0.2
       n_folds: 5
+
+    - type: 'leave_drug'
+      test_frac: 0.2
+      n_folds: 5
+
     - type: 'leave_cell_line'
       test_frac: 0.2
       n_folds: 5
 
-  wandb: True
+  wandb: False
   bohb:
-      min_budget: 27
-      max_budget: 729
-      n_iterations: 3
-      run_id : 'example_1'
-      server_type: 'local' #or cluster
-
-#      min_budget: 1
-#      max_budget: 3
-#      n_iterations: 1
-#      run_id : 'example_1'
-#      server_type: 'local' #or cluster
+    min_budget: 27
+    max_budget: 729
+    n_iterations: 3
+    run_id : 'example_1'
+    server_type: 'local' #or cluster
+#    min_budget: 1
+#    max_budget: 9
+#    n_iterations: 3
+#    run_id: 'example_1'
+#    server_type: 'local' #or cluster
 
   feature: 'must'
-  k: 6 #how many cell lines are being picked
+  abundance: 0.05
 
-  mode: 'train_val' #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
+  max_feat: 1
+  mode: 'hp_tune' #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
         # 'train' =  training the model with both train+val dataset
         # 'train_val' = train the model on training data and validate it on validation fold
+
 output_settings:
   output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs/'

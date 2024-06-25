@@ -1,18 +1,13 @@
-
 import pandas as pd
 from evaluation.split_generalized import *
-from models.model_utils import *
 from utils import *
 import types
 import argparse
-
 from models.mlp_runner import *
 from models.encoder_mlp_runner import *
 from preprocess import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
 def parse_args():
     parser = setup_opts()
     args = parser.parse_args()
@@ -27,7 +22,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/mlp_config_gpu4.yaml",
+                       "config_files/experiment_1/emlp_dgraph_c1hot.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--n_workers', type=int, help='Number of workers to run in parallel.', default=2)
     group.add_argument('--worker', help='Flag to turn this into a worker process', action='store_true')
@@ -42,7 +37,6 @@ def setup_opts():
 
 
 def run_SynVerse(inputs, params, **kwargs):
-
     #TODO: set default values for the params if not given in config file.
     print('SYNVERSE STARTING')
     drug_features = params.drug_features
@@ -84,11 +78,22 @@ def run_SynVerse(inputs, params, **kwargs):
         dfeat_dict['MACCS'] = maccs_df
         dfeat_dim_dict['MACCS'] = maccs_df.shape[1]-1
 
-    # if 'smiles' in dfeat_names:
-    #     smiles_file = inputs.drug_smiles_file
-    #     smiles_df = pd.read_csv(smiles_file, dtype={'pid':str}, sep='\t', index_col=None)[['pid','smiles']]
-    #     dfeat_dict['smiles'] = smiles_df
-    #     dfeat_dim_dict['MACCS'] = smiles_df.shape[1] - 1
+    if 'MFP' in dfeat_names:
+        chem_prop_dir = params.drug_chemprop_dir
+        mfp_file = chem_prop_dir + 'Morgan_fingerprint.tsv'
+        mfp_df = pd.read_csv(mfp_file,dtype={'pid':str}, sep='\t', index_col=None)
+        #TODO: if any preprocessing step is mentioned for 'MACCS' feature, do that here.
+        dfeat_dict['MFP'] = mfp_df
+        dfeat_dim_dict['MFP'] = mfp_df.shape[1]-1
+
+    if 'ECFP_4' in dfeat_names:
+        chem_prop_dir = params.drug_chemprop_dir
+        ecfp_file = chem_prop_dir + 'ECFP_4.tsv'
+        ecfp_df = pd.read_csv(ecfp_file,dtype={'pid':str}, sep='\t', index_col=None)
+        #TODO: if any preprocessing step is mentioned for 'MACCS' feature, do that here.
+        dfeat_dict['ECFP_4'] = ecfp_df
+        dfeat_dim_dict['ECFP_4'] = ecfp_df.shape[1]-1
+
 
     if 'mol_graph' in dfeat_names:
         mol_graph_file = inputs.drug_graph_file
@@ -105,6 +110,7 @@ def run_SynVerse(inputs, params, **kwargs):
     cfeat_dim_dict={}
     cfeat_names = [f['name'] for f in cell_line_features]
     cfeat_preprocess= {f['name']:f['preprocess'] for f in cell_line_features}
+    cfeat_norm= {f['name']:f['norm'] for f in cell_line_features}
 
     if ('1hot' in cfeat_names):
         one_hot_feat = pd.DataFrame(np.eye(len(cell_line_names)))
@@ -113,18 +119,30 @@ def run_SynVerse(inputs, params, **kwargs):
         cfeat_dim_dict['1hot'] = one_hot_feat.shape[1]-1
 
     if 'genex' in cfeat_names:
+        feat_name = 'genex'
         ccle_file = inputs.cell_line_file
         ccle_df = pd.read_csv(ccle_file, sep='\t')
-        if cfeat_preprocess['genex']=='lincs_1000':
-            ccle_df = landmark_gene_filter(ccle_df, inputs.lincs)
-        cfeat_dict['genex'] = ccle_df
-        cfeat_dim_dict['genex'] = ccle_df.shape[1]-1
-        #TODO: Add feature normalization
 
-    '''Filter out the triplets based on the conavailability of drug and cell line features'''
-    '''TEMPORARY: to keep the data manageable, only keep k=5 cell lines having the most 
-    synergy triplets available to them'''
-    synergy_df = filter_triplets(synergy_df, dfeat_dict, cfeat_dict, params.feature, params.k)
+        #do any preprocessing
+        if cfeat_preprocess['genex']=='lincs_1000':
+            feat_name = feat_name+'_lincs_1000'
+            ccle_df = landmark_gene_filter(ccle_df, inputs.lincs)
+        #do any normalization
+        if cfeat_norm['genex'] is not None:
+            feat_name =feat_name+'_' + cfeat_norm['genex']
+            ccle_df.set_index('cell_line_name', inplace=True)
+            ccle_df, means, std = normalize(ccle_df, norm_type=cfeat_norm['genex'])
+            ccle_df.reset_index(names='cell_line_name', inplace=True)
+
+        cfeat_dict[feat_name] = ccle_df
+        cfeat_dim_dict[feat_name] = ccle_df.shape[1]-1
+
+    '''Filter out the triplets based on the availability of drug and cell line features'''
+    synergy_df = feature_based_filtering(synergy_df, dfeat_dict, cfeat_dict, params.feature)
+
+    '''keep the cell lines consisting of at least 1% of the total #triplets in the final dataset.'''
+    synergy_df = abundance_based_filtering(synergy_df, min_frac=0.05)
+    print_synergy_stat(synergy_df)
 
     '''Rename column names to more generalized ones. Also, convert drug and cell line ids to numerical ids compatible with models.'''
     synergy_df, drug_2_idx, cell_line_2_idx = generalize_data(synergy_df,
@@ -162,8 +180,8 @@ def run_SynVerse(inputs, params, **kwargs):
     #******************************************* MODEL TRAINING ***********************************************
 
     #***********************************************Figure out the feature combinations to train the model on ***
-    drug_feat_combs = compute_feature_combination(drug_features)
-    cell_feat_combs = compute_feature_combination(cell_line_features)
+    drug_feat_combs = compute_feature_combination(drug_features, params.max_feat)
+    cell_feat_combs = compute_feature_combination(cell_line_features, params.max_feat)
     drug_cell_feat_combs = find_drug_cell_feat_combs(drug_feat_combs, cell_feat_combs)
 
     for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:
@@ -179,7 +197,7 @@ def run_SynVerse(inputs, params, **kwargs):
             test_frac= split['test_frac']
 
             #split into train test
-            split_prefix = split_dir + f'/{get_feat_prefix(params, dfeat_dict, cfeat_dict)}/k_{params.k}/'
+            split_prefix = split_dir + f'/{get_feat_prefix(params, dfeat_dict, cfeat_dict)}/k_{params.abundance}/'
             # split_prefix = split_dir + f'/k_{params.k}/'
 
             train_df, test_df = wrapper_train_test(synergy_df, split_type, test_frac, split_prefix, force_run=False)
@@ -198,33 +216,31 @@ def run_SynVerse(inputs, params, **kwargs):
                 if model_name=='MLP':
                     print(out_file_prefix)
                     #initialize the runner class
-                    mlp_runner = MLP_runner(train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
+                    runner = MLP_runner(train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
                                     select_dfeat_dim_dict, select_cfeat_dim_dict,
                                     out_file_prefix, params, model_info, device, **kwargs) #each runner initiate an MLP model.
-                    #find best hyperparam setup
-                    hyperparam, best_n_epochs = mlp_runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
 
-                    #train the model with best hyperparam and both train and validation dataset
-                    trained_model_state, train_loss = mlp_runner.train_model_given_config(hyperparam, best_n_epochs)
-                    #evaluate model on test data
-                    test_loss = mlp_runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
-
-                if model_name=='Encoder_MLP':
+                elif model_name=='Encoder_MLP':
                     # kwargs['drug_encoder'] = model_info['drug_encoder']
                     # kwargs['cell_encoder'] = model_info['cell_encoder']
-                    encode_mlp_runner = Encode_MLP_runner(train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
-                                        select_dfeat_dim_dict, select_cfeat_dim_dict,out_file_prefix, params, model_info, device, **kwargs)
+                    runner = Encode_MLP_runner(train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
+                                               select_dfeat_dim_dict, select_cfeat_dim_dict, out_file_prefix, params, model_info, device, **kwargs)
 
+                if params.mode == 'hp_tune':
                     # find best hyperparam setup
-                    hyperparam, best_n_epochs = encode_mlp_runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
-
+                    hyperparam, best_n_epochs = runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
                     # train the model with best hyperparam and both train and validation dataset
-                    trained_model_state, train_loss = encode_mlp_runner.train_model_given_config(hyperparam, best_n_epochs)
-                    # evaluate model on test data
-                    test_loss = encode_mlp_runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
+                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
 
+                elif params.mode== 'train_val':
+                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs,
+                                                                                      validation=True)
+                elif params.mode == 'train':
+                    # train the model with best hyperparam and both train and validation dataset
+                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
 
-
+                # evaluate model on test data
+                test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
 
 def main(config_map, **kwargs):
 
@@ -243,22 +259,23 @@ def main(config_map, **kwargs):
 
         inputs.processed_syn_file = input_dir + 'synergy/synergy_scores.tsv'
         inputs.drug_smiles_file = input_dir + 'drug/smiles.tsv'
-        inputs.drug_graph_file = input_dir + 'drug/drug_molecular_graph.pickle'
+        inputs.drug_graph_file = input_dir + 'drug/molecular_graph.pickle'
         inputs.drug_target_file = input_dir + 'drug/target.tsv'
 
         inputs.cell_line_file = input_dir + 'cell-line/gene_expression.tsv'
         inputs.lincs = input_dir + 'cell-line/LINCS_1000.txt'
-
 
         params.drug_features = config_map['input_settings']['drug_features']
         params.cell_line_features = config_map['input_settings']['cell_line_features']
         params.models = config_map['input_settings']['models']
         params.splits = config_map['input_settings']['splits']
         params.feature = config_map['input_settings']['feature']
-        params.k = config_map['input_settings']['k']
+        params.abundance = config_map['input_settings']['abundance']
+        params.max_feat=config_map['input_settings']['max_feat']
+        params.mode=config_map['input_settings']['mode']
         params.wandb = config_map['input_settings']['wandb']
         params.bohb = config_map['input_settings']['bohb']
-        params.drug_chemprop_dir = input_dir + '/drug/drug_chemprop'
+        params.drug_chemprop_dir = input_dir + '/drug/chemprop/'
         params.out_dir = output_dir
         params.split_dir = input_dir + 'splits'
         run_SynVerse(inputs, params, **kwargs)

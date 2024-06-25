@@ -2,7 +2,6 @@
 Define the mlp model here.
 '''
 import copy
-
 import torch
 import torch.nn as nn
 torch.set_default_dtype(torch.float64)
@@ -49,7 +48,6 @@ class Encoder_MLP_wrapper(nn.Module):
 
         input_size = drug_dim*2+cell_dim
         self.mlp = MLP(input_size, config)
-
 
     def drug_encoder_wrap(self, drug_feat, device):
         # For each ( feature_name: encoder, e.g., smiles:GCN ) from self.drug_encoder_dict

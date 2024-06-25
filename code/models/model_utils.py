@@ -3,55 +3,6 @@ import numpy as np
 from torch_geometric import data as DATA
 import torch
 
-#********************************** SYNERGY TRIPLETS ***********************************
-def filter_triplets(synergy_df, dfeat_dict, cfeat_dict, feature='must', k=-1):
-    '''
-    If none of the features are optional, then we need to filter out the triplets such that only drugs and cell lines
-    with all feature information available are in the final synergy triplets.
-    '''
-    drug_pids = set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid']))
-    cell_line_names = set(synergy_df['cell_line_name'])
-    print(f'Before filtering: \n#of triplets : {len(synergy_df)},\n#drugs {len(drug_pids)},'
-          f' \n#cell lines {len(cell_line_names)}')
-
-    if feature=='must':
-        # find drugs with all features available
-        for feat_name in dfeat_dict:
-            if isinstance(dfeat_dict[feat_name],pd.DataFrame):
-                drugs = set(dfeat_dict[feat_name]['pid'])
-            elif isinstance(dfeat_dict[feat_name],dict):
-                drugs = set(dfeat_dict[feat_name].keys())
-            drug_pids = drug_pids.intersection(drugs)
-
-        # find cell lines with all features available
-        for feat_name in cfeat_dict:
-            cells = set(cfeat_dict[feat_name]['cell_line_name'])
-            cell_line_names = cell_line_names.intersection(cells)
-
-            print(f'filtering for {feat_name}:{len(cell_line_names)}')
-
-        #filter synergy triplets
-        synergy_df = synergy_df[(synergy_df['drug_1_pid'].isin(drug_pids)) & (synergy_df['drug_2_pid'].isin(drug_pids))
-                                & (synergy_df['cell_line_name'].isin(cell_line_names)) ]
-
-    n_after_feat_filt =len(synergy_df)
-    if k>0: #keep only top k cell lines having the most synergy triplets.
-        top_cell_lines = synergy_df['cell_line_name'].value_counts().nlargest(k).index
-        print('top cell lines:' , top_cell_lines)
-        synergy_df = synergy_df[synergy_df['cell_line_name'].isin(top_cell_lines)]
-
-        print(f'keeping top {k} cell lines, retrieved frac:{len(synergy_df)/n_after_feat_filt}')
-    #assert that there is no duplicate triplets in synergy_df
-    triplets = list(zip(synergy_df['drug_1_pid'],synergy_df['drug_2_pid'],synergy_df['cell_line_name']))
-    assert len(set(triplets))==len(triplets), print('still some duplicates remaining')
-
-    drug_pids = set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid']))
-    cell_line_names = set(synergy_df['cell_line_name'])
-    print(f'After filtering: \n#of triplets : {len(synergy_df)},\n#drugs {len(drug_pids)},'
-          f' \n#cell lines {len(cell_line_names)}')
-    return synergy_df
-
-
 #***************************************************** FEATURE PREP ************************
 
 def adjacency_list_to_edges(adj_list):

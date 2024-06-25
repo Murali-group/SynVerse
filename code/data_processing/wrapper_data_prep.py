@@ -15,7 +15,7 @@ def data_process():
     # todo: Uncomment
     download_synergy(dcomb_raw_syn_file, dcomb_drug_file, dcomb_cell_line_file)
     # map drugcomb drug_id->drug_name, cell_line_id->cell_line_name
-    mapped_syn_filename = map_drugcomb_ids(dcomb_raw_syn_file, dcomb_drug_file, dcomb_cell_line_file, mapped_syn_filename)
+    mapped_syn_df = map_drugcomb_ids(dcomb_raw_syn_file, dcomb_drug_file, dcomb_cell_line_file, mapped_syn_filename)
 
     #***************************************
     #**************************************  DRUG **********************************************************************

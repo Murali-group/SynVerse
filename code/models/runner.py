@@ -11,6 +11,8 @@ import pickle
 import os
 import time
 import copy
+from torch.utils.data import DataLoader, Subset
+
 import logging
 
 class Runner(ABC):
@@ -39,11 +41,11 @@ class Runner(ABC):
         self.params=params
         self.model_info = model_info
 
-        self.check_freq = 5
-        self.tolerance = 5
+        self.check_freq = 1
+        self.tolerance = 25
         self.batch_size = 4096
 
-        self.result_logger = hpres.json_result_logger(directory=os.path.dirname(out_file), overwrite=True)
+        self.result_logger = hpres.json_result_logger(directory=out_file.replace('.txt',''), overwrite=True)
         self.log_file = self.out_file_prefix + '_training.log'
         open(self.log_file,'w')
 
@@ -159,25 +161,45 @@ class Runner(ABC):
         return best_config, best_epochs
 
 
-    def train_model_given_config(self, config, best_n_epochs):
-        # load dataset
-        train_loader = DataLoader(self.triplets_scores_dataset, batch_size=4096, shuffle=True)
+    def train_model_given_config(self, config, best_n_epochs, validation = False):
 
-        model, optimizer, criterion = self.init_model(config)
-        # train model using the whole training data (including validation dataset)
-        best_model_state,_,train_loss, _ = self.train_model(model, optimizer, criterion, train_loader,
-                                                  best_n_epochs, self.check_freq,
-                                                  self.tolerance, self.is_wandb, self.device, early_stop=False)
-        # save the best model
-        model_file = self.out_file.replace('.txt', '_model.pth')
-        torch.save(best_model_state, model_file)
+        if not validation: #train model with both training and validation data
+            # load dataset
+            model, optimizer, criterion = self.init_model(config)
+            train_loader = DataLoader(self.triplets_scores_dataset, batch_size=4096, shuffle=True)
+            # train model using the whole training data (including validation dataset)
+            best_model_state,_,train_loss, _ = self.train_model(model, optimizer, criterion, train_loader,
+                                                      best_n_epochs, self.check_freq,
+                                                      self.tolerance, self.is_wandb, self.device, early_stop=False)
+            # save the best model
+            model_file = self.out_file.replace('.txt', '_model.pth')
+            torch.save(best_model_state, model_file)
 
-        #save train_loss
-        loss_file = self.out_file.replace('.txt', '_train_loss.txt')
-        with open(loss_file, 'w') as file:
-            file.write(f'Best config: {config}\n\n')
-            file.write(f'Number of epochs: {best_n_epochs}\n\n')
-            file.write(f'train_loss: {train_loss}\n\n')
+            #save train_loss
+            loss_file = self.out_file.replace('.txt', '_train_loss.txt')
+            with open(loss_file, 'w') as file:
+                file.write(f'Best config: {config}\n\n')
+                file.write(f'Number of epochs: {best_n_epochs}\n\n')
+                file.write(f'train_loss: {train_loss}\n\n')
+        else:
+            val_loss = {}
+            train_loss = {}
+            req_epochs = {}
+
+            for fold in range(self.n_folds):
+                model, optimizer, criterion = self.init_model(config)
+                print('FOLD: ', fold)
+                fold_train_idx = self.train_idx[fold]
+                fold_val_idx = self.val_idx[fold]
+                train_subsampler = Subset(self.triplets_scores_dataset, fold_train_idx)
+                val_subsampler = Subset(self.triplets_scores_dataset, fold_val_idx)
+
+                train_loader = DataLoader(train_subsampler, batch_size=self.batch_size, shuffle=True)
+                val_loader = DataLoader(val_subsampler, batch_size=4096, shuffle=False)
+
+                best_model_state, val_loss[fold], train_loss[fold], req_epochs[fold] = self.train_model(model, optimizer,
+                                    criterion, train_loader, best_n_epochs, self.check_freq,self.tolerance,
+                                    self.is_wandb, self.device,early_stop=True,val_loader=val_loader)
 
         return best_model_state, train_loss
 
@@ -194,6 +216,8 @@ class Runner(ABC):
             import wandb
             wandb.login(key='d9462b91edea6523563900fab17134d7e9177e16')
             wandb.init(project="Synverse", entity="ntasnina")
+            wandb.watch(model, log="all")
+
         min_val_loss = 1000000
         req_epochs = n_epochs
 
@@ -229,7 +253,8 @@ class Runner(ABC):
                 if (i % check_freq) == 0:
                     # checkpoint to provide early stop mechanism
                     val_loss = self.eval_model(model, val_loader, criterion, device)
-                    print('e: ', i,  'val_loss: ', val_loss, '  time: ', time.time() - t1)
+                    # print('e: ', i, 'time: ', time.time() - t1)
+                    print('                                   e: ', i, '  val_loss: ', val_loss)
                     f.write(f'\n------------------------------e {i}: val_loss: {val_loss}\n\n')
                     # if (is_wandb) & (n_epochs>200):  # plot loss with wandb
                     if (is_wandb):  # plot loss with wandb

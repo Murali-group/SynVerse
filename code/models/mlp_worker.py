@@ -8,6 +8,7 @@ except:
 from torch.utils.data import DataLoader, Subset
 
 import ConfigSpace as CS
+import ConfigSpace.conditions as CSC
 import ConfigSpace.hyperparameters as CSH
 from hpbandster.core.worker import Worker
 import logging
@@ -31,6 +32,7 @@ class MLPWorker(Worker):
         The input parameter "config" (dictionary) contains the sampled configurations passed by the bohb optimizer
         """
 
+        print('hidden layers: ', config['hid_0'], config['hid_1'], config['hid_2'])
         val_losses = {}
         req_epochs = {}
 
@@ -109,6 +111,16 @@ class MLPWorker(Worker):
         cs.add_condition(cond)
         cond = CS.GreaterThanCondition(hid_2, num_hid_layers, 2)
         cs.add_condition(cond)
+
+        # # Define a condition to ensure hid_0 > hid_1
+        # cond = CSC.LessThanCondition(hid_0, hid_1, value=hid_1)
+        # # Add the condition to the configuration space
+        # cs.add_condition(cond)
+        #
+        # # Define a condition to ensure hid_1 > hid_2
+        # cond = CSC.LessThanCondition(hid_1, hid_2, value=hid_2)
+        # # Add the condition to the configuration space
+        # cs.add_condition(cond)
 
         in_dropout_rate = CSH.UniformFloatHyperparameter('in_dropout_rate', lower=pred_params['in_dropout_rate'][0],
                                                          upper=pred_params['in_dropout_rate'][1], default_value=0.5,

@@ -27,6 +27,7 @@ def wrapper_download_pubchem_compound(drug_names, drug_name_to_pcomp_file, force
 
         #from drug_names, remove the drugs for which I already exytracted pubchem compounds
         drug_names = set(drug_names).difference(set(drug_name_to_pcomp.keys()))
+
         #Extract puchem compounds from pubchem py
         drug_name_to_pcomp_new, pid_exception, pid_not_found = get_pubchem_compound(drug_names)
 
@@ -428,28 +429,42 @@ def get_chemprop_from_smiles(drug_smiles_df,properties, drug_chemprop_dir, force
 
 
 if __name__=='__main__':
-    if snakemake.params[0] == 'pid_map':
-        mapped_syn_filename = snakemake.input[0]
-        drug_name_to_pcomp_file = snakemake.output[0]
+    # if snakemake.params[0] == 'pid_map':
+    #     mapped_syn_filename = snakemake.input[0]
+    #     drug_name_to_pcomp_file = snakemake.output[0]
+    #
+    #     synergy_df = pd.read_csv(mapped_syn_filename, sep=',', low_memory=False,
+    #                              dtype={'drug_row': str, 'drug_col': str, 'cell_line_name': str,
+    #                                     'S_mean': float, 'synergy_zip': float})
+    #     drug_names = list(set(synergy_df['drug_row']).union(set(synergy_df['drug_col'])))
+    #     wrapper_download_pubchem_compound(drug_names, drug_name_to_pcomp_file)
+    #
+    # if snakemake.params[0]=='property':
+    #     drug_name_to_pcomp_file = snakemake.input[0]
+    #     drug_smiles_file = snakemake.output[0]
+    #     drug_graph_file = snakemake.output[1]
+    #     drug_chemprop_dir = snakemake.output[2]
+    #     # extract and save drug_smiles
+    #     drug_smiles_df = extract_pid_smiles(drug_name_to_pcomp_file, drug_smiles_file)
+    #     # **************************************
+    #
+    #     # Extract graph from SMILES using deepchem
+    #     pid_to_adjacency_mol_feat = get_graph_from_smiles(drug_smiles_df, drug_graph_file)
+    #
+    #     # Extract drug chemical properties using RDKit
+    #     properties = ['MACCS', 'MFP', 'ECFP_4']
+    #     pid_chemprop_dfs = get_chemprop_from_smiles(drug_smiles_df, properties, drug_chemprop_dir)
+    drug_name_to_pcomp_file = '/home/grads/tasnina/Projects/SynVerse/inputs/drug/drug_name_to_pubchem_compound.pickle'
+    drug_smiles_file = '/home/grads/tasnina/Projects/SynVerse/inputs/drug/smiles.tsv'
+    drug_graph_file = '/home/grads/tasnina/Projects/SynVerse/inputs/drug/molecular_graph.pickle'
+    drug_chemprop_dir = '/home/grads/tasnina/Projects/SynVerse/inputs/drug/chemprop/'
+    # extract and save drug_smiles
+    drug_smiles_df = extract_pid_smiles(drug_name_to_pcomp_file, drug_smiles_file)
+    # **************************************
 
-        synergy_df = pd.read_csv(mapped_syn_filename, sep=',', low_memory=False,
-                                 dtype={'drug_row': str, 'drug_col': str, 'cell_line_name': str,
-                                        'S_mean': float, 'synergy_zip': float})
-        drug_names = list(set(synergy_df['drug_row']).union(set(synergy_df['drug_col'])))
-        wrapper_download_pubchem_compound(drug_names, drug_name_to_pcomp_file)
+    # Extract graph from SMILES using deepchem
+    pid_to_adjacency_mol_feat = get_graph_from_smiles(drug_smiles_df, drug_graph_file)
 
-    if snakemake.params[0]=='property':
-        drug_name_to_pcomp_file = snakemake.input[0]
-        drug_smiles_file = snakemake.output[0]
-        drug_graph_file = snakemake.output[1]
-        drug_chemprop_dir = snakemake.output[2]
-        # extract and save drug_smiles
-        drug_smiles_df = extract_pid_smiles(drug_name_to_pcomp_file, drug_smiles_file)
-        # **************************************
-
-        # Extract graph from SMILES using deepchem
-        pid_to_adjacency_mol_feat = get_graph_from_smiles(drug_smiles_df, drug_graph_file)
-
-        # Extract drug chemical properties using RDKit
-        properties = ['MACCS', 'MFP', 'ECFP_4']
-        pid_chemprop_dfs = get_chemprop_from_smiles(drug_smiles_df, properties, drug_chemprop_dir)
+    # Extract drug chemical properties using RDKit
+    properties = ['MACCS', 'MFP', 'ECFP_4']
+    pid_chemprop_dfs = get_chemprop_from_smiles(drug_smiles_df, properties, drug_chemprop_dir)

@@ -1,5 +1,4 @@
 dataset_dir: "/home/tasnina/Projects/SynVerse/datasets/"
-
 # Input Settings: initialize base input folder names,
 # dataset collections, and models to run over
 input_settings:

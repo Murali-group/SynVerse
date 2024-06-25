@@ -98,17 +98,28 @@ def aggregate_filter_synergy_data(mapped_filename, drug_name_to_pcomp_file, proc
 
         drug_name_2_pid = extract_unambiguouse_drug_pid(drug_name_to_pcomp_file)
         synergy_df = pd.read_csv(mapped_filename, sep=',', low_memory=False,
-                                 dtype={'drug_row':str,'drug_row':str,'cell_line_name':str,
+                                 dtype={'drug_row':str,'drug_col':str,'cell_line_name':str,
                     'S_mean':float, 'synergy_zip':float})
 
+        drug_names = list(set(synergy_df['drug_row']).union(set(synergy_df['drug_col'])))
+        print_stat(synergy_df, drug_names)
+
+        #keep the rows with a pairs of drugs present, NOT single drug respose.
+        synergy_df = synergy_df.dropna(subset=['drug_row', 'drug_col'])
+        drug_names = list(set(synergy_df['drug_row']).union(set(synergy_df['drug_col'])))
+        print_stat(synergy_df, drug_names)
 
         #check if it works
-        synergy_df['drug_1_pid'] = synergy_df['drug_row'].astype(str).apply(lambda x: drug_name_2_pid[x] if x in drug_name_2_pid else pd.NA)
+        synergy_df['drug_1_pid'] = synergy_df['drug_row'].astype(str).apply(
+            lambda x: drug_name_2_pid[x] if x in drug_name_2_pid else pd.NA)
         synergy_df['drug_2_pid'] = synergy_df['drug_col'].astype(str).apply(
             lambda x: drug_name_2_pid[x] if x in drug_name_2_pid else pd.NA)
 
-        #keep the rows with a pairs of drugs present, NOT single drug respose.
+        #removing drugs without pid
         synergy_df = synergy_df.dropna(subset=['drug_1_pid', 'drug_2_pid'])
+        drug_names = list(set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid'])))
+        print_stat(synergy_df , drug_names)
+
         #sort synergy_df such that drug_row>drug_col. This will help to identify repeated pairs present in the dataset.
         sort_paired_cols(synergy_df, 'drug_1_pid', 'drug_2_pid', inplace=True, relation='greater')
         #Group the same drug-pair-cell-line triplets and take the mean and std scores.
@@ -121,6 +132,8 @@ def aggregate_filter_synergy_data(mapped_filename, drug_name_to_pcomp_file, proc
 
         #Dealing with inconsistent replicates: We only take the pairs for whom standard deviation of synergy score < 0.1
         synergy_df = synergy_df[(synergy_df['S_mean_std']<0.1) & (synergy_df['synergy_zip_std']<0.1) ]
+        drug_names = list(set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid'])))
+        # print_stat(synergy_df, drug_names)
 
         #rename cell line names removing ‘ ’, ‘_’, ‘-’, lowercase
         synergy_df['cell_line_name'] = synergy_df['cell_line_name'].apply(lambda x: convert_cell_line_name(x))
@@ -138,12 +151,54 @@ def aggregate_filter_synergy_data(mapped_filename, drug_name_to_pcomp_file, proc
         synergy_df = pd.read_csv(processed_syn_file, sep='\t', dtype={'drug_1_pid':str,'drug_2_pid':str,'cell_line_name':str,
                     'S_mean_mean':float, 'S_mean_median':float, 'S_mean_std':float,
                     'synergy_zip_mean':float, 'synergy_zip_median':float, 'synergy_zip_std':float})
-
-    print(f'Drugcomb: #unique drug-pair-cellline triplets: {len(synergy_df)}')
     drug_names = list(set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid'])))
-    print('Drugcomb: #unique drugs(pids) with synergy labels: ', len(drug_names))
+    print_stat(synergy_df, drug_names)
 
     return synergy_df
+
+def print_stat(synergy_df, drug_names):
+    print(f'Drugcomb: #drug-pair-cellline triplets: {len(synergy_df)}')
+    print('Drugcomb: #unique drugs with synergy labels: ', len(drug_names))
+    print('Drugcomb: #unique cell lines with synergy labels: ', len(set(synergy_df['cell_line_name'])))
+
+def viz_synergy_data(synergy_df, out_file=None):
+    #distribution of drugs
+    # Task 1: Count rows for each cell line
+    import matplotlib.pyplot as plt
+
+    cell_line_counts = synergy_df['cell_line_name'].value_counts()[0:109]
+
+    # Plot the distribution
+    plt.figure(figsize=(10, 6))
+    cell_line_counts.plot(kind='bar')
+    plt.title('Distribution of Number of Rows Across Cell Lines')
+    plt.xlabel('Cell Line Name')
+    plt.ylabel('Number of Rows')
+    plt.xticks(rotation=45)
+    plt.show()
+
+    # Correct the binning approach for the second plot
+
+    # Define the bins for the ranges
+    bins = [0, 100, 200, 500, 1000, 5000, 10000, 20000, 30000, 40000]
+
+    # Create a new column to bin the counts
+    cell_line_counts = synergy_df['cell_line_name'].value_counts()
+    binned_counts = pd.cut(cell_line_counts, bins=bins)
+
+    # Count the number of cell lines in each bin
+    cell_line_range_distribution = binned_counts.value_counts().sort_index()
+
+    # Plot the distribution of cell lines across the defined ranges
+    plt.figure(figsize=(12, 8))
+    cell_line_range_distribution.plot(kind='bar', color='salmon')
+    plt.title('Number of Cell Lines in Different Row Count Ranges')
+    plt.xlabel('Number of Rows Range')
+    plt.ylabel('Number of Cell Lines')
+    plt.xticks(rotation=45)
+    plt.show()
+    print('done')
+
 
 if __name__=='__main__':
     #*************************** DETAILED SNAKEMAKE *******************************
@@ -167,18 +222,36 @@ if __name__=='__main__':
             stat_filename=snakemake.output[1]
             aggregate_filter_synergy_data(mapped_syn_filename, drug_name_to_pcomp_file, processed_syn_file, stat_filename)
     else:
-        dcomb_raw_syn_file = "/home/grads/tasnina/Projects/Plug and Play/datasets/synergy/drugcomb_raw_summary.csv"
-        dcomb_drug_file = "/home/grads/tasnina/Projects/Plug and Play/datasets/synergy/drugcomb_drug_data.csv"
-        dcomb_cell_line_file = "/home/grads/tasnina/Projects/Plug and Play/datasets/synergy/drugcomb_cell_line_data.csv"
-        mapped_syn_filename = "/home/grads/tasnina/Projects/Plug and Play/datasets/synergy/drugcomb_mapped_summary.csv"
-        drug_name_to_pcomp_file = '/home/grads/tasnina/Projects/Plug and Play/inputs/drug/drug_name_to_pubchem_compound.pickle'
-        processed_syn_file = '/home/grads/tasnina/Projects/Plug and Play/inputs/synergy/synergy_scores.tsv'
-        stat_file = '/home/grads/tasnina/Projects/Plug and Play/outputs/stat/synergy_stat.txt'
+        dcomb_raw_syn_file = "/home/grads/tasnina/Projects/SynVerse/datasets/synergy/drugcomb_raw_summary.csv"
+        dcomb_drug_file = "/home/grads/tasnina/Projects/SynVerse/datasets/synergy/drugcomb_drug_data.csv"
+        dcomb_cell_line_file = "/home/grads/tasnina/Projects/SynVerse/datasets/synergy/drugcomb_cell_line_data.csv"
+        mapped_syn_filename = "/home/grads/tasnina/Projects/SynVerse/datasets/synergy/drugcomb_mapped_summary.csv"
+        drug_name_to_pcomp_file = '/home/grads/tasnina/Projects/SynVerse/inputs/drug/drug_name_to_pubchem_compound.pickle'
+        processed_syn_file = '/home/grads/tasnina/Projects/SynVerse/inputs/synergy/synergy_scores.tsv'
+        stat_file = '/home/grads/tasnina/Projects/SynVerse/outputs/stat/synergy_stat.txt'
 
 
         # **************************************
+        # download_synergy(dcomb_raw_syn_file, dcomb_drug_file, dcomb_cell_line_file)
+        # map drugcomb drug_id->drug_name, cell_line_id->cell_line_name
+        # mapped_syn_df = map_drugcomb_ids(dcomb_raw_syn_file, dcomb_drug_file, dcomb_cell_line_file,
+        #                                         mapped_syn_filename)
+        #
+        # # #  extract pubchempy compound for each drug and save that id alongside drug names
+        # drug_name_to_pcomp_file = '/home/grads/tasnina/Projects/SynVerse/inputs/drug/drug_name_to_pubchem_compound.pickle'
+        # synergy_df = pd.read_csv(mapped_syn_filename, sep=',', low_memory=False,
+        #                          dtype={'drug_row': str, 'drug_col': str, 'cell_line_name': str,
+        #                                 'S_mean': float, 'synergy_zip': float})
+        #
+        # drug_names = list(set(synergy_df['drug_row']).union(set(synergy_df['drug_col'])))
+        # drug_name_to_pcomp = wrapper_download_pubchem_compound(drug_names, drug_name_to_pcomp_file, force_run=False)
+        # print('drugs with pubchem compounds: ', len(list(drug_name_to_pcomp.keys())))
+
         # aggregate synergy score for replicated triplets and do some filtering.
-        synergy_df = aggregate_filter_synergy_data(mapped_syn_filename, drug_name_to_pcomp_file, processed_syn_file, stat_file, force_run=True)  # preprocess
+        synergy_df = aggregate_filter_synergy_data(mapped_syn_filename, drug_name_to_pcomp_file, processed_syn_file, stat_file, force_run=False)  # preprocess
         synergy_df = synergy_df[['drug_1_pid', 'drug_2_pid', 'cell_line_name', 'S_mean_mean', 'synergy_zip_mean']]
+
+        viz_synergy_data(synergy_df)
+
         print('Drugcomb: #triplets after aggregation and filtering: ', len(synergy_df))
 

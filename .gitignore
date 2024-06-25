@@ -1,4 +1,7 @@
-
+code/slurm/
+code/dag/
+code/snakemakelog/
+code/test_code/
 datasets/
 documents/
 inputs/

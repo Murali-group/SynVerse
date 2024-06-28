@@ -21,7 +21,7 @@ def setup_opts():
     parser = argparse.ArgumentParser(description="""Script to download and parse input files, and (TODO) run the  pipeline using them.""")
     # general parameters
     group = parser.add_argument_group('Main Options')
-    group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
+    group.add_argument('--config', type=str, default="/home/grads/haghani/SynVerse/code/"
                        "config_files/experiment_1/emlp_dgraph_c1hot.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--n_workers', type=int, help='Number of workers to run in parallel.', default=2)

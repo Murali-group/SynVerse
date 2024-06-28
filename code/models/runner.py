@@ -214,8 +214,8 @@ class Runner(ABC):
         # if (is_wandb) & (n_epochs>200):  # plot loss with wandb
         if (is_wandb):  # plot loss with wandb
             import wandb
-            wandb.login(key='d9462b91edea6523563900fab17134d7e9177e16')
-            wandb.init(project="Synverse", entity="ntasnina")
+            wandb.login(key='dc3d431c0afb735d9ac046c72f076bf1f7656472')
+            wandb.init(project="Synverse", entity="haghani-vt")
             wandb.watch(model, log="all")
 
         min_val_loss = 1000000

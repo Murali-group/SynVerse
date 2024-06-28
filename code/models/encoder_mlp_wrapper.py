@@ -7,6 +7,7 @@ import torch.nn as nn
 torch.set_default_dtype(torch.float64)
 
 from models.encoders.drug.gcn_encoder import GCN_Encoder
+from models.encoders.drug.transformer_encoder import Transformer_Encoder
 from models.decoders.mlp import MLP
 
 class Encoder_MLP_wrapper(nn.Module):
@@ -24,14 +25,17 @@ class Encoder_MLP_wrapper(nn.Module):
         self.drug_encoder_list = drug_encoder_list if drug_encoder_list is not None else []
         self.cell_encoder_list = cell_encoder_list if cell_encoder_list is not None else []
 
-
-
         #drug encoder
         for drug_encoder in self.drug_encoder_list:
             if (drug_encoder['feat'] == 'mol_graph') & (drug_encoder['encoder'] == 'GCN'):
                 self.gcn_encoder = GCN_Encoder(self.dfeat_dim_dict['mol_graph'], config)
                 #update the drug feat dim with the dimension of generated embedding
                 self.dfeat_out_dim['mol_graph'] = self.gcn_encoder.out_dim
+
+            if (drug_encoder['feat'] == 'smiles') & (drug_encoder['encoder'] == 'Transformer'):
+                self.transformer_encoder = Transformer_Encoder(self.dfeat_dim_dict['smiles'], config)
+                #update the drug feat dim with the dimension of generated embedding
+                self.dfeat_out_dim['smiles'] = self.transformer_encoder.out_dim
         # TODO: other drug encoders.
 
         #TODO: cell line encoder
@@ -64,7 +68,13 @@ class Encoder_MLP_wrapper(nn.Module):
                 data_list = [drug_feat[feat_name][x] for x in range(len(drug_feat[feat_name].keys()))]
                 drug_embed_raw.append(self.gcn_encoder(data_list, device))
                 embedded_feat.append(feat_name)
-            #TODO add more encoder here. e.g., SMILES , transformer
+
+            if (feat_name == 'smiles') & (encoder_name == 'Transformer'):
+                data_list = [drug_feat[feat_name][x] for x in range(len(drug_feat[feat_name].keys()))]
+                #ToDO: get vocab_size, max_seq_length from data_list
+                vocab_size, max_seq_length = data_list
+                drug_embed_raw.append(self.transformer_encoder(vocab_size, max_seq_length, device))
+                embedded_feat.append(feat_name)
 
         #now concatenate any raw drug features present in drug_feat
         for feat_name in drug_feat:

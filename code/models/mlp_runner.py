@@ -11,9 +11,9 @@ from torch.utils.data import DataLoader, TensorDataset
 from models.mlp_worker import MLPWorker
 
 class MLP_runner (Runner):
-    def __init__(self, train_val_triplets_df, train_idx, val_idx, dfeat_dict, cfeat_dict,
+    def __init__(self, split_type, train_val_triplets_df, train_idx, val_idx, dfeat_dict, cfeat_dict,
                  dfeat_dim_dict, cfeat_dim_dict, out_file_prefix, params, model_info, device, **kwargs):
-        super().__init__(train_val_triplets_df, train_idx, val_idx, dfeat_dict,
+        super().__init__(split_type, train_val_triplets_df, train_idx, val_idx, dfeat_dict,
                          cfeat_dict, dfeat_dim_dict, cfeat_dim_dict, out_file_prefix, params, model_info, device, **kwargs)
 
         # save the name of the worker class applicable an attribute and later use in for finding best hyperparam.

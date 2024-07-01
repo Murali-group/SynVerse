@@ -70,10 +70,8 @@ class Encoder_MLP_wrapper(nn.Module):
                 embedded_feat.append(feat_name)
 
             if (feat_name == 'smiles') & (encoder_name == 'Transformer'):
-                data_list = [drug_feat[feat_name][x] for x in range(len(drug_feat[feat_name].keys()))]
-                #ToDO: get vocab_size, max_seq_length from data_list
-                vocab_size, max_seq_length = data_list
-                drug_embed_raw.append(self.transformer_encoder(vocab_size, max_seq_length, device))
+                source = drug_feat[feat_name][:, 2]
+                drug_embed_raw.append(self.transformer_encoder(source, device))
                 embedded_feat.append(feat_name)
 
         #now concatenate any raw drug features present in drug_feat

@@ -1,6 +1,9 @@
 from models.model_utils import *
 
+import pytz
 import torch
+import wandb
+import datetime
 from abc import ABC, abstractmethod
 from torch.utils.data import DataLoader, TensorDataset
 import hpbandster.core.nameserver as hpns
@@ -16,13 +19,13 @@ from torch.utils.data import DataLoader, Subset
 import logging
 
 class Runner(ABC):
-    def __init__(self, train_val_triplets_df, train_idx, val_idx, dfeat_dict,
+    def __init__(self, split_type, train_val_triplets_df, train_idx, val_idx, dfeat_dict,
                  cfeat_dict, dfeat_dim_dict, cfeat_dim_dict, out_file_prefix,
                  params, model_info, device, **kwargs):
 
         out_file = out_file_prefix + '.txt'
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
-
+        self.split_type = split_type
         self.triplets_scores_dataset = self.get_triplets_score_dataset(train_val_triplets_df)
 
         self.drug_feat = dfeat_dict
@@ -35,7 +38,8 @@ class Runner(ABC):
         self.n_folds = len(val_idx.keys())
         self.out_file = out_file
         self.out_file_prefix = out_file_prefix
-        self.is_wandb = params.wandb
+        self.wandb = params.wandb
+        self.is_wandb = self.wandb.enabled
         self.bohb_params = params.bohb
         self.device = device
         self.params=params
@@ -197,26 +201,37 @@ class Runner(ABC):
                 train_loader = DataLoader(train_subsampler, batch_size=self.batch_size, shuffle=True)
                 val_loader = DataLoader(val_subsampler, batch_size=4096, shuffle=False)
 
-                best_model_state, val_loss[fold], train_loss[fold], req_epochs[fold] = self.train_model(model, optimizer,
+                best_model_state, val_loss[fold], train_loss[fold], req_epochs[fold] = self.train_model(fold, model, optimizer,
                                     criterion, train_loader, best_n_epochs, self.check_freq,self.tolerance,
                                     self.is_wandb, self.device,early_stop=True,val_loader=val_loader)
 
         return best_model_state, train_loss
 
+    def _init_wandb(self, model, fold):
+        wandb.login(key=self.wandb.token)
 
-    def train_model(self, model, optimizer, criterion, train_loader, n_epochs, check_freq, tolerance, is_wandb, device,
+        # Generate a dynamic run name
+        eastern = pytz.timezone(self.wandb.timezone)
+        run_name = f"run-{self.split_type}-{fold+1}-{datetime.datetime.now(eastern).strftime(self.wandb.timezone_format)}"
+        wandb.init(project=self.wandb.project_name, entity=self.wandb.entity_name, name=run_name)
+        wandb.watch(model, log="all")
+
+        # wandb.log({"config": model.chosen_config})
+        # wandb.log({"drug_encoder_list": self.drug_encoder_info})
+        # wandb.log({"cell_encoder_list": self.cell_encoder_info})
+
+    def train_model(self, fold, model, optimizer, criterion, train_loader, n_epochs, check_freq, tolerance, is_wandb, device,
                     early_stop=True, val_loader=None):
 
         f = open(self.log_file, 'a')
         f.write(f'Configuraion: {model.chosen_config}\n')
+        f.write(f"drug_encoder_list: {self.drug_encoder_info}")
+        f.write(f"cell_encoder_list: {self.cell_encoder_info}")
 
         print('Model training starts')
         # if (is_wandb) & (n_epochs>200):  # plot loss with wandb
         if (is_wandb):  # plot loss with wandb
-            import wandb
-            wandb.login(key='dc3d431c0afb735d9ac046c72f076bf1f7656472')
-            wandb.init(project="Synverse", entity="haghani-vt")
-            wandb.watch(model, log="all")
+            self._init_wandb(model, fold)
 
         min_val_loss = 1000000
         req_epochs = n_epochs

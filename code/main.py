@@ -78,6 +78,14 @@ def run_SynVerse(inputs, params, **kwargs):
         dfeat_dict['MACCS'] = maccs_df
         dfeat_dim_dict['MACCS'] = maccs_df.shape[1]-1
 
+    if 'smiles' in dfeat_names:
+        smiles_file = inputs.drug_smiles_file
+        smiles_df = pd.read_csv(smiles_file,dtype={'pid':str}, sep='\t', index_col=None)
+        max_len = params.models[0]['hp']['max_seq_length']
+        smiles_df, vocab_size = get_vocab_smiles(smiles_df, max_len)
+        dfeat_dict['smiles'] = smiles_df
+        dfeat_dim_dict['smiles'] = vocab_size
+
     if 'MFP' in dfeat_names:
         chem_prop_dir = params.drug_chemprop_dir
         mfp_file = chem_prop_dir + 'Morgan_fingerprint.tsv'
@@ -216,14 +224,14 @@ def run_SynVerse(inputs, params, **kwargs):
                 if model_name=='MLP':
                     print(out_file_prefix)
                     #initialize the runner class
-                    runner = MLP_runner(train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
+                    runner = MLP_runner(split_type, train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
                                     select_dfeat_dim_dict, select_cfeat_dim_dict,
                                     out_file_prefix, params, model_info, device, **kwargs) #each runner initiate an MLP model.
 
                 elif model_name=='Encoder_MLP':
                     # kwargs['drug_encoder'] = model_info['drug_encoder']
                     # kwargs['cell_encoder'] = model_info['cell_encoder']
-                    runner = Encode_MLP_runner(train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
+                    runner = Encode_MLP_runner(split_type, train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
                                                select_dfeat_dim_dict, select_cfeat_dim_dict, out_file_prefix, params, model_info, device, **kwargs)
 
                 if params.mode == 'hp_tune':
@@ -273,7 +281,8 @@ def main(config_map, **kwargs):
         params.abundance = config_map['input_settings']['abundance']
         params.max_feat=config_map['input_settings']['max_feat']
         params.mode=config_map['input_settings']['mode']
-        params.wandb = config_map['input_settings']['wandb']
+        input_settings = config_map.get('input_settings', {})
+        params.wandb= types.SimpleNamespace(**input_settings.get('wandb', {}))
         params.bohb = config_map['input_settings']['bohb']
         params.drug_chemprop_dir = input_dir + '/drug/chemprop/'
         params.out_dir = output_dir

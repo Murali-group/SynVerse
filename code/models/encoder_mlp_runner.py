@@ -5,11 +5,11 @@ import torch.optim as optim
 from models.encoder_mlp_worker import Encode_MLPWorker
 
 class Encode_MLP_runner (Runner):
-    def __init__(self, train_val_triplets_df, train_idx, val_idx, dfeat_dict, cfeat_dict,
+    def __init__(self, split_type, train_val_triplets_df, train_idx, val_idx, dfeat_dict, cfeat_dict,
                  dfeat_dim_dict, cfeat_dim_dict,
                  out_file_prefix, params,model_info, device, **kwargs):
 
-        super().__init__(train_val_triplets_df, train_idx, val_idx, dfeat_dict,
+        super().__init__(split_type, train_val_triplets_df, train_idx, val_idx, dfeat_dict,
             cfeat_dict,dfeat_dim_dict, cfeat_dim_dict, out_file_prefix, params,model_info, device, **kwargs)
 
         self.worker_cls = Encode_MLPWorker

@@ -47,7 +47,7 @@ class Runner(ABC):
 
         self.check_freq = 1
         self.tolerance = 25
-        self.batch_size = 4096
+        self.batch_size = int(params.batch_size)
 
         self.result_logger = hpres.json_result_logger(directory=out_file.replace('.txt',''), overwrite=True)
         self.log_file = self.out_file_prefix + '_training.log'
@@ -199,7 +199,7 @@ class Runner(ABC):
                 val_subsampler = Subset(self.triplets_scores_dataset, fold_val_idx)
 
                 train_loader = DataLoader(train_subsampler, batch_size=self.batch_size, shuffle=True)
-                val_loader = DataLoader(val_subsampler, batch_size=4096, shuffle=False)
+                val_loader = DataLoader(val_subsampler, batch_size=self.batch_size, shuffle=False)
 
                 best_model_state, val_loss[fold], train_loss[fold], req_epochs[fold] = self.train_model(fold, model, optimizer,
                                     criterion, train_loader, best_n_epochs, self.check_freq,self.tolerance,
@@ -212,7 +212,7 @@ class Runner(ABC):
 
         # Generate a dynamic run name
         eastern = pytz.timezone(self.wandb.timezone)
-        run_name = f"run-{self.split_type}-{fold+1}-{datetime.datetime.now(eastern).strftime(self.wandb.timezone_format)}"
+        run_name = f"run-b_{self.batch_size}-{self.split_type}-{fold+1}-{datetime.datetime.now(eastern).strftime(self.wandb.timezone_format)}"
         wandb.init(project=self.wandb.project_name, entity=self.wandb.entity_name, name=run_name)
         wandb.watch(model, log="all")
 

@@ -22,7 +22,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/haghani/SynVerse/code/"
-                       "config_files/experiment_1/emlp_dgraph_c1hot.yaml",
+                       "config_files/experiment_1/emlp_dsmiles_c1hot.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--n_workers', type=int, help='Number of workers to run in parallel.', default=2)
     group.add_argument('--worker', help='Flag to turn this into a worker process', action='store_true')
@@ -279,10 +279,11 @@ def main(config_map, **kwargs):
         params.splits = config_map['input_settings']['splits']
         params.feature = config_map['input_settings']['feature']
         params.abundance = config_map['input_settings']['abundance']
-        params.max_feat=config_map['input_settings']['max_feat']
-        params.mode=config_map['input_settings']['mode']
+        params.max_feat = config_map['input_settings']['max_feat']
+        params.mode = config_map['input_settings']['mode']
+        params.batch_size = config_map['input_settings'].get('batch_size', 4096)
         input_settings = config_map.get('input_settings', {})
-        params.wandb= types.SimpleNamespace(**input_settings.get('wandb', {}))
+        params.wandb = types.SimpleNamespace(**input_settings.get('wandb', {}))
         params.bohb = config_map['input_settings']['bohb']
         params.drug_chemprop_dir = input_dir + '/drug/chemprop/'
         params.out_dir = output_dir

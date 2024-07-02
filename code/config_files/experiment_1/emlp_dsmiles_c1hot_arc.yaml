@@ -73,6 +73,7 @@ input_settings:
 
   max_feat: 1
   mode: 'train_val'
+  batch_size: 128
 
 output_settings:
   output_dir: '/projects/protein-structure-prediction/SynVerse/outputs/'

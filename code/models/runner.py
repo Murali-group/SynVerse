@@ -212,7 +212,7 @@ class Runner(ABC):
 
         # Generate a dynamic run name
         eastern = pytz.timezone(self.wandb.timezone)
-        run_name = f"run-b_{self.batch_size}-{self.split_type}-{fold+1}-{datetime.datetime.now(eastern).strftime(self.wandb.timezone_format)}"
+        run_name = f"run-{self.split_type}-{fold+1}-{datetime.datetime.now(eastern).strftime(self.wandb.timezone_format)}"
         wandb.init(project=self.wandb.project_name, entity=self.wandb.entity_name, name=run_name)
         wandb.watch(model, log="all")
 
@@ -241,6 +241,7 @@ class Runner(ABC):
         for i in range(int(n_epochs)):
             t1 = time.time()
             train_loss = 0
+            batch_no = 0
 
             for inputs, targets in train_loader:
                 #add (d2,d1,c) triplets for each corresponding (d1,d2,c) triplets.
@@ -252,12 +253,22 @@ class Runner(ABC):
                 optimizer.zero_grad()
                 outputs = model(inputs_undir, self.drug_feat, self.cell_line_feat, device)
                 loss = criterion(outputs, targets_undir.reshape(-1, 1))
-                train_loss += (loss.detach().cpu().numpy())
+                batch_train_loss = (loss.detach().cpu().numpy())
+                train_loss += batch_train_loss
                 loss.backward()
                 optimizer.step()
 
                 #TODO: remove after making sure nn.dataparalle is working.
                 # print("Outside: input size", inputs_undir.size())
+
+                if is_wandb and i == 0:
+                    print('batch_no (epoch_0): ', batch_no, '  batch_train_loss (epoch_0): ', batch_train_loss)
+                    wandb.log({
+                        'batch_train_loss (epoch_0)': batch_train_loss,
+                        'batch_no (epoch_0)': batch_no
+                    })
+
+                batch_no += 1
 
             train_loss = train_loss / len(train_loader)
             print('e: ', i, '  train_loss: ', train_loss)
@@ -267,12 +278,12 @@ class Runner(ABC):
                 assert val_loader is not None, 'Require validation dataset during training'
                 if (i % check_freq) == 0:
                     # checkpoint to provide early stop mechanism
-                    val_loss = self.eval_model(model, val_loader, criterion, device)
+                    val_loss = self.eval_model(model, val_loader, criterion, device, epoch=i, wandb=wandb)
                     # print('e: ', i, 'time: ', time.time() - t1)
                     print('                                   e: ', i, '  val_loss: ', val_loss)
                     f.write(f'\n------------------------------e {i}: val_loss: {val_loss}\n\n')
                     # if (is_wandb) & (n_epochs>200):  # plot loss with wandb
-                    if (is_wandb):  # plot loss with wandb
+                    if is_wandb:  # plot loss with wandb
                         wandb.log({"epoch": i, "train_loss": train_loss, "val_loss": val_loss})
                     model.train()
                     # if for number of tolerance(50) epochs validation loss did not decrease then return last best model.
@@ -291,7 +302,7 @@ class Runner(ABC):
                         return best_model, min_val_loss, train_loss, req_epochs
             else:
                 # if (is_wandb) & (n_epochs>200):
-                if (is_wandb):
+                if is_wandb:
                     wandb.log({"epoch": i, "train_loss": train_loss})
 
         if not early_stop:
@@ -303,7 +314,7 @@ class Runner(ABC):
         f.close()
         return best_model, min_val_loss, train_loss, req_epochs  # model has been trained for given number of epochs. Now return the best model so far.
 
-    def eval_model(self, model, val_loader, criterion, device, save_output=False):
+    def eval_model(self, model, val_loader, criterion, device, epoch=-1, wandb=None, save_output=False):
         '''
         Return validation loss per sample.
         '''
@@ -316,19 +327,31 @@ class Runner(ABC):
                 true_score = []
                 pred_score = []
             total_loss = 0
+            batch_no = 0
             for inputs, targets in val_loader:
                 inputs_og = copy.deepcopy(inputs)
-                inputs[:, [0, 1]] = inputs[:, [1, 0]] #make input undirected,i.e., bot (a,b) and (b,a) drug pairs are present.
+                # make input undirected,i.e., both (a,b) and (b,a) drug pairs are present.
+                inputs[:, [0, 1]] = inputs[:, [1, 0]]
                 inputs_undir = torch.cat((inputs_og, inputs), dim=0)
                 targets_undir = torch.cat((targets, targets), dim=0).to(device)
                 outputs = model(inputs_undir, self.drug_feat, self.cell_line_feat, device)
                 loss = criterion(outputs, targets_undir.reshape(-1, 1))
-                total_loss += (loss.detach().cpu().numpy())
+                batch_loss = (loss.detach().cpu().numpy())
+                total_loss += batch_loss
 
-                if save_output:
+                if not save_output and epoch == 0:
+                    print('batch_no (epoch_0): ', batch_no, '  batch_val_loss (epoch_0): ', batch_loss)
+                    wandb.log({
+                        'batch_val_loss (epoch_0)': batch_loss,
+                        'batch_no (epoch_0)': batch_no
+                    })
+
+                if save_output: # for test
                     triplets.append(inputs_undir.to('cpu'))
                     true_score.append(targets_undir.reshape(-1, 1).to('cpu'))
                     pred_score.append(outputs.to('cpu'))
+
+                batch_no += 1
 
         # loss_per_sample
         avg_loss = total_loss / len(val_loader)

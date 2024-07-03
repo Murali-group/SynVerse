@@ -256,7 +256,6 @@ class Runner(ABC):
                 train_loss += loss.detach().cpu().numpy()
                 loss.backward()
                 optimizer.step()
-
                 #TODO: remove after making sure nn.dataparalle is working.
                 # print("Outside: input size", inputs_undir.size())
 

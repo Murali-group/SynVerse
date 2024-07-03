@@ -253,21 +253,21 @@ class Runner(ABC):
                 optimizer.zero_grad()
                 outputs = model(inputs_undir, self.drug_feat, self.cell_line_feat, device)
                 loss = criterion(outputs, targets_undir.reshape(-1, 1))
-                batch_train_loss = (loss.detach().cpu().numpy())
-                train_loss += batch_train_loss
+                train_loss += loss.detach().cpu().numpy()
                 loss.backward()
                 optimizer.step()
 
                 #TODO: remove after making sure nn.dataparalle is working.
                 # print("Outside: input size", inputs_undir.size())
 
-                if is_wandb and i == 0:
-                    print('batch_no (epoch_0): ', batch_no, '  batch_train_loss (epoch_0): ', batch_train_loss)
+                if early_stop and is_wandb and i == 0:
+                    # get validation loss on the model being learnt on the current batch
+                    val_loss = self.eval_model(model, val_loader, criterion, device)
+                    print('batch_no (epoch 0): ', batch_no, '  batch_val_loss (epoch 0): ', val_loss)
                     wandb.log({
-                        'batch_train_loss (epoch_0)': batch_train_loss,
-                        'batch_no (epoch_0)': batch_no
+                        'batch_val_loss (epoch 0)': val_loss,
+                        'batch_no (epoch 0)': batch_no
                     })
-
                 batch_no += 1
 
             train_loss = train_loss / len(train_loader)
@@ -278,7 +278,7 @@ class Runner(ABC):
                 assert val_loader is not None, 'Require validation dataset during training'
                 if (i % check_freq) == 0:
                     # checkpoint to provide early stop mechanism
-                    val_loss = self.eval_model(model, val_loader, criterion, device, epoch=i, wandb=wandb)
+                    val_loss = self.eval_model(model, val_loader, criterion, device)
                     # print('e: ', i, 'time: ', time.time() - t1)
                     print('                                   e: ', i, '  val_loss: ', val_loss)
                     f.write(f'\n------------------------------e {i}: val_loss: {val_loss}\n\n')
@@ -305,6 +305,7 @@ class Runner(ABC):
                 if is_wandb:
                     wandb.log({"epoch": i, "train_loss": train_loss})
 
+
         if not early_stop:
             best_model = model.state_dict()
 
@@ -314,7 +315,7 @@ class Runner(ABC):
         f.close()
         return best_model, min_val_loss, train_loss, req_epochs  # model has been trained for given number of epochs. Now return the best model so far.
 
-    def eval_model(self, model, val_loader, criterion, device, epoch=-1, wandb=None, save_output=False):
+    def eval_model(self, model, val_loader, criterion, device, save_output=False):
         '''
         Return validation loss per sample.
         '''
@@ -339,19 +340,11 @@ class Runner(ABC):
                 batch_loss = (loss.detach().cpu().numpy())
                 total_loss += batch_loss
 
-                if not save_output and epoch == 0:
-                    print('batch_no (epoch_0): ', batch_no, '  batch_val_loss (epoch_0): ', batch_loss)
-                    wandb.log({
-                        'batch_val_loss (epoch_0)': batch_loss,
-                        'batch_no (epoch_0)': batch_no
-                    })
-
-                if save_output: # for test
+                if save_output:
                     triplets.append(inputs_undir.to('cpu'))
                     true_score.append(targets_undir.reshape(-1, 1).to('cpu'))
                     pred_score.append(outputs.to('cpu'))
 
-                batch_no += 1
 
         # loss_per_sample
         avg_loss = total_loss / len(val_loader)

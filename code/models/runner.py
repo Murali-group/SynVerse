@@ -266,7 +266,7 @@ class Runner(ABC):
                     wandb.log({
                         'batch_val_loss (epoch 0)': val_loss,
                         'batch_no (epoch 0)': batch_no
-                    })
+                    },step=batch_no)
                 batch_no += 1
 
             train_loss = train_loss / len(train_loader)
@@ -283,7 +283,7 @@ class Runner(ABC):
                     f.write(f'\n------------------------------e {i}: val_loss: {val_loss}\n\n')
                     # if (is_wandb) & (n_epochs>200):  # plot loss with wandb
                     if is_wandb:  # plot loss with wandb
-                        wandb.log({"epoch": i, "train_loss": train_loss, "val_loss": val_loss})
+                        wandb.log({"epoch": i, "train_loss": train_loss, "val_loss": val_loss}, step=i)
                     model.train()
                     # if for number of tolerance(50) epochs validation loss did not decrease then return last best model.
                     idle_epochs += 1
@@ -302,7 +302,7 @@ class Runner(ABC):
             else:
                 # if (is_wandb) & (n_epochs>200):
                 if is_wandb:
-                    wandb.log({"epoch": i, "train_loss": train_loss})
+                    wandb.log({"epoch": i, "train_loss": train_loss}, step=i)
 
 
         if not early_stop:

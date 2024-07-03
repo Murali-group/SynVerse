@@ -170,7 +170,7 @@ class Runner(ABC):
         if not validation: #train model with both training and validation data
             # load dataset
             model, optimizer, criterion = self.init_model(config)
-            train_loader = DataLoader(self.triplets_scores_dataset, batch_size=4096, shuffle=True)
+            train_loader = DataLoader(self.triplets_scores_dataset, batch_size=self.batch_size, shuffle=True)
             # train model using the whole training data (including validation dataset)
             best_model_state,_,train_loss, _ = self.train_model(model, optimizer, criterion, train_loader,
                                                       best_n_epochs, self.check_freq,

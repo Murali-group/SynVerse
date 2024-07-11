@@ -64,7 +64,13 @@ input_settings:
       test_frac: 0.2
       n_folds: 5
 
-  wandb: False
+  wandb:
+    enabled: True
+    token: 'd9462b91edea6523563900fab17134d7e9177e16'
+    project_name: 'Synverse'
+    entity_name: 'ntasnina'
+    timezone: 'US/Eastern'
+    timezone_format: '%Y-%m-%d_%H-%M-%S'
   bohb:
     min_budget: 27
     max_budget: 729

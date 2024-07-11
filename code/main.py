@@ -24,7 +24,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/haghani/SynVerse/code/"
-                       "config_files/experiment_1/emlp_dsmiles_c1hot.yaml",
+                       "config_files/experiment_1/d1hot_fingerprint_graph_smiles_c1hot.yaml",
                        help="Configuration file for this script.")
 
     group.add_argument('--feat', type=str,

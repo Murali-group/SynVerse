@@ -6,6 +6,30 @@ import torch
 #***************************************************** FEATURE PREP ************************
 
 
+def get_vocab_smiles(smiles_df, max_len):
+    # Create a vocabulary of characters
+    vocab = sorted(set(''.join(smiles_df['smiles'].values)))
+    char_to_idx = {char: idx + 1 for idx, char in enumerate(vocab)}
+
+    char_to_idx['[PAD]'] = 0  # Padding token
+
+    def tokenize(smiles, char_to_idx):
+        return [char_to_idx[char] for char in smiles]
+
+    smiles_df['tokenized'] = smiles_df['smiles'].apply(lambda x: tokenize(x, char_to_idx))
+
+    # Function to pad or truncate sequences
+    def pad_or_truncate(seq, max_len):
+        if len(seq) < max_len:
+            return seq + [0] * (max_len - len(seq))
+        else:
+            return seq[:max_len]
+
+    # Apply the function to the 'tokenized' column
+    smiles_df['tokenized'] = smiles_df['tokenized'].apply(lambda x: pad_or_truncate(x, max_len))
+
+    return smiles_df, len(char_to_idx)
+
 
 def concatenate_features(feat_dict, identifier_col,numeric_idx_map):
     '''

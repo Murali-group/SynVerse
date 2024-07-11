@@ -7,6 +7,7 @@ import torch.nn as nn
 torch.set_default_dtype(torch.float64)
 
 from models.encoders.drug.gcn_encoder import GCN_Encoder
+from models.encoders.drug.transformer_encoder import Transformer_Encoder
 from models.decoders.mlp import MLP
 
 class Encoder_MLP_wrapper(nn.Module):
@@ -36,6 +37,12 @@ class Encoder_MLP_wrapper(nn.Module):
                         self.gcn_encoder = GCN_Encoder(self.dfeat_dim_dict[feat_name], config)
                         #update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.gcn_encoder.out_dim
+
+                    if encoder_name == 'Transformer':
+                        self.transformer_encoder = Transformer_Encoder(self.dfeat_dim_dict[feat_name], config)
+                        # update the drug feat dim with the dimension of generated embedding
+                        self.dfeat_out_dim[feat_name] = self.transformer_encoder.out_dim
+
         # TODO: other drug encoders.
 
         #TODO: cell line encoder
@@ -72,7 +79,13 @@ class Encoder_MLP_wrapper(nn.Module):
                         drug_embed_raw.append(self.gcn_encoder(data_list, device))
                         embedded_feat.append(feat_name)
 
-            #TODO add more encoder here. e.g., SMILES , transformer
+                    if encoder_name=='Transformer':
+                        source = drug_feat[feat_name][:, 2]
+                        drug_embed_raw.append(self.transformer_encoder(source, device))
+                        embedded_feat.append(feat_name)
+
+
+            #TODO add more encoder here
 
         #now concatenate any raw drug features present in drug_feat
         for feat_name in drug_feat:

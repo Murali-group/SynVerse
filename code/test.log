@@ -1,0 +1,81 @@
+/home/grads/tasnina/Projects/SynVerse/code/main.py:3: DeprecationWarning: 
+Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+(to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+but was not found to be installed on your system.
+If this would cause problems for you,
+please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+        
+  import pandas as pd
+SYNVERSE STARTING
+Before feature based fitering: 
+
+#of triplets : 556905,
+#drugs 3969, 
+#cell lines 263
+filtering for d1hot
+filtering for MACCS
+filtering for MFP
+filtering for ECFP_4
+filtering for mol_graph
+filtering for c1hot
+After feature based filtering: 
+
+#of triplets : 556905,
+#drugs 3969, 
+#cell lines 263
+After abundance based filtering: 
+frac triplets retrieved:  0.1898384823264291
+
+#of triplets : 105722,
+#drugs 2582, 
+#cell lines 9
+
+#of triplets : 105722,
+#drugs 2582, 
+#cell lines 9
+keep drug encoder:  GCN
+TEST #triplets: 21129 
+ #drugs: 1256 
+ #cell lines: 9
+fold 0 # TRAIN triplets:  67583
+fold 0 # VAL triplets:  17010
+fold 1 # TRAIN triplets:  67536
+fold 1 # VAL triplets:  17057
+fold 2 # TRAIN triplets:  67738
+fold 2 # VAL triplets:  16855
+fold 3 # TRAIN triplets:  67716
+fold 3 # VAL triplets:  16877
+fold 4 # TRAIN triplets:  67799
+fold 4 # VAL triplets:  16794
+ran till model part
+SPLIT:  leave_comb
+/home/grads/tasnina/miniconda3/envs/synverse/lib/python3.9/site-packages/torch/cuda/__init__.py:546: UserWarning: Can't initialize NVML
+  warnings.warn("Can't initialize NVML")
+Model initialization done
+FOLD:  0
+Model training starts
+/home/grads/tasnina/miniconda3/envs/synverse/lib/python3.9/site-packages/torch_geometric/warnings.py:11: UserWarning: The usage of `scatter(reduce='max')` can be accelerated via the 'torch-scatter' package, but it was not found
+  warnings.warn(message)
+e:  0   train_loss:  1075.6328964045074
+                                   e:  0   val_loss:  1386.4154982341377
+e:  1   train_loss:  1054.2744392854324
+                                   e:  1   val_loss:  1376.6457307238798
+e:  2   train_loss:  997.4603987465363
+                                   e:  2   val_loss:  1340.364597939866
+e:  3   train_loss:  874.5040687105442
+                                   e:  3   val_loss:  1178.7808510391383
+e:  4   train_loss:  763.4814391849768
+Traceback (most recent call last):
+  File "/home/grads/tasnina/Projects/SynVerse/code/main.py", line 332, in <module>
+    main(config_map, **kwargs)
+  File "/home/grads/tasnina/Projects/SynVerse/code/main.py", line 327, in main
+    run_SynVerse(inputs, params, **kwargs)
+  File "/home/grads/tasnina/Projects/SynVerse/code/main.py", line 280, in run_SynVerse
+    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs,
+  File "/home/grads/tasnina/Projects/SynVerse/code/models/runner.py", line 200, in train_model_given_config
+    best_model_state, val_loss[fold], train_loss[fold], req_epochs[fold] = self.train_model(model, optimizer,
+  File "/home/grads/tasnina/Projects/SynVerse/code/models/runner.py", line 255, in train_model
+    val_loss = self.eval_model(model, val_loader, criterion, device)
+  File "/home/grads/tasnina/Projects/SynVerse/code/models/runner.py", line 311, in eval_model
+    total_loss += (loss.detach().cpu().numpy())
+KeyboardInterrupt

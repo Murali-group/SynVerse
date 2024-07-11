@@ -112,8 +112,6 @@ def find_drugs_with_ueq_smiles(drug_name_to_pcomp):
     return mult_uneq_smiles
 
 
-
-
 def extract_unambiguouse_drug_pid(drug_name_to_pcomp_file):
     with open(drug_name_to_pcomp_file, 'rb') as file:
         drug_name_to_pcomp = pickle.load(file)

@@ -10,7 +10,8 @@ from models.encoders.drug.gcn_encoder import GCN_Encoder
 from models.decoders.mlp import MLP
 
 class Encoder_MLP_wrapper(nn.Module):
-    def __init__(self, drug_encoder_list, cell_encoder_list, dfeat_dim_dict, cfeat_dim_dict, config):
+    def __init__(self, drug_encoder_list, cell_encoder_list, dfeat_dim_dict, cfeat_dim_dict,
+                 drug_feat_encoder_mapping, cell_feat_encoder_mapping, config):
         super().__init__()
         #TODO remove the following hardcoded values later.
         self.chosen_config = config
@@ -21,17 +22,20 @@ class Encoder_MLP_wrapper(nn.Module):
         self.dfeat_out_dim = copy.deepcopy(dfeat_dim_dict)
         self.cfeat_out_dim = copy.deepcopy(cfeat_dim_dict)
 
+        self.drug_feat_encoder_mapping = drug_feat_encoder_mapping
+        self.cell_feat_encoder_mapping =cell_feat_encoder_mapping
         self.drug_encoder_list = drug_encoder_list if drug_encoder_list is not None else []
         self.cell_encoder_list = cell_encoder_list if cell_encoder_list is not None else []
 
-
-
         #drug encoder
-        for drug_encoder in self.drug_encoder_list:
-            if (drug_encoder['feat'] == 'mol_graph') & (drug_encoder['encoder'] == 'GCN'):
-                self.gcn_encoder = GCN_Encoder(self.dfeat_dim_dict['mol_graph'], config)
-                #update the drug feat dim with the dimension of generated embedding
-                self.dfeat_out_dim['mol_graph'] = self.gcn_encoder.out_dim
+        for feat_name in drug_feat_encoder_mapping:
+            encoder_name = drug_feat_encoder_mapping[feat_name]
+            for drug_encoder in self.drug_encoder_list:
+                if (drug_encoder['name'] == encoder_name):
+                    if encoder_name=='GCN':
+                        self.gcn_encoder = GCN_Encoder(self.dfeat_dim_dict[feat_name], config)
+                        #update the drug feat dim with the dimension of generated embedding
+                        self.dfeat_out_dim[feat_name] = self.gcn_encoder.out_dim
         # TODO: other drug encoders.
 
         #TODO: cell line encoder
@@ -47,6 +51,8 @@ class Encoder_MLP_wrapper(nn.Module):
             cell_dim+= self.cfeat_out_dim[feat_name]
 
         input_size = drug_dim*2+cell_dim
+
+        #The synergy predictor MLP
         self.mlp = MLP(input_size, config)
 
     def drug_encoder_wrap(self, drug_feat, device):
@@ -55,15 +61,17 @@ class Encoder_MLP_wrapper(nn.Module):
         #return a dict with key='feature_name-encoder', e.g., 'smiles_GCN' and value=embedding.
         drug_embed_raw = []
         embedded_feat=[]
-        for drug_encoder in self.drug_encoder_list:
-            feat_name=drug_encoder['feat']
-            encoder_name = drug_encoder['encoder']
-            if (feat_name == 'mol_graph') & (encoder_name == 'GCN'):
-                #TODO fix it.
-                #create a list of drug_graphs where in index i, the molecular graph of drug i is present.
-                data_list = [drug_feat[feat_name][x] for x in range(len(drug_feat[feat_name].keys()))]
-                drug_embed_raw.append(self.gcn_encoder(data_list, device))
-                embedded_feat.append(feat_name)
+
+        for feat_name in self.drug_feat_encoder_mapping:
+            encoder_name = self.drug_feat_encoder_mapping[feat_name]
+            for drug_encoder in self.drug_encoder_list:
+                if (drug_encoder['name'] == encoder_name):
+                    if encoder_name=='GCN':
+                        # create a list of drug_graphs where in index i, the molecular graph of drug i is present.
+                        data_list = [drug_feat[feat_name][x] for x in range(len(drug_feat[feat_name].keys()))]
+                        drug_embed_raw.append(self.gcn_encoder(data_list, device))
+                        embedded_feat.append(feat_name)
+
             #TODO add more encoder here. e.g., SMILES , transformer
 
         #now concatenate any raw drug features present in drug_feat
@@ -102,7 +110,6 @@ class Encoder_MLP_wrapper(nn.Module):
         :return: concat features of drug_pair and cell line appearing in each triplet
             in the current batch and return it.
         '''
-
         drug1s = batch_triplets[:, 0].flatten()
         drug2s = batch_triplets[:, 1].flatten()
         cell_lines = batch_triplets[:, 2].flatten()
@@ -119,8 +126,7 @@ class Encoder_MLP_wrapper(nn.Module):
     def forward(self, batch_triplets, drug_feat, cell_line_feat, device):
 
         #batch_drugs: find out the drugs in the current batch
-        #batch_cell_lines: find out the drugs in the current batch
-
+        #batch_cell_lines: find out the drugs in the cu
         drug_embeds = self.drug_encoder_wrap(drug_feat, device)
         cell_embeds = self.cell_line_encoder_wrap( cell_line_feat, device)
 

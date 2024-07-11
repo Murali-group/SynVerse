@@ -25,8 +25,8 @@ class Runner(ABC):
 
         self.triplets_scores_dataset = self.get_triplets_score_dataset(train_val_triplets_df)
 
-        self.drug_feat = dfeat_dict
-        self.cell_line_feat = cfeat_dict
+        self.drug_feat = dfeat_dict['mtx']
+        self.cell_line_feat = cfeat_dict['mtx']
         self.dfeat_dim_dict = dfeat_dim_dict
         self.cfeat_dim_dict = cfeat_dim_dict
 

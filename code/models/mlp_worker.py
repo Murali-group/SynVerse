@@ -32,7 +32,7 @@ class MLPWorker(Worker):
         The input parameter "config" (dictionary) contains the sampled configurations passed by the bohb optimizer
         """
 
-        print('hidden layers: ', config['hid_0'], config['hid_1'], config['hid_2'])
+        # print('hidden layers: ', config['hid_0'], config['hid_1'], config['hid_2'])
         val_losses = {}
         req_epochs = {}
 

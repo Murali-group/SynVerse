@@ -67,7 +67,6 @@ def data_process():
     properties = ['MACCS', 'MFP', 'ECFP_4']
     pid_chemprop_dfs = get_chemprop_from_smiles(drug_smiles_df, properties, drug_chemprop_file, force_run=True)
 
-
     # #extract target info from TTD
     # drug_target_file = '/home/grads/tasnina/Projects/Plug and Play/inputs/drug/drug_target.tsv'
     TTD_drug_target_file = '/home/grads/tasnina/Projects/Plug and Play/datasets/drug/TTD/P1-07-Drug-TargetMapping.csv'

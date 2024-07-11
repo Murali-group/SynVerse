@@ -75,56 +75,58 @@ class Encode_MLPWorker(Worker):
         """
         cs = CS.ConfigurationSpace()
 
-        pred_params = model_params['hp_range']
-        # ****************** GENERAL configurations ***********************************************
-        lr = CSH.UniformFloatHyperparameter('lr', lower=pred_params['lr'][0], upper=pred_params['lr'][1], default_value=1e-4, log=True)
-        optimizer = CSH.CategoricalHyperparameter('optimizer', pred_params['optimizer'])
-        sgd_momentum = CSH.UniformFloatHyperparameter('sgd_momentum', lower=pred_params.get('sgd_momentum',[0,0])[0],
-                        upper=pred_params.get('sgd_momentum',[0.99,0.99])[1], default_value=0.9, log=False)
-        cs.add_hyperparameters([lr, optimizer, sgd_momentum])
-        # The hyperparameter sgd_momentum will be used,if the configuration
-        # contains 'SGD' as optimizer.
-        cond = CS.EqualsCondition(sgd_momentum, optimizer, 'SGD')
-        cs.add_condition(cond)
+        if model_params['decoder']['name'] =='MLP':
+            final_mlp_params = model_params['decoder']['hp_range']
+            # ****************** GENERAL configurations ***********************************************
+            lr = CSH.UniformFloatHyperparameter('lr', lower=final_mlp_params['lr'][0], upper=final_mlp_params['lr'][1], default_value=1e-4, log=True)
+            optimizer = CSH.CategoricalHyperparameter('optimizer', final_mlp_params['optimizer'])
+            sgd_momentum = CSH.UniformFloatHyperparameter('sgd_momentum', lower=final_mlp_params.get('sgd_momentum',[0,0])[0],
+                            upper=final_mlp_params.get('sgd_momentum',[0.99,0.99])[1], default_value=0.9, log=False)
+            cs.add_hyperparameters([lr, optimizer, sgd_momentum])
+            # The hyperparameter sgd_momentum will be used,if the configuration
+            # contains 'SGD' as optimizer.
+            cond = CS.EqualsCondition(sgd_momentum, optimizer, 'SGD')
+            cs.add_condition(cond)
 
-        #********************* Configurations for synergy predicting MLP layer **********************
-        num_hid_layers =  CSH.UniformIntegerHyperparameter('num_hid_layers', lower=pred_params['num_hid_layers'][0],
-                                upper=pred_params['num_hid_layers'][1], default_value=2)
+            #********************* Configurations for synergy predicting MLP layer **********************
+            num_hid_layers =  CSH.UniformIntegerHyperparameter('num_hid_layers', lower=final_mlp_params['num_hid_layers'][0],
+                                    upper=final_mlp_params['num_hid_layers'][1], default_value=2)
 
-        hid_0 = CSH.UniformIntegerHyperparameter('hid_0', lower=pred_params.get('hid_0',[64,64])[0],
-                            upper=pred_params.get('hid_0',[2048,2048])[1], default_value=1024, log=True)
-        hid_1 = CSH.UniformIntegerHyperparameter('hid_1', lower=pred_params.get('hid_1', [64, 64])[0],
-                            upper=pred_params.get('hid_1', [2048, 2048])[1], default_value=1024, log=True)
-        hid_2 = CSH.UniformIntegerHyperparameter('hid_2', lower=pred_params.get('hid_2', [64, 64])[0],
-                            upper=pred_params.get('hid_2', [2048, 2048])[1], default_value=1024, log=True)
-        cs.add_hyperparameters([num_hid_layers, hid_0, hid_1, hid_2])
-        # add conditions so that hid_2 will be considered when num_hid_layers>1 and so on.
-        cond = CS.GreaterThanCondition(hid_1, num_hid_layers, 1)
-        cs.add_condition(cond)
-        cond = CS.GreaterThanCondition(hid_2, num_hid_layers, 2)
-        cs.add_condition(cond)
+            hid_0 = CSH.UniformIntegerHyperparameter('hid_0', lower=final_mlp_params.get('hid_0',[64,64])[0],
+                                upper=final_mlp_params.get('hid_0',[2048,2048])[1], default_value=1024, log=True)
+            hid_1 = CSH.UniformIntegerHyperparameter('hid_1', lower=final_mlp_params.get('hid_1', [64, 64])[0],
+                                upper=final_mlp_params.get('hid_1', [2048, 2048])[1], default_value=1024, log=True)
+            hid_2 = CSH.UniformIntegerHyperparameter('hid_2', lower=final_mlp_params.get('hid_2', [64, 64])[0],
+                                upper=final_mlp_params.get('hid_2', [2048, 2048])[1], default_value=1024, log=True)
+            cs.add_hyperparameters([num_hid_layers, hid_0, hid_1, hid_2])
+            # add conditions so that hid_2 will be considered when num_hid_layers>1 and so on.
+            cond = CS.GreaterThanCondition(hid_1, num_hid_layers, 1)
+            cs.add_condition(cond)
+            cond = CS.GreaterThanCondition(hid_2, num_hid_layers, 2)
+            cs.add_condition(cond)
 
-        in_dropout_rate = CSH.UniformFloatHyperparameter('in_dropout_rate', lower=pred_params['in_dropout_rate'][0],
-                                upper=pred_params['in_dropout_rate'][1], default_value=0.5,log=False)
-        hid_dropout_rate = CSH.UniformFloatHyperparameter('hid_dropout_rate', lower=pred_params['hid_dropout_rate'][0],
-                                upper=pred_params['hid_dropout_rate'][1], default_value=0.5,log=False)
+            in_dropout_rate = CSH.UniformFloatHyperparameter('in_dropout_rate', lower=final_mlp_params['in_dropout_rate'][0],
+                                    upper=final_mlp_params['in_dropout_rate'][1], default_value=0.5,log=False)
+            hid_dropout_rate = CSH.UniformFloatHyperparameter('hid_dropout_rate', lower=final_mlp_params['hid_dropout_rate'][0],
+                                    upper=final_mlp_params['hid_dropout_rate'][1], default_value=0.5,log=False)
 
-        cs.add_hyperparameters([in_dropout_rate, hid_dropout_rate])
+            cs.add_hyperparameters([in_dropout_rate, hid_dropout_rate])
         #************************ ENCODER specific configurations **************************************
-        for drug_encoder in model_params['drug_encoder']:
-            if (drug_encoder['feat'] == 'mol_graph') & (drug_encoder['encoder'] == 'GCN'):
-                #convolution layers
-                batch_norm = CSH.CategoricalHyperparameter('batch_norm', pred_params['batch_norm'])
-                cs.add_hyperparameters([batch_norm])
 
+        for drug_encoder in model_params['drug_encoder']:
+            encoder_params = drug_encoder['hp_range']
+
+            if (drug_encoder['name'] == 'GCN'):
+                batch_norm = CSH.CategoricalHyperparameter('batch_norm', encoder_params['batch_norm'])
+                cs.add_hyperparameters([batch_norm])
                 gnn_num_layers = CSH.UniformIntegerHyperparameter('gnn_num_layers',
-                            lower=pred_params['gnn_num_layers'][0], upper=pred_params['gnn_num_layers'][1], default_value=2)
-                gnn_0 = CSH.UniformIntegerHyperparameter('gnn_0', lower=pred_params.get('gnn_0',[64,64])[0],
-                            upper=pred_params.get('gnn_0',[2048,2048])[1], default_value=1024, log=True)
-                gnn_1 = CSH.UniformIntegerHyperparameter('gnn_1', lower=pred_params.get('gnn_1',[64,64])[0],
-                            upper=pred_params.get('gnn_1',[2048,2048])[1], default_value=1024, log=True)
-                gnn_2 = CSH.UniformIntegerHyperparameter('gnn_2', lower=pred_params.get('gnn_2',[64,64])[0],
-                            upper=pred_params.get('gnn_2',[2048,2048])[1], default_value=1024, log=True)
+                            lower=encoder_params['gnn_num_layers'][0], upper=encoder_params['gnn_num_layers'][1], default_value=2)
+                gnn_0 = CSH.UniformIntegerHyperparameter('gnn_0', lower=encoder_params.get('gnn_0',[64,64])[0],
+                            upper=encoder_params.get('gnn_0',[2048,2048])[1], default_value=1024, log=True)
+                gnn_1 = CSH.UniformIntegerHyperparameter('gnn_1', lower=encoder_params.get('gnn_1',[64,64])[0],
+                            upper=encoder_params.get('gnn_1',[2048,2048])[1], default_value=1024, log=True)
+                gnn_2 = CSH.UniformIntegerHyperparameter('gnn_2', lower=encoder_params.get('gnn_2',[64,64])[0],
+                            upper=encoder_params.get('gnn_2',[2048,2048])[1], default_value=1024, log=True)
                 cs.add_hyperparameters([gnn_num_layers, gnn_0, gnn_1, gnn_2])
                 # add conditions so that hid_2 will be considered when num_hid_layers>1 and so on.
                 cond = CS.GreaterThanCondition(gnn_1, gnn_num_layers, 1)
@@ -132,25 +134,23 @@ class Encode_MLPWorker(Worker):
                 cond = CS.GreaterThanCondition(gnn_2, gnn_num_layers, 2)
                 cs.add_condition(cond)
                 #needs a/multiple feed forward layer as well
-                ff_num_layers = CSH.UniformIntegerHyperparameter('ff_num_layers', lower=pred_params['ff_num_layers'][0],
-                            upper=pred_params['ff_num_layers'][1], default_value=2)
-                ff_0 = CSH.UniformIntegerHyperparameter('ff_0', lower=pred_params.get('ff_0',[16,16])[0],
-                            upper=pred_params.get('ff_0',[2048,2048])[1], default_value=1024, log=True)
-                ff_1 = CSH.UniformIntegerHyperparameter('ff_1', lower=pred_params.get('ff_1',[16,16])[0],
-                            upper=pred_params.get('ff_1',[2048,2048])[1], default_value=1024, log=True)
-                ff_2 = CSH.UniformIntegerHyperparameter('ff_2', lower=pred_params.get('ff_2',[16,16])[0],
-                            upper=pred_params.get('ff_2',[2048,2048])[1], default_value=1024, log=True)
+                ff_num_layers = CSH.UniformIntegerHyperparameter('ff_num_layers', lower=encoder_params['ff_num_layers'][0],
+                            upper=encoder_params['ff_num_layers'][1], default_value=2)
+                ff_0 = CSH.UniformIntegerHyperparameter('ff_0', lower=encoder_params.get('ff_0',[16,16])[0],
+                            upper=encoder_params.get('ff_0',[2048,2048])[1], default_value=1024, log=True)
+                ff_1 = CSH.UniformIntegerHyperparameter('ff_1', lower=encoder_params.get('ff_1',[16,16])[0],
+                            upper=encoder_params.get('ff_1',[2048,2048])[1], default_value=1024, log=True)
+                ff_2 = CSH.UniformIntegerHyperparameter('ff_2', lower=encoder_params.get('ff_2',[16,16])[0],
+                            upper=encoder_params.get('ff_2',[2048,2048])[1], default_value=1024, log=True)
                 cs.add_hyperparameters([ff_num_layers, ff_0, ff_1, ff_2])
                 # add conditions so that hid_2 will be considered when num_hid_layers>1 and so on.
                 cond = CS.GreaterThanCondition(ff_1, ff_num_layers, 1)
                 cs.add_condition(cond)
                 cond = CS.GreaterThanCondition(ff_2, ff_num_layers, 2)
                 cs.add_condition(cond)
-                dropout = CSH.UniformFloatHyperparameter('gnn_dropout', lower=pred_params['gnn_dropout'][0],
-                                        upper=pred_params['gnn_dropout'][1], default_value=0.5, log=False)
+                dropout = CSH.UniformFloatHyperparameter('gnn_dropout', lower=encoder_params['gnn_dropout'][0],
+                                        upper=encoder_params['gnn_dropout'][1], default_value=0.5, log=False)
                 cs.add_hyperparameters([dropout])
-
-
 
 
         return cs

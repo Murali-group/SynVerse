@@ -5,32 +5,6 @@ import torch
 
 #***************************************************** FEATURE PREP ************************
 
-def adjacency_list_to_edges(adj_list):
-    edges = []
-    for node, neighbors in enumerate(adj_list):
-        for neighbor in neighbors:
-            edges.append([node, neighbor])
-    return edges
-
-def mol_graph_to_GCN_data(mol_graph_dict):
-    '''convert atom features and adjacency list of each drug molecule into a data compatible with
-    training pytorch geometric models'''
-    mol_gcn_data_dict={}
-    for pid in mol_graph_dict:
-        mol_feat = mol_graph_dict[pid][0]
-        mol_feat_dim = mol_feat.shape[1]
-        c_size = mol_feat.shape[0]
-        adj_list = mol_graph_dict[pid][1]
-        edges = adjacency_list_to_edges(adj_list)
-        GCNData = DATA.Data(x=torch.Tensor(mol_feat),
-                    edge_index=torch.LongTensor(edges).transpose(1, 0)
-                    if len(edges)>0 else torch.empty((2, 0), dtype=torch.long))
-        GCNData.__setitem__('c_size', torch.LongTensor([c_size]))
-        mol_gcn_data_dict[str(pid)] = GCNData
-    return mol_gcn_data_dict, mol_feat_dim
-
-
-
 
 
 def concatenate_features(feat_dict, identifier_col,numeric_idx_map):

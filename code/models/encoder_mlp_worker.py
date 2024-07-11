@@ -45,7 +45,7 @@ class Encode_MLPWorker(Worker):
             val_subsampler = Subset(self.runner.triplets_scores_dataset, fold_val_idx)
 
             train_loader = DataLoader(train_subsampler, batch_size=self.runner.batch_size, shuffle=True)
-            val_loader = DataLoader(val_subsampler, batch_size=4096, shuffle=False)
+            val_loader = DataLoader(val_subsampler, batch_size=self.runner.batch_size, shuffle=False)
 
             model, optimizer, criterion = self.runner.init_model(config)
 

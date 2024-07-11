@@ -23,8 +23,8 @@ def setup_opts():
     parser = argparse.ArgumentParser(description="""Script to download and parse input files, and (TODO) run the  pipeline using them.""")
     # general parameters
     group = parser.add_argument_group('Main Options')
-    group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/dtarget_c1hot.yaml",
+    group.add_argument('--config', type=str, default="/home/grads/haghani/SynVerse/code/"
+                       "config_files/experiment_1/emlp_dsmiles_c1hot.yaml",
                        help="Configuration file for this script.")
 
     group.add_argument('--feat', type=str,
@@ -143,11 +143,11 @@ def run_SynVerse(inputs, params, **kwargs):
             hyperparam = combine_hyperparams(select_model_info)
             best_n_epochs = params.epochs
 
-
             #todo: give explanatory outfile/directory names.
             out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type)
 
             # out_file_prefix = params.out_dir+'/test.txt'
+            kwargs['split_type'] = split_type
             runner = Encode_MLP_runner(train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
                      out_file_prefix, params, select_model_info, device, **kwargs)
 
@@ -200,6 +200,9 @@ def main(config_map, **kwargs):
         params.abundance = config_map['input_settings']['abundance']
         params.max_feat=config_map['input_settings']['max_feat']
         params.mode=config_map['input_settings']['mode']
+        params.batch_size = config_map['input_settings'].get('batch_size', 4096)
+        input_settings = config_map.get('input_settings', {})
+        params.wandb = types.SimpleNamespace(**input_settings.get('wandb', {}))
         params.wandb = config_map['input_settings']['wandb']
         params.bohb = config_map['input_settings']['bohb']
         params.drug_chemprop_dir = input_dir + '/drug/chemprop/'

@@ -5,6 +5,7 @@ import pickle
 
 from network_algorithms.rwr_runner import *
 from utils import *
+from models.model_utils import *
 
 def prepare_drug_features(drug_features, drug_pids, params, inputs):
     dfeat_names = [f['name'] for f in drug_features]
@@ -59,6 +60,14 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs):
         mol_pyg_dict, mol_feat_dim = mol_graph_to_GCN_data(pid_to_adjacency_mol_feat)
         dfeat_dict['mtx']['mol_graph'] = mol_pyg_dict
         dfeat_dict['dim']['mol_graph'] = mol_feat_dim
+
+    if 'smiles' in dfeat_names:
+        smiles_file = inputs.drug_smiles_file
+        smiles_df = pd.read_csv(smiles_file,dtype={'pid':str}, sep='\t', index_col=None)
+        max_len = params.models[0]['hp']['max_seq_length']
+        smiles_df, vocab_size = get_vocab_smiles(smiles_df, max_len)
+        dfeat_dict['mtx']['smiles'] = smiles_df
+        dfeat_dict['dim']['smiles'] = vocab_size
 
     if 'target' in dfeat_names:
         target_file = inputs.drug_target_file

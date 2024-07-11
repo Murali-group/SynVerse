@@ -1,6 +1,9 @@
 from models.model_utils import *
 
 import torch
+import wandb
+import pytz
+import datetime
 from abc import ABC, abstractmethod
 from torch.utils.data import DataLoader, TensorDataset
 import hpbandster.core.nameserver as hpns
@@ -22,7 +25,7 @@ class Runner(ABC):
 
         out_file = out_file_prefix + '.txt'
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
-
+        self.split_type = kwargs.get('split_type')
         self.triplets_scores_dataset = self.get_triplets_score_dataset(train_val_triplets_df)
 
         self.drug_feat = dfeat_dict['mtx']
@@ -35,7 +38,8 @@ class Runner(ABC):
         self.n_folds = len(val_idx.keys())
         self.out_file = out_file
         self.out_file_prefix = out_file_prefix
-        self.is_wandb = params.wandb
+        self.wandb = params.wandb
+        self.is_wandb = self.wandb.enabled
         self.bohb_params = params.bohb
         self.device = device
         self.params=params
@@ -43,7 +47,7 @@ class Runner(ABC):
 
         self.check_freq = 1
         self.tolerance = 25
-        self.batch_size = 4096
+        self.batch_size = int(params.batch_size)
 
         self.result_logger = hpres.json_result_logger(directory=out_file.replace('.txt',''), overwrite=True)
         self.log_file = self.out_file_prefix + '_training.log'
@@ -166,7 +170,7 @@ class Runner(ABC):
         if not validation: #train model with both training and validation data
             # load dataset
             model, optimizer, criterion = self.init_model(config)
-            train_loader = DataLoader(self.triplets_scores_dataset, batch_size=4096, shuffle=True)
+            train_loader = DataLoader(self.triplets_scores_dataset, batch_size=self.batch_size, shuffle=True)
             # train model using the whole training data (including validation dataset)
             best_model_state,_,train_loss, _ = self.train_model(model, optimizer, criterion, train_loader,
                                                       best_n_epochs, self.check_freq,
@@ -195,28 +199,39 @@ class Runner(ABC):
                 val_subsampler = Subset(self.triplets_scores_dataset, fold_val_idx)
 
                 train_loader = DataLoader(train_subsampler, batch_size=self.batch_size, shuffle=True)
-                val_loader = DataLoader(val_subsampler, batch_size=4096, shuffle=False)
+                val_loader = DataLoader(val_subsampler, batch_size=self.batch_size, shuffle=False)
 
                 best_model_state, val_loss[fold], train_loss[fold], req_epochs[fold] = self.train_model(model, optimizer,
                                     criterion, train_loader, best_n_epochs, self.check_freq,self.tolerance,
-                                    self.is_wandb, self.device,early_stop=True,val_loader=val_loader)
+                                    self.is_wandb, self.device,early_stop=True,val_loader=val_loader, fold=fold)
 
         return best_model_state, train_loss
 
+    def _init_wandb(self, model, fold):
+        wandb.login(key=self.wandb.token)
+
+        # Generate a dynamic run name
+        eastern = pytz.timezone(self.wandb.timezone)
+        run_name = f"run-{self.split_type}-{fold+1}-{datetime.datetime.now(eastern).strftime(self.wandb.timezone_format)}"
+        wandb.init(project=self.wandb.project_name, entity=self.wandb.entity_name, name=run_name)
+        wandb.watch(model, log="all")
 
     def train_model(self, model, optimizer, criterion, train_loader, n_epochs, check_freq, tolerance, is_wandb, device,
-                    early_stop=True, val_loader=None):
+                    early_stop=True, val_loader=None, fold=-1):
 
         f = open(self.log_file, 'a')
         f.write(f'Configuraion: {model.chosen_config}\n')
+        f.write(f"drug_encoder_list: {self.drug_encoder_info}")
+        f.write(f"cell_encoder_list: {self.cell_encoder_info}")
 
         print('Model training starts')
         # if (is_wandb) & (n_epochs>200):  # plot loss with wandb
         if (is_wandb):  # plot loss with wandb
-            import wandb
-            wandb.login(key='d9462b91edea6523563900fab17134d7e9177e16')
-            wandb.init(project="Synverse", entity="ntasnina")
-            wandb.watch(model, log="all")
+            self._init_wandb(model, fold)
+            # import wandb
+            # wandb.login(key='d9462b91edea6523563900fab17134d7e9177e16')
+            # wandb.init(project="Synverse", entity="ntasnina")
+            # wandb.watch(model, log="all")
 
         min_val_loss = 1000000
         req_epochs = n_epochs

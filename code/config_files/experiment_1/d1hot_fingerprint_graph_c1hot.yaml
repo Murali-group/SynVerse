@@ -21,6 +21,7 @@ input_settings:
       encoder: 'GCN'
       use: [ true, false ]
 
+
     - name: 'd1hot'
       use: [ true, false ]
 

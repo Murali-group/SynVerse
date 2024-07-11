@@ -277,13 +277,13 @@ def get_edge_type_n_split(df, n_folds):
     return train_idx, val_idx
 
 
-def wrapper_train_test(df, split_type, test_frac, out_dir, force_run=True):
+def wrapper_train_test(df, split_type, test_frac, spec_dir, force_run=True):
 
     df['ID'] = list(range(len(df)))
     split_type_2_function_map = {'random': get_random_train_test, 'leave_comb': get_edge_split_train_test,
                       'leave_drug':get_node_split_train_test, 'leave_cell_line':get_edge_type_split_train_test}
 
-    spec_dir = f'{out_dir}/{split_type}_{test_frac}/'
+    spec_dir = f'{spec_dir}_{test_frac}/'
     test_file = f'{spec_dir}test.tsv'
     train_file = f'{spec_dir}train.tsv'
     summary = f'{spec_dir}train_test_summary.txt'
@@ -313,13 +313,13 @@ def wrapper_train_test(df, split_type, test_frac, out_dir, force_run=True):
     file.close()
     return train_df, test_df
 
-def wrapper_nfold_split(df, split_type, n_folds, out_dir, force_run=True):
+def wrapper_nfold_split(df, split_type, n_folds, spec_dir, force_run=True):
 
     df['ID'] = list(range(len(df)))
     split_type_2_function_map = {'random': get_random_n_split, 'leave_comb': get_edge_n_split,
                       'leave_drug':get_node_n_split, 'leave_cell_line':get_edge_type_n_split}
 
-    spec_dir = f'{out_dir}/{split_type}_{n_folds}/'
+    spec_dir = f'{spec_dir}_{n_folds}/'
     val_file = f'{spec_dir}val_nfolds.pkl'
     train_file = f'{spec_dir}train_nfolds.pkl'
     summary = f'{spec_dir}n_fold_summary.txt'

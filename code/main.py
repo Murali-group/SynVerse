@@ -129,8 +129,7 @@ def run_SynVerse(inputs, params, **kwargs):
             test_frac = split['test_frac']
 
             #split into train test
-            split_prefix = split_dir + f'/{get_feat_prefix(params, dfeat_dict, cfeat_dict)}/k_{params.abundance}/'
-            # split_prefix = split_dir + f'/k_{params.k}/'
+            split_prefix = split_dir + f'/{get_feat_prefix(dfeat_dict, cfeat_dict)}/k_{params.abundance}/{split_type}'
 
             train_df, test_df = wrapper_train_test(synergy_df, split_type, test_frac, split_prefix, force_run=False)
             # del(synergy_df)

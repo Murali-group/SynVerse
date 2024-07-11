@@ -203,44 +203,52 @@ def generalize_data(df, col_name_map= {'drug_1_pid': 'source', 'drug_2_pid': 'ta
 
     return df, drug_2_idx, cell_line_2_idx
 
-def get_feat_prefix(params, select_drug_feat, select_cell_feat):
-    drug_prefix = 'drug_' + '_'.join(select_drug_feat)
-    cell_prefix = '_cell_' + '_'.join(select_cell_feat)
-    other_prefix = f'_{params.feature}'
-    file_prefix =  drug_prefix + cell_prefix + other_prefix
-    return file_prefix
-
-
-def create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type):
-    dir_prefix = f"{params.out_dir}/k_{params.abundance}/{split_type}//"
-    dfeat_names = select_dfeat_dict['mtx'].keys()
-    cfeat_names = select_cfeat_dict['mtx'].keys()
+def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=False):
+    dfeat_names = dfeat_dict['mtx'].keys()
+    cfeat_names = cfeat_dict['mtx'].keys()
 
     dfeat_str = 'D_'
     cfeat_str = 'C_'
     for feat_name in dfeat_names:
-        encoder_str = select_dfeat_dict['encoder'].get(feat_name,'')
-        encoder_str = f"_{encoder_str}" if encoder_str else encoder_str
-
-        preprocess_str = select_dfeat_dict['preprocess'].get(feat_name,'')
+        preprocess_str = dfeat_dict['preprocess'].get(feat_name, '')
         preprocess_str = f"_{preprocess_str}" if preprocess_str else preprocess_str
 
-        norm_str = select_dfeat_dict['norm'].get(feat_name,'')
-        norm_str=f"_{norm_str}" if norm_str else norm_str
+        if mention_encoder:
+            encoder_str = dfeat_dict['encoder'].get(feat_name, '')
+            encoder_str = f"_{encoder_str}" if encoder_str else encoder_str
+        else:
+            encoder_str = ''
+
+        if mention_norm:
+            norm_str = dfeat_dict['norm'].get(feat_name, '')
+            norm_str = f"_{norm_str}" if norm_str else norm_str
+        else:
+            norm_str=''
         dfeat_str = dfeat_str + f'{feat_name}{encoder_str}{preprocess_str}{norm_str}_'
 
     for feat_name in cfeat_names:
-        encoder_str = select_cfeat_dict['encoder'].get(feat_name,'')
-        encoder_str = f"_{encoder_str}" if encoder_str else encoder_str
-        preprocess_str = select_cfeat_dict['preprocess'].get(feat_name,'')
+        preprocess_str = cfeat_dict['preprocess'].get(feat_name, '')
         preprocess_str = f"_{preprocess_str}" if preprocess_str else preprocess_str
-        norm_str = select_cfeat_dict['norm'].get(feat_name,'')
-        norm_str=f"_{norm_str}" if norm_str else norm_str
+
+        if mention_encoder:
+            encoder_str = cfeat_dict['encoder'].get(feat_name, '')
+            encoder_str = f"_{encoder_str}" if encoder_str else encoder_str
+        else:
+            encoder_str = ''
+        if mention_norm:
+            norm_str = cfeat_dict['norm'].get(feat_name, '')
+            norm_str = f"_{norm_str}" if norm_str else norm_str
+        else:
+            norm_str=''
 
         cfeat_str = cfeat_str + f'{feat_name}{encoder_str}{preprocess_str}{norm_str}_'
 
-
     feat_model_prefix = (dfeat_str + cfeat_str).strip('_')
+    return feat_model_prefix
+
+def create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type):
+    dir_prefix = f"{params.out_dir}/k_{params.abundance}/{split_type}//"
+    feat_model_prefix = get_feat_prefix(select_dfeat_dict, select_cfeat_dict, mention_norm=True, mention_encoder=True)
     file_prefix = dir_prefix + feat_model_prefix
     return file_prefix
 

@@ -65,7 +65,8 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs):
         smiles_file = inputs.drug_smiles_file
         smiles_df = pd.read_csv(smiles_file,dtype={'pid':str}, sep='\t', index_col=None)
         # max_len = params.models[0]['hp']['max_seq_length']
-        max_len = [feat['max_seq_length'] for feat in drug_features if feat.get('name')=='smiles'][0]
+        max_len = [model_info['hp']['max_seq_length']for model_info in params.models['drug_encoder'] if model_info['name'] =='Transformer'][0]
+        # max_len = [feat['max_seq_length'] for feat in drug_features if feat.get('name')=='smiles'][0]
         smiles_df, vocab_size = get_vocab_smiles(smiles_df, max_len)
         dfeat_dict['mtx']['smiles'] = smiles_df
         dfeat_dict['dim']['smiles'] = vocab_size

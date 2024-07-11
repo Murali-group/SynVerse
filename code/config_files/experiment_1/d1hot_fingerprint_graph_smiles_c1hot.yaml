@@ -24,7 +24,6 @@ input_settings:
     - name: 'smiles'
       encoder: 'Transformer'
       use: [ true, false ]
-      max_seq_length: 120
 
 
     - name: 'd1hot'
@@ -53,7 +52,7 @@ input_settings:
        - name: 'Transformer'
          hp_range: { }
          hp: { 'batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 8 ,
-             'transformer_n_head': 4, 'transformer_ff_num_layers': 4,  'positional_encoding_type': 'learnable' }
+             'transformer_n_head': 4, 'transformer_ff_num_layers': 4,  'positional_encoding_type': 'learnable', max_seq_length: 120 }
 
 
      cell_encoder: null

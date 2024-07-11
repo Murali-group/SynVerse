@@ -23,11 +23,11 @@ def setup_opts():
     parser = argparse.ArgumentParser(description="""Script to download and parse input files, and (TODO) run the  pipeline using them.""")
     # general parameters
     group = parser.add_argument_group('Main Options')
-    group.add_argument('--config', type=str, default="/home/grads/haghani/SynVerse/code/"
+    group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
                        "config_files/experiment_1/d1hot_fingerprint_graph_smiles_c1hot.yaml",
                        help="Configuration file for this script.")
 
-    group.add_argument('--feat', type=str,
+    group.add_argument('--feat', type=str, default='smiles c1hot',
                        help="Put the name of the features to use, separated by space.")
     group.add_argument('--n_workers', type=int, help='Number of workers to run in parallel.', default=2)
     group.add_argument('--worker', help='Flag to turn this into a worker process', action='store_true')
@@ -203,7 +203,6 @@ def main(config_map, **kwargs):
         params.batch_size = config_map['input_settings'].get('batch_size', 4096)
         input_settings = config_map.get('input_settings', {})
         params.wandb = types.SimpleNamespace(**input_settings.get('wandb', {}))
-        params.wandb = config_map['input_settings']['wandb']
         params.bohb = config_map['input_settings']['bohb']
         params.drug_chemprop_dir = input_dir + '/drug/chemprop/'
         params.out_dir = output_dir

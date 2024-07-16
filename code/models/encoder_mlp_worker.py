@@ -153,18 +153,14 @@ class Encode_MLPWorker(Worker):
                 cs.add_hyperparameters([dropout])
             if (drug_encoder['name']=='Transformer'):
                 tx_batch_norm = CSH.CategoricalHyperparameter('transformer_batch_norm', encoder_params['transformer_batch_norm'])
-                cs.add_hyperparameters([tx_batch_norm])
-                tx_num_layers = CSH.UniformIntegerHyperparameter('transformer_num_layers',
-                                                                  lower=encoder_params['transformer_num_layers'][0],
-                                                                  upper=encoder_params['transformer_num_layers'][1],
-                                                                  default_value=2)
+                tx_num_layers = CSH.CategoricalHyperparameter('transformer_num_layers', encoder_params['transformer_num_layers'])
                 tx_embedding_dim = CSH.CategoricalHyperparameter('transformer_embedding_dim', encoder_params['transformer_embedding_dim'])
                 tx_n_head = CSH.CategoricalHyperparameter('transformer_n_head', encoder_params['transformer_n_head'])
                 tx_ff_num_layers = CSH.CategoricalHyperparameter('transformer_ff_num_layers', encoder_params['transformer_ff_num_layers'])
                 tx_max_length = CSH.CategoricalHyperparameter('max_seq_length', encoder_params['max_seq_length'])
                 tx_pos_encoding = CSH.CategoricalHyperparameter('positional_encoding_type', encoder_params['positional_encoding_type'])
 
-                cs.add_hyperparameters([tx_num_layers,tx_embedding_dim,tx_n_head,tx_ff_num_layers,tx_max_length,tx_pos_encoding ])
+                cs.add_hyperparameters([tx_batch_norm, tx_num_layers,tx_embedding_dim,tx_n_head,tx_ff_num_layers,tx_max_length,tx_pos_encoding ])
 
 
         return cs

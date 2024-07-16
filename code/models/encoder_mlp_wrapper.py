@@ -14,7 +14,6 @@ class Encoder_MLP_wrapper(nn.Module):
     def __init__(self, drug_encoder_list, cell_encoder_list, dfeat_dim_dict, cfeat_dim_dict,
                  drug_feat_encoder_mapping, cell_feat_encoder_mapping, config, device):
         super().__init__()
-        #TODO remove the following hardcoded values later.
         self.chosen_config = config
 
         self.dfeat_dim_dict = dfeat_dim_dict
@@ -40,6 +39,7 @@ class Encoder_MLP_wrapper(nn.Module):
                         self.dfeat_out_dim[feat_name] = self.gcn_encoder.out_dim
 
                     if encoder_name == 'Transformer':
+                        print(self.chosen_config)
                         self.transformer_encoder = Transformer_Encoder(self.dfeat_dim_dict[feat_name], config, self.device)
                         # update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.transformer_encoder.out_dim

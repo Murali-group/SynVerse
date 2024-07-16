@@ -44,9 +44,9 @@ class Encoder_MLP_wrapper(nn.Module):
                         # update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.transformer_encoder.out_dim
 
-        # TODO: other drug encoders.
+        #TODO: other drug encoders.
 
-        #TODO: cell line encoder
+        #TODO: cell line encoder.
 
 
         #MLP synergy predictor

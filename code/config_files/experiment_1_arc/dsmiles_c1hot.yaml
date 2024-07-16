@@ -1,33 +1,31 @@
-dataset_dir: "/home/grads/tasnina/Projects/SynVerse/datasets/"
-
+dataset_dir: "/home/tasnina/Projects/SynVerse/datasets/"
 # Input Settings: initialize base input folder names,
 # dataset collections, and models to run over
 input_settings:
   # Base input directory
-  input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
+  input_dir: "/home/tasnina/Projects/SynVerse/inputs/"
 
   drug_features:
 
     - name: 'MACCS'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'ECFP_4'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'MFP' #morgan fingerprint
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'mol_graph'
       encoder: 'GCN'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'smiles'
       encoder: 'Transformer'
-      use: [ true, false ]
-
+      use: [ true ]
 
     - name: 'd1hot'
-      use: [ true, false ]
+      use: [ false ]
 
   cell_line_features:
     - name: 'c1hot'
@@ -50,14 +48,16 @@ input_settings:
                'ff_num_layers': 1, 'ff_0': 128, 'gnn_dropout': 0.3 }
 
        - name: 'Transformer'
-         hp_range: { }
-         hp: { 'batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 8 ,
-             'transformer_n_head': 4, 'transformer_ff_num_layers': 4,  'positional_encoding_type': 'learnable', max_seq_length: 120 }
-
+         hp_range: { 'batch_norm': [ True, False ], 'transformer_num_layers': [2, 3, 4] ,'transformer_embedding_dim': [32, 64, 128, 256, 512] ,
+             'transformer_n_head': [4, 6, 8], 'transformer_ff_num_layers': [32, 64, 128, 256, 512, 1024], 'max_seq_length': 120,
+              'positional_encoding_type': ['learnable', 'fixed'] }
+         hp: { 'batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 128 , #512 worked
+             'transformer_n_head': 6, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }
 
      cell_encoder: null
 
   epochs: 1000
+  batch_size: 128
 
 
   splits:
@@ -81,12 +81,11 @@ input_settings:
     entity_name: 'ntasnina'
     timezone: 'US/Eastern'
     timezone_format: '%Y-%m-%d_%H-%M-%S'
-
   bohb:
-    min_budget: 27
-    max_budget: 729
+    min_budget: 9
+    max_budget: 243
     n_iterations: 3
-    run_id : 'example_1'
+    run_id : 'synverse_smiles'
     server_type: 'local' #or cluster
 
   feature: 'must'
@@ -99,4 +98,4 @@ input_settings:
         # 'train_val' = train the model on training data and validate it on validation fold
 
 output_settings:
-  output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs/'
+  output_dir: '/home/tasnina/Projects/SynVerse/outputs/'

@@ -289,6 +289,7 @@ def wrapper_train_test(df, split_type, test_frac, spec_dir, force_run=True):
     summary = f'{spec_dir}train_test_summary.txt'
 
     if (not os.path.exists(spec_dir)) or (force_run):
+        print('Creating train test folds')
         train_df, test_df = split_type_2_function_map[split_type](df, test_frac)
         verify_split(df, list(train_df['ID']), list(test_df['ID']), split_type)
         test_df.drop(columns='ID', inplace=True)
@@ -299,6 +300,7 @@ def wrapper_train_test(df, split_type, test_frac, spec_dir, force_run=True):
         train_df.to_csv(train_file, sep='\t')
 
     else:
+        print('Loading train test folds')
         test_df = pd.read_csv(test_file, sep='\t')
         train_df = pd.read_csv(train_file, sep='\t')
 
@@ -322,24 +324,31 @@ def wrapper_nfold_split(df, split_type, n_folds, spec_dir, force_run=True):
     spec_dir = f'{spec_dir}_{n_folds}/'
     val_file = f'{spec_dir}val_nfolds.pkl'
     train_file = f'{spec_dir}train_nfolds.pkl'
+    synergy_file = f'{spec_dir}synergy.tsv'
     summary = f'{spec_dir}n_fold_summary.txt'
 
     if (not os.path.exists(spec_dir)) or (force_run):
+        print('Creating train val folds')
         train_idx, val_idx = split_type_2_function_map[split_type](df, n_folds)
-        for i in range (n_folds):
-            verify_split(df, train_idx[i],val_idx[i], split_type)
-        os.makedirs(spec_dir, exist_ok=True)
 
+        os.makedirs(spec_dir, exist_ok=True)
         with open(val_file, 'wb') as file:
             pickle.dump(val_idx, file)
         with open(train_file, 'wb') as file:
             pickle.dump(train_idx, file)
+        df.to_csv(synergy_file, sep='\t', index=False)
+
 
     else:
+        print('Loading train val folds')
         with open(val_file, 'rb') as file:
             val_idx = pickle.load(file)
         with open(train_file, 'rb') as file:
             train_idx = pickle.load(file)
+
+    #verify splits
+    for i in range(n_folds):
+        verify_split(df, train_idx[i], val_idx[i], split_type)
 
     file = open(summary, 'w')
     for i in range(n_folds):

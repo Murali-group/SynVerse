@@ -25,7 +25,6 @@ def feature_based_filtering(synergy_df, dfeat_dict, cfeat_dict, feature='must'):
     print('Before feature based fitering: ')
     print_synergy_stat(synergy_df)
 
-
     if feature=='must':
         # find drugs with all features available
         for feat_name in dfeat_dict:
@@ -61,6 +60,9 @@ def feature_based_filtering(synergy_df, dfeat_dict, cfeat_dict, feature='must'):
 
     print('After feature based filtering: ')
     print_synergy_stat(synergy_df)
+
+    #TODO: remove later
+    # synergy_df.to_csv('synergy_test.tsv', sep='\t', index=False)
     return synergy_df
 
 
@@ -88,6 +90,7 @@ def abundance_based_filtering(synergy_df, min_frac=0.01):
 
     print('After abundance based filtering: ')
     print('frac triplets retrieved: ', len(filtered_df)/len(synergy_df))
+    print('selected cell lines: ', filtered_df['cell_line_name'].unique())
     print_synergy_stat(filtered_df)
 
     return filtered_df

@@ -26,7 +26,7 @@ class Transformer_Encoder(nn.Module):
         self.dim_feedforward = config['transformer_ff_num_layers']
         self.positional_encoding_type = config['positional_encoding_type']
 
-        self.batch_norm = config['batch_norm']
+        self.batch_norm = config['transformer_batch_norm']
 
         self.embedding = nn.Embedding(vocab_size, self.d_model, padding_idx=0)
 

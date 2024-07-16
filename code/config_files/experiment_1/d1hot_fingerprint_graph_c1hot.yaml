@@ -21,6 +21,9 @@ input_settings:
       encoder: 'GCN'
       use: [ true, false ]
 
+    - name: 'smiles'
+      encoder: 'Transformer'
+      use: [ false ]
 
     - name: 'd1hot'
       use: [ true, false ]
@@ -44,6 +47,14 @@ input_settings:
                      'ff_num_layers': [ 1,3 ], 'ff_0': [ 16, 2048 ] , 'ff_1': [ 16, 2048 ] , 'ff_2': [ 16, 2048 ] , 'gnn_dropout': [ 0.0,0.5 ] }
          hp: { 'batch_norm': True, 'gnn_num_layers': 2 ,'gnn_0': 512 ,'gnn_1': 128,
                'ff_num_layers': 1, 'ff_0': 128, 'gnn_dropout': 0.3 }
+
+       - name: 'Transformer'
+         hp_range: { 'batch_norm': [ True, False ], 'transformer_num_layers': [ 2, 3, 4 ] ,'transformer_embedding_dim': [ 32, 64, 128, 256, 512 ] ,
+                     'transformer_n_head': [ 4, 6, 8 ], 'transformer_ff_num_layers': [ 32, 64, 128, 256, 512, 1024 ], 'max_seq_length': 120,
+                     'positional_encoding_type': [ 'learnable', 'fixed' ] }
+         hp: { 'batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 128 , #512 worked
+               'transformer_n_head': 6, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }
+
 
      cell_encoder: null
 

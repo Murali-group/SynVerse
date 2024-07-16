@@ -24,10 +24,10 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/d1hot_fingerprint_graph_smiles_c1hot.yaml",
+                       "config_files/experiment_1/dsmiles_c1hot.yaml",
                        help="Configuration file for this script.")
 
-    group.add_argument('--feat', type=str, default='smiles c1hot',
+    group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space.")
     group.add_argument('--n_workers', type=int, help='Number of workers to run in parallel.', default=2)
     group.add_argument('--worker', help='Flag to turn this into a worker process', action='store_true')
@@ -70,7 +70,6 @@ def run_SynVerse(inputs, params, **kwargs):
 
     '''keep the cell lines consisting of at least 5% of the total #triplets in the final dataset.'''
     synergy_df = abundance_based_filtering(synergy_df, min_frac=0.05)
-    print_synergy_stat(synergy_df)
 
     '''Rename column names to more generalized ones. Also, convert drug and cell line ids to numerical ids compatible with models.'''
     synergy_df, drug_2_idx, cell_line_2_idx = generalize_data(synergy_df,
@@ -131,10 +130,12 @@ def run_SynVerse(inputs, params, **kwargs):
             #split into train test
             split_prefix = split_dir + f'/{get_feat_prefix(dfeat_dict, cfeat_dict)}/k_{params.abundance}/{split_type}'
 
-            train_df, test_df = wrapper_train_test(synergy_df, split_type, test_frac, split_prefix, force_run=False)
+            #TODO: make a wrapper that will give train_df, test_df, train_idx, val_idx.
+            force_split = False
+            train_df, test_df = wrapper_train_test(synergy_df, split_type, test_frac, split_prefix, force_run=force_split)
             # del(synergy_df)
             #split into train_val for n_folds
-            train_idx, val_idx = wrapper_nfold_split(train_df, split_type, n_folds, split_prefix, force_run=False)
+            train_idx, val_idx = wrapper_nfold_split(train_df, split_type, n_folds, split_prefix, force_run=force_split)
 
             print('ran till model part')
             print('SPLIT: ', split_type)

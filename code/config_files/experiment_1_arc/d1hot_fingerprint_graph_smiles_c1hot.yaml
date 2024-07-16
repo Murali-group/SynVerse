@@ -1,5 +1,4 @@
 dataset_dir: "/home/tasnina/Projects/SynVerse/datasets/"
-
 # Input Settings: initialize base input folder names,
 # dataset collections, and models to run over
 input_settings:
@@ -49,13 +48,16 @@ input_settings:
                'ff_num_layers': 1, 'ff_0': 128, 'gnn_dropout': 0.3 }
 
        - name: 'Transformer'
-         hp_range: { }
-         hp: { 'batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 8 ,
-             'transformer_n_head': 4, 'transformer_ff_num_layers': 4, 'max_seq_length': 120, 'positional_encoding_type': 'learnable' }
+         hp_range: { 'batch_norm': [ True, False ], 'transformer_num_layers': [2, 3, 4] ,'transformer_embedding_dim': [32, 64, 128, 256, 512] ,
+             'transformer_n_head': [4, 6, 8], 'transformer_ff_num_layers': [32, 64, 128, 256, 512, 1024], 'max_seq_length': 120,
+              'positional_encoding_type': ['learnable', 'fixed'] }
+         hp: { 'batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 128 , #512 worked
+             'transformer_n_head': 6, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }
 
      cell_encoder: null
 
   epochs: 1000
+  batch_size: 128
 
 
   splits:

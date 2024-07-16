@@ -12,7 +12,7 @@ from models.decoders.mlp import MLP
 
 class Encoder_MLP_wrapper(nn.Module):
     def __init__(self, drug_encoder_list, cell_encoder_list, dfeat_dim_dict, cfeat_dim_dict,
-                 drug_feat_encoder_mapping, cell_feat_encoder_mapping, config):
+                 drug_feat_encoder_mapping, cell_feat_encoder_mapping, config, device):
         super().__init__()
         #TODO remove the following hardcoded values later.
         self.chosen_config = config
@@ -27,6 +27,7 @@ class Encoder_MLP_wrapper(nn.Module):
         self.cell_feat_encoder_mapping =cell_feat_encoder_mapping
         self.drug_encoder_list = drug_encoder_list if drug_encoder_list is not None else []
         self.cell_encoder_list = cell_encoder_list if cell_encoder_list is not None else []
+        self.device = device
 
         #drug encoder
         for feat_name in drug_feat_encoder_mapping:
@@ -39,7 +40,7 @@ class Encoder_MLP_wrapper(nn.Module):
                         self.dfeat_out_dim[feat_name] = self.gcn_encoder.out_dim
 
                     if encoder_name == 'Transformer':
-                        self.transformer_encoder = Transformer_Encoder(self.dfeat_dim_dict[feat_name], config)
+                        self.transformer_encoder = Transformer_Encoder(self.dfeat_dim_dict[feat_name], config, self.device)
                         # update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.transformer_encoder.out_dim
 
@@ -81,7 +82,7 @@ class Encoder_MLP_wrapper(nn.Module):
 
                     if encoder_name=='Transformer':
                         source = drug_feat[feat_name][:, 2]
-                        drug_embed_raw.append(self.transformer_encoder(source, device))
+                        drug_embed_raw.append(self.transformer_encoder(source))
                         embedded_feat.append(feat_name)
 
 

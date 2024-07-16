@@ -15,8 +15,10 @@ def get_sinusoidal_positional_encoding(seq_len, d_model, device):
     return pe.unsqueeze(0)  # Add a batch dimension
 
 class Transformer_Encoder(nn.Module):
-    def __init__(self, vocab_size, config):
+    def __init__(self, vocab_size, config, device):
         super().__init__()
+        self.device = device
+
         self.max_seq_length = config['max_seq_length']
         self.d_model = config['transformer_embedding_dim']
         self.n_head = config['transformer_n_head']
@@ -38,10 +40,10 @@ class Transformer_Encoder(nn.Module):
 
         self.out_dim = self.d_model
 
-    def forward(self, src, device):
+    def forward(self, src):
         if not isinstance(src, torch.Tensor):
             # Convert each element to a tensor and move it to the device
-            src = torch.stack([torch.tensor(element, dtype=torch.long) for element in src]).to(device)
+            src = torch.stack([torch.tensor(element, dtype=torch.long) for element in src]).to(self.device)
 
         # Get token embeddings
         src_embed = self.embedding(src)
@@ -52,7 +54,7 @@ class Transformer_Encoder(nn.Module):
                 src_embed.size(0), 1)
             src_embed += self.pos_encoder(positions)
         elif self.positional_encoding_type == 'fixed':
-            src_embed += self.positional_encoding[:, :src_embed.size(1), :].to(device)
+            src_embed += self.positional_encoding[:, :src_embed.size(1), :].to(self.device)
 
         # Pass through the transformer encoder
         output = self.transformer_encoder(src_embed.transpose(0, 1))

@@ -21,7 +21,7 @@ class Encode_MLP_runner (Runner):
         model = Encoder_MLP_wrapper(self.drug_encoder_info, self.cell_encoder_info,
                 self.dfeat_dim_dict, self.cfeat_dim_dict,
                 self.drug_feat_encoder_mapping,self.cell_feat_encoder_mapping,
-                                    config).to(self.device)
+                                    config, self.device).to(self.device)
         ## Wrap the model for parallel processing if multiple gpus are available
         # if torch.cuda.is_available() and torch.cuda.device_count() > 1:
         #     print(f"Using {torch.cuda.device_count()} GPUs!")

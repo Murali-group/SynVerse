@@ -47,7 +47,7 @@ input_settings:
 
        - name: 'Transformer'
          hp_range: { 'transformer_batch_norm': [ True, False ], 'transformer_num_layers': [2, 3, 4] ,'transformer_embedding_dim': [32, 64, 128, 256, 512] ,
-             'transformer_n_head': [4, 8], 'transformer_ff_num_layers': [32, 64, 128, 256, 512, 1024], 'max_seq_length': 120,
+             'transformer_n_head': [4, 8], 'transformer_ff_num_layers': [32, 64, 128, 256, 512, 1024], 'max_seq_length': [120],
               'positional_encoding_type': ['learnable', 'fixed'] }
          hp: { 'transformer_batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 128 , #512 worked
              'transformer_n_head': 4, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }

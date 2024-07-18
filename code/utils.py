@@ -71,6 +71,8 @@ def print_synergy_stat(synergy_df):
     cell_line_names = set(synergy_df['cell_line_name'])
     print(f'\n#of triplets : {len(synergy_df)},\n#drugs {len(drug_pids)},'
           f' \n#cell lines {len(cell_line_names)}')
+    print('minimum triplets in a cell line: ', list(synergy_df['cell_line_name'].value_counts())[-1])
+
 
 def abundance_based_filtering(synergy_df, min_frac=0.01):
     # Initialize the filtered_df as empty
@@ -79,6 +81,7 @@ def abundance_based_filtering(synergy_df, min_frac=0.01):
     # Sort cell lines by their count in descending order
     cell_line_counts = synergy_df['cell_line_name'].value_counts()
 
+    #option 1: min frac samples present from each cell line in the final dataset. More balanced data.
     for cell_line, count in cell_line_counts.items():
         # Calculate the potential new total rows if this cell line is added
         new_total_rows = len(filtered_df) + count
@@ -87,6 +90,16 @@ def abundance_based_filtering(synergy_df, min_frac=0.01):
         # If adding this cell line meets the threshold, add it to filtered_df
         if new_fraction >= min_frac:
             filtered_df = pd.concat([filtered_df, synergy_df[synergy_df['cell_line_name'] == cell_line]])
+
+    # for cell_line, count in cell_line_counts.items():
+    #     # Calculate the potential new total rows if this cell line is added
+    #     new_fraction = count/len(synergy_df)
+    #
+    #     # If adding this cell line meets the threshold, add it to filtered_df
+    #     if new_fraction >= min_frac:
+    #         filtered_df = pd.concat([filtered_df, synergy_df[synergy_df['cell_line_name'] == cell_line]])
+    #     else:
+    #         break
 
     print('After abundance based filtering: ')
     print('frac triplets retrieved: ', len(filtered_df)/len(synergy_df))
@@ -158,7 +171,7 @@ def find_drug_cell_feat_combs(drug_feat_combs, cell_feat_combs):
 
 
 def keep_selected_feat(feat_dict, selected_feat):
-    fields = ['norm', 'preprocess', 'encoder', 'mtx', 'dim', 'use']  # for each feature we can have these fields.
+    fields = ['norm', 'preprocess', 'filter', 'encoder', 'mtx', 'dim', 'use']  # for each feature we can have these fields.
     select_feat_dict = {field: {} for field in fields}
 
     for field in fields:
@@ -183,38 +196,27 @@ def keep_selected_feat(feat_dict, selected_feat):
 #                 assert flag == 1, print(f'encoder information missing for feature:'
 #                                         f'{feat_needing_encoder}')
 
-def generalize_data(df, col_name_map= {'drug_1_pid': 'source', 'drug_2_pid': 'target', 'cell_line_name': 'edge_type'}):
 
-    # print(f'\n\nAfter filtering: \n#of triplets : {len(synergy_df)}\n#drugs {len(drug_pids)}'
-    #       f' \n#cell lines {len(cell_line_names)}')
-    #
-    '''map drug_pids and cell_line_names to numerical index, here we consider drugs and cell lines
-       for which the user defined nrequired features are available, i.e., if feature='must', then only
-       the drugs and cell lines for which we have all the features available appera here.'''
 
-    drug_pids = set(df['drug_1_pid']).union(set(df['drug_2_pid']))
-    cell_line_names = set(df['cell_line_name'])
+def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=False, mention_preprocess=False):
+    dfeat_names = list(dfeat_dict['mtx'].keys())
+    dfeat_names.sort() #sorting so that irrespective of the order of features in the config, the prefix remains same.
 
-    drug_2_idx = {pid: idx for (idx, pid) in enumerate(drug_pids)}
-    cell_line_2_idx = {name: idx for (idx, name) in enumerate(cell_line_names)}
-
-    df = df.rename(columns=col_name_map)
-
-    df['source'] = df['source'].astype(str).apply(lambda x: drug_2_idx[x])
-    df['target'] = df['target'].astype(str).apply(lambda x: drug_2_idx[x])
-    df['edge_type'] = df['edge_type'].astype(str).apply(lambda x: cell_line_2_idx[x])
-
-    return df, drug_2_idx, cell_line_2_idx
-
-def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=False):
-    dfeat_names = dfeat_dict['mtx'].keys()
-    cfeat_names = cfeat_dict['mtx'].keys()
+    cfeat_names = list(cfeat_dict['mtx'].keys())
+    cfeat_names.sort()#sorting so that irrespective of the order of features in the config, the prefix remains same.
 
     dfeat_str = 'D_'
     cfeat_str = 'C_'
+
     for feat_name in dfeat_names:
-        preprocess_str = dfeat_dict['preprocess'].get(feat_name, '')
-        preprocess_str = f"_{preprocess_str}" if preprocess_str else preprocess_str
+        filter_str = dfeat_dict['filter'].get(feat_name, '')
+        filter_str = f"_{filter_str}" if filter_str else filter_str
+
+        if mention_preprocess:
+            pp_str = dfeat_dict['preprocess'].get(feat_name, '')
+            pp_str = f"_{pp_str}" if pp_str else pp_str
+        else:
+            pp_str = ''
 
         if mention_encoder:
             encoder_str = dfeat_dict['encoder'].get(feat_name, '')
@@ -227,11 +229,18 @@ def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=
             norm_str = f"_{norm_str}" if norm_str else norm_str
         else:
             norm_str=''
-        dfeat_str = dfeat_str + f'{feat_name}{encoder_str}{preprocess_str}{norm_str}_'
+        dfeat_str = dfeat_str + f'{feat_name}{filter_str}{norm_str}{pp_str}{encoder_str}_'
 
     for feat_name in cfeat_names:
-        preprocess_str = cfeat_dict['preprocess'].get(feat_name, '')
-        preprocess_str = f"_{preprocess_str}" if preprocess_str else preprocess_str
+
+        filter_str = cfeat_dict['filter'].get(feat_name, '')
+        filter_str = f"_{filter_str}" if filter_str else filter_str
+
+        if mention_preprocess:
+            pp_str = cfeat_dict['preprocess'].get(feat_name, '')
+            pp_str = f"_{pp_str}" if pp_str else pp_str
+        else:
+            pp_str = ''
 
         if mention_encoder:
             encoder_str = cfeat_dict['encoder'].get(feat_name, '')
@@ -244,14 +253,14 @@ def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=
         else:
             norm_str=''
 
-        cfeat_str = cfeat_str + f'{feat_name}{encoder_str}{preprocess_str}{norm_str}_'
+        cfeat_str = cfeat_str + f'{feat_name}{filter_str}{norm_str}{pp_str}{encoder_str}_'
 
     feat_model_prefix = (dfeat_str + cfeat_str).strip('_')
     return feat_model_prefix
 
 def create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type):
     dir_prefix = f"{params.out_dir}/k_{params.abundance}/{split_type}//"
-    feat_model_prefix = get_feat_prefix(select_dfeat_dict, select_cfeat_dict, mention_norm=True, mention_encoder=True)
+    feat_model_prefix = get_feat_prefix(select_dfeat_dict, select_cfeat_dict, mention_norm=True, mention_encoder=True, mention_preprocess=True)
     file_prefix = dir_prefix + feat_model_prefix
     return file_prefix
 
@@ -308,20 +317,64 @@ def get_select_model_info(model_info, select_dfeat_encoders, select_cfeat_encode
             print('keep cell encoder: ', cell_encoder['name'])
 
     return select_model_info
-def normalize(df, std1=None, means1=None, norm_type = 'std'):
-    '''
-    :param X: a numpy 2D array to normalize
-    :param norm_type: how to normalize
-    :return: normalized numpy array with same number of rows as X
-    '''
-    if norm_type=='std':
-        if (std1 is None) | (means1 is None):
-            means1 = df.mean().values
-            std1 = df.std().values
-            df = (df-means1)/std1
-        else:
-            df = (df - means1) / std1
-        return df, means1, std1
+
+
+def get_index_sorted_feature_matrix(dfeat_mtx_dict, drug_2_idx, cfeat_mtx_dict, cell_line_2_idx):
+    # convert 'pid' and 'cell_line_name' to numerical index in the feature dictionaries.
+    for feat_name in dfeat_mtx_dict:
+        if isinstance(dfeat_mtx_dict[feat_name], pd.DataFrame):
+            cur_dfeat = dfeat_mtx_dict[feat_name]
+            cur_dfeat['idx'] = cur_dfeat['pid'].astype(str).apply(lambda x: drug_2_idx.get(x))
+            cur_dfeat.drop_duplicates(subset=['pid'], inplace=True)
+            cur_dfeat.dropna(subset=['idx'], inplace=True)
+            cur_dfeat.set_index('idx', inplace=True)
+            cur_dfeat.drop(axis=1, columns=['pid'], inplace=True)
+            # sort drugs according to index
+            cur_dfeat.sort_index(inplace=True)
+            assert list(cur_dfeat.index) == list(range(len(cur_dfeat))), print('index not in order.')
+            # save feature of drugs as numpy array
+            dfeat_mtx_dict[feat_name] = cur_dfeat.values
+
+        elif isinstance(dfeat_mtx_dict[feat_name], dict):
+            dfeat_mtx_dict[feat_name] = {drug_2_idx[str(old_key)]: value for old_key, value in
+                                            dfeat_mtx_dict[feat_name].items() if old_key in drug_2_idx}
+
+    for feat_name in cfeat_mtx_dict:
+        cur_cfeat = cfeat_mtx_dict[feat_name]
+        cur_cfeat['idx'] = cur_cfeat['cell_line_name'].astype(str).apply(lambda x: cell_line_2_idx.get(x))
+        cur_cfeat.dropna(subset=['idx'], inplace=True)
+        cur_cfeat.set_index('idx', inplace=True)
+        cur_cfeat.drop(axis=1, columns=['cell_line_name'], inplace=True)
+        cur_cfeat.sort_index(inplace=True)
+        assert list(cur_cfeat.index) == list(range(len(cur_cfeat))), print(
+            'index not in order.')
+        cfeat_mtx_dict[feat_name] = cur_cfeat.values
+
+    return dfeat_mtx_dict, cfeat_mtx_dict
+
+
+def normalization_wrapper(dfeat_mtx_dict, cfeat_mtx_dict, dfeat_norm_dict, cfeat_norm_dict, train_df):
+    train_drug_idx = list(set(train_df['source']).union(set(train_df['target'])))
+    train_cell_idx = list(set(train_df['edge_type']).union(set(train_df['edge_type'])))
+
+    for feat_name in dfeat_norm_dict: #if feature name is present in norm dict.
+        dfeat_mtx_train = dfeat_mtx_dict[feat_name][train_drug_idx, :] #keep the training data only
+        if dfeat_norm_dict[feat_name] == 'std': #if norm type='std'
+            mean = np.mean(dfeat_mtx_train, axis=0)
+            std = np.std(dfeat_mtx_train, axis=0)
+            ##normalize both train and test data with mean and std computed from train data only
+            dfeat_mtx_dict[feat_name] = (dfeat_mtx_dict[feat_name]-mean)/std
+
+    for feat_name in cfeat_norm_dict:  # if feature name is present in norm dict.
+        cfeat_mtx_train = cfeat_mtx_dict[feat_name][train_cell_idx, :]  # keep the training data only
+
+        if cfeat_norm_dict[feat_name] == 'std':  # if norm type='std'
+            mean = np.mean(cfeat_mtx_train, axis=0)
+            std = np.std(cfeat_mtx_train, axis=0)
+            ##normalize both train and test data with mean and std computed from train data only
+            cfeat_mtx_dict[feat_name] = (cfeat_mtx_dict[feat_name] - mean) / std
+
+    return dfeat_mtx_dict, cfeat_mtx_dict
 
 def mol_graph_to_GCN_data(mol_graph_dict):
     '''convert atom features and adjacency list of each drug molecule into a data compatible with

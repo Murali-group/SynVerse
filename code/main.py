@@ -24,7 +24,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/dsmiles_c1hot.yaml",
+                       "config_files/experiment_1/d1hot_cgenex.yaml",
                        help="Configuration file for this script.")
 
     group.add_argument('--feat', type=str,
@@ -59,51 +59,17 @@ def run_SynVerse(inputs, params, **kwargs):
 
 
    #********************************** GET FEATURES READY *******************************************************
-    ''' Read parsed drug features and do user-chosen preprocessing.'''
+    ''' Read parsed drug features and do user-chosen filtering and preprocessing.'''
     dfeat_dict, dfeat_names = prepare_drug_features(drug_features, drug_pids, params, inputs)
 
-    ''' Read parsed cell line features and do user-chosen preprocessing.'''
+    ''' Read parsed cell line features and do user-chosen filtering and preprocessing.'''
     cfeat_dict, cfeat_names = prepare_cell_line_features(cell_line_features, cell_line_names, params, inputs)
 
     '''Filter out the triplets based on the availability of drug and cell line features'''
     synergy_df = feature_based_filtering(synergy_df, dfeat_dict['mtx'], cfeat_dict['mtx'], params.feature)
 
     '''keep the cell lines consisting of at least 5% of the total #triplets in the final dataset.'''
-    synergy_df = abundance_based_filtering(synergy_df, min_frac=0.05)
-
-    '''Rename column names to more generalized ones. Also, convert drug and cell line ids to numerical ids compatible with models.'''
-    synergy_df, drug_2_idx, cell_line_2_idx = generalize_data(synergy_df,
-                    col_name_map= {'drug_1_pid': 'source', 'drug_2_pid': 'target', 'cell_line_name': 'edge_type'})
-
-    #convert 'pid' and 'cell_line_name' to numerical index in the feature dictionaries.
-    for feat_name in dfeat_names:
-        if isinstance(dfeat_dict['mtx'][feat_name], pd.DataFrame):
-            cur_dfeat = dfeat_dict['mtx'][feat_name]
-            cur_dfeat['idx'] = cur_dfeat['pid'].astype(str).apply(lambda x: drug_2_idx.get(x))
-            cur_dfeat.drop_duplicates(subset=['pid'], inplace=True)
-            cur_dfeat.dropna(subset=['idx'], inplace=True)
-            cur_dfeat.set_index('idx', inplace=True)
-            cur_dfeat.drop(axis=1, columns=['pid'], inplace=True)
-            #sort drugs according to index
-            cur_dfeat.sort_index(inplace=True)
-            assert list(cur_dfeat.index) == list(range(len(cur_dfeat))), print('index not in order.')
-            # save feature of drugs as numpy array
-            dfeat_dict['mtx'][feat_name] = cur_dfeat.values
-
-        elif isinstance(dfeat_dict['mtx'][feat_name], dict):
-            dfeat_dict['mtx'][feat_name] = {drug_2_idx[str(old_key)]: value for old_key, value in
-                                dfeat_dict['mtx'][feat_name].items() if old_key in drug_2_idx}
-
-    for feat_name in cfeat_names:
-        cur_cfeat = cfeat_dict['mtx'][feat_name]
-        cur_cfeat['idx'] = cur_cfeat['cell_line_name'].astype(str).apply(lambda x: cell_line_2_idx.get(x))
-        cur_cfeat.dropna(subset=['idx'], inplace=True)
-        cur_cfeat.set_index('idx', inplace=True)
-        cur_cfeat.drop(axis=1, columns=['cell_line_name'], inplace=True)
-        cur_cfeat.sort_index(inplace=True)
-        assert list(cur_cfeat.index) == list(range(len(cur_cfeat))), print(
-            'index not in order.')
-        cfeat_dict['mtx'][feat_name] = cur_cfeat.values
+    synergy_df = abundance_based_filtering(synergy_df, min_frac=params.abundance)
 
     #******************************************* MODEL TRAINING ***********************************************
 
@@ -114,31 +80,39 @@ def run_SynVerse(inputs, params, **kwargs):
     drug_cell_feat_combs = get_feature_comb_wrapper(dfeat_names, dfeat_dict, cfeat_names, cfeat_dict,
                              use_feat=use_feat, max_feat=params.max_feat)
 
-    for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:
-        #only keep the selected drug and cell feature for training and further analysis
-        select_dfeat_dict = keep_selected_feat(dfeat_dict, select_drug_feat)
-        select_cfeat_dict = keep_selected_feat(cfeat_dict, select_cell_feat)
-        #depending on the selected encoders modify the model architecture here.
-        select_model_info = get_select_model_info(model_info, select_dfeat_dict['encoder'], select_cfeat_dict['encoder'])
 
-        ''' prepare split'''
-        for split in splits:
-            split_type = split['type']
-            n_folds = split['n_folds']
-            test_frac = split['test_frac']
+    ''' prepare split'''
+    for split in splits:
+        split_type = split['type']
+        n_folds = split['n_folds']
+        test_frac = split['test_frac']
 
-            #split into train test
-            split_prefix = split_dir + f'/{get_feat_prefix(dfeat_dict, cfeat_dict)}/k_{params.abundance}/{split_type}'
+        #split into train test
+        split_prefix = split_dir + f'/{get_feat_prefix(dfeat_dict, cfeat_dict)}/k_{params.abundance}/{split_type}_{test_frac}_{n_folds}/'
 
-            #TODO: make a wrapper that will give train_df, test_df, train_idx, val_idx.
-            force_split = False
-            train_df, test_df = wrapper_train_test(synergy_df, split_type, test_frac, split_prefix, force_run=force_split)
-            # del(synergy_df)
-            #split into train_val for n_folds
-            train_idx, val_idx = wrapper_nfold_split(train_df, split_type, n_folds, split_prefix, force_run=force_split)
+        force_split = False
 
-            print('ran till model part')
+        train_df, test_df, synergy_df, drug_2_idx, cell_line_2_idx = wrapper_train_test(synergy_df, split_type, test_frac, split_prefix, force_run=force_split)
+        #split into train_val for n_folds
+        train_idx, val_idx = wrapper_nfold_split(train_df, split_type, n_folds, split_prefix, force_run=force_split)
+
+        #convert feature dataframes into numpy arrays while in the array row i corresponds to the drug with numerical idx i
+        dfeat_dict['mtx'], cfeat_dict['mtx'] = get_index_sorted_feature_matrix(dfeat_dict['mtx'], drug_2_idx,
+                                               cfeat_dict['mtx'], cell_line_2_idx)
+
+        #Normalize data based on training data. Use the mean, std from training data to normalize test data.
+        dfeat_dict['mtx'], cfeat_dict['mtx'] = normalization_wrapper(dfeat_dict['mtx'], cfeat_dict['mtx'], dfeat_dict['norm'], cfeat_dict['norm'], train_df)
+
+        for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:
             print('SPLIT: ', split_type)
+            print('drug and cell line features in use: ', select_drug_feat, select_cell_feat)
+
+            # only keep the selected drug and cell feature for training and further analysis
+            select_dfeat_dict = keep_selected_feat(dfeat_dict, select_drug_feat)
+            select_cfeat_dict = keep_selected_feat(cfeat_dict, select_cell_feat)
+            # depending on the selected encoders modify the model architecture here.
+            select_model_info = get_select_model_info(model_info, select_dfeat_dict['encoder'],
+                                                      select_cfeat_dict['encoder'])
 
             hyperparam = combine_hyperparams(select_model_info)
             best_n_epochs = params.epochs

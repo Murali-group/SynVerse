@@ -45,8 +45,8 @@ class Runner(ABC):
         self.params=params
         self.model_info = model_info
 
-        self.check_freq = 1
-        self.tolerance = 25
+        self.check_freq = 2
+        self.tolerance = 15
         self.batch_size = int(params.batch_size)
 
         self.result_logger = hpres.json_result_logger(directory=out_file.replace('.txt',''), overwrite=True)

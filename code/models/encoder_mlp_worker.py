@@ -55,11 +55,11 @@ class Encode_MLPWorker(Worker):
             time.sleep(self.sleep_interval)
 
         avg_val_loss = sum(val_losses.values())/self.runner.n_folds
-        avg_epochs = sum(req_epochs.values())/self.runner.n_folds
+        max_epochs = max(req_epochs.values())
 
         return ({
                 'loss': avg_val_loss, # remember: HpBandSter always minimizes!
-                'n_epochs': avg_epochs,
+                'n_epochs': max_epochs,
                 'info': {
                         'validation loss': avg_val_loss,
                         }

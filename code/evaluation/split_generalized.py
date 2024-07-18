@@ -36,17 +36,15 @@ def split_list(d_list, n_folds):
     return folds
 
 
-def verify_split(df, train_idx, test_idx, split_type):
+def verify_split(train_df, test_df, split_type):
     '''
 
     :param df: dataframe
-    :param train_idx: list
-    :param val_idx: list
+    :param train_df: pandas dataframe
+    :param val_df: pandas dataframe
     :return: Given a df with sample data (e.g., synergy triplets), verify that the train and test
     data have been created properly according to the split type.
     '''
-    train_df = df[df['ID'].isin(train_idx)]
-    test_df = df[df['ID'].isin(test_idx)]
 
     if split_type=='random':
         test_triplets = set(zip(test_df['source'],test_df['target'],test_df['edge_type']))
@@ -75,8 +73,6 @@ def verify_split(df, train_idx, test_idx, split_type):
         n_common = len(test_edge_type.intersection(train_edge_type))
         assert n_common == 0, print(f'error in {split_type} split')
 
-    del(train_df)
-    del(test_df)
 
 def get_random_train_test(df, test_frac=0.2):
 
@@ -277,32 +273,82 @@ def get_edge_type_n_split(df, n_folds):
     return train_idx, val_idx
 
 
-def wrapper_train_test(df, split_type, test_frac, spec_dir, force_run=True):
 
-    df['ID'] = list(range(len(df)))
+def generalize_data(df):
+    '''map drug_pids and cell_line_names to numerical index, here we consider drugs and cell lines
+       for which the user defined required features are available, i.e., if feature='must', then only
+       the drugs and cell lines for which we have all the features available appear here.'''
+
+    #if the data contained in synergy_df does not change across runs, then the serial for each triplet in synergy_df and
+    #the numerical index of drug and cell_lines should also be the same. Hence the sorting.
+    df = df.sort_values(by=['drug_1_pid', 'drug_2_pid', 'cell_line_name'])
+
+    drug_pids = list(set(df['drug_1_pid']).union(set(df['drug_2_pid'])))
+    drug_pids.sort()
+
+    cell_line_names = list(set(df['cell_line_name']))
+    cell_line_names.sort()
+
+    drug_2_idx = {pid: idx for (idx, pid) in enumerate(drug_pids)}
+    cell_line_2_idx = {name: idx for (idx, name) in enumerate(cell_line_names)}
+
+    df['source'] = df['drug_1_pid'].astype(str).apply(lambda x: drug_2_idx[x])
+    df['target'] = df['drug_2_pid'].astype(str).apply(lambda x: drug_2_idx[x])
+    df['edge_type'] = df['cell_line_name'].astype(str).apply(lambda x: cell_line_2_idx[x])
+
+    return df, drug_2_idx, cell_line_2_idx
+
+def wrapper_train_test(df, split_type, test_frac, spec_dir, force_run=True):
+    '''Rename column names to more generalized ones. Also, convert drug and cell line ids to numerical ids compatible with models.'''
+
+
     split_type_2_function_map = {'random': get_random_train_test, 'leave_comb': get_edge_split_train_test,
                       'leave_drug':get_node_split_train_test, 'leave_cell_line':get_edge_type_split_train_test}
 
-    spec_dir = f'{spec_dir}_{test_frac}/'
-    test_file = f'{spec_dir}test.tsv'
-    train_file = f'{spec_dir}train.tsv'
-    summary = f'{spec_dir}train_test_summary.txt'
+    test_file = f'{spec_dir}/test.tsv'
+    train_file = f'{spec_dir}/train.tsv'
 
-    if (not os.path.exists(spec_dir)) or (force_run):
+    all_triplets_file = f'{spec_dir}/all.tsv'
+    drug_idx_file = f'{spec_dir}/drug_2_idx.tsv'
+    cell_idx_file = f'{spec_dir}/cell_line_2_idx.tsv'
+
+    summary = f'{spec_dir}/train_test_summary.txt'
+
+    if (not os.path.exists(test_file)) or (force_run):
+        df, drug_2_idx, cell_line_2_idx = generalize_data(df)
+
+        df['ID'] = list(range(len(df)))
         print('Creating train test folds')
         train_df, test_df = split_type_2_function_map[split_type](df, test_frac)
-        verify_split(df, list(train_df['ID']), list(test_df['ID']), split_type)
+        #save in file
         test_df.drop(columns='ID', inplace=True)
         train_df.drop(columns='ID', inplace=True)
+        df.drop(columns='ID', inplace=True)
+        drug_2_idx_df = pd.DataFrame({'pid': list(drug_2_idx.keys()), 'idx': list(drug_2_idx.values())})
+        cell_2_idx_df = pd.DataFrame({'cell_line_name': list(cell_line_2_idx.keys()), 'idx': list(cell_line_2_idx.values())})
+
 
         os.makedirs(spec_dir, exist_ok=True)
         test_df.to_csv(test_file, sep='\t')
         train_df.to_csv(train_file, sep='\t')
+        df.to_csv(all_triplets_file, sep='\t')
+        drug_2_idx_df.to_csv(drug_idx_file, sep='\t')
+        cell_2_idx_df.to_csv(cell_idx_file, sep='\t')
+
 
     else:
         print('Loading train test folds')
         test_df = pd.read_csv(test_file, sep='\t')
         train_df = pd.read_csv(train_file, sep='\t')
+        df = pd.read_csv(all_triplets_file, sep='\t')
+
+        drug_2_idx_df = pd.read_csv(drug_idx_file, dtype={'pid':str}, sep='\t')
+        drug_2_idx = dict(zip(drug_2_idx_df['pid'],drug_2_idx_df['idx']))
+
+        cell_line_2_idx_df = pd.read_csv(cell_idx_file, sep='\t')
+        cell_line_2_idx = dict(zip(cell_line_2_idx_df['cell_line_name'],cell_line_2_idx_df['idx']))
+
+    verify_split(train_df, test_df, split_type)
 
     test_drugs = set(test_df['source']).union(set(test_df['target']))
     test_cell_lines = set(test_df['edge_type'])
@@ -313,7 +359,7 @@ def wrapper_train_test(df, split_type, test_frac, spec_dir, force_run=True):
         file.write(f'TEST #triplets: {len(test_df)} \n #drugs: {len(test_drugs)}'
           f' \n #cell lines: {len(test_cell_lines)}')
     file.close()
-    return train_df, test_df
+    return train_df, test_df, df, drug_2_idx, cell_line_2_idx
 
 def wrapper_nfold_split(df, split_type, n_folds, spec_dir, force_run=True):
 
@@ -321,22 +367,18 @@ def wrapper_nfold_split(df, split_type, n_folds, spec_dir, force_run=True):
     split_type_2_function_map = {'random': get_random_n_split, 'leave_comb': get_edge_n_split,
                       'leave_drug':get_node_n_split, 'leave_cell_line':get_edge_type_n_split}
 
-    spec_dir = f'{spec_dir}_{n_folds}/'
-    val_file = f'{spec_dir}val_nfolds.pkl'
-    train_file = f'{spec_dir}train_nfolds.pkl'
-    synergy_file = f'{spec_dir}synergy.tsv'
-    summary = f'{spec_dir}n_fold_summary.txt'
+    val_file = f'{spec_dir}/val_nfolds.pkl'
+    train_file = f'{spec_dir}/train_nfolds.pkl'
+    summary = f'{spec_dir}/n_fold_summary.txt'
 
-    if (not os.path.exists(spec_dir)) or (force_run):
+    if (not os.path.exists(train_file)) or (force_run):
         print('Creating train val folds')
         train_idx, val_idx = split_type_2_function_map[split_type](df, n_folds)
-
         os.makedirs(spec_dir, exist_ok=True)
         with open(val_file, 'wb') as file:
             pickle.dump(val_idx, file)
         with open(train_file, 'wb') as file:
             pickle.dump(train_idx, file)
-        df.to_csv(synergy_file, sep='\t', index=False)
 
 
     else:
@@ -348,7 +390,9 @@ def wrapper_nfold_split(df, split_type, n_folds, spec_dir, force_run=True):
 
     #verify splits
     for i in range(n_folds):
-        verify_split(df, train_idx[i], val_idx[i], split_type)
+        foldwise_train_df = df[df['ID'].isin(train_idx[i])]
+        foldwise_val_df = df[df['ID'].isin(val_idx[i])]
+        verify_split(foldwise_train_df,foldwise_val_df, split_type)
 
     file = open(summary, 'w')
     for i in range(n_folds):
@@ -357,7 +401,6 @@ def wrapper_nfold_split(df, split_type, n_folds, spec_dir, force_run=True):
         file.write(f'fold {i} # TRAIN triplets:  {len(train_idx[i])}'
                    f'\n fold {i} # VAL triplets:  {len(val_idx[i])} \n')
     file.close()
-    df.drop(columns=['ID'], inplace=True)
     return train_idx, val_idx
 
 

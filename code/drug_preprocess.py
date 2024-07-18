@@ -10,11 +10,12 @@ from models.model_utils import *
 def prepare_drug_features(drug_features, drug_pids, params, inputs):
     dfeat_names = [f['name'] for f in drug_features]
 
-    fields = ['norm','preprocess', 'encoder', 'mtx', 'dim', 'use'] #for each feature we can have these fields.
+    fields = ['norm','preprocess','filter', 'encoder', 'mtx', 'dim', 'use'] #for each feature we can have these fields.
     dfeat_dict = {field: {} for field in  fields}
 
     #parse norm, preprocessing and encoder for all features.
     dfeat_dict['preprocess'] = {f['name']: f.get('preprocess') for f in drug_features if f.get('preprocess') is not None}
+    dfeat_dict['filter'] = {f['name']: f.get('filter') for f in drug_features if f.get('filter') is not None}
     dfeat_dict['norm'] = {f['name']: f.get('norm') for f in drug_features if  f.get('norm') is not None}
     dfeat_dict['encoder'] = {f['name']: f.get('encoder') for f in drug_features if f.get('encoder') is not None}
     dfeat_dict['use'] = {f['name']: f.get('use') for f in drug_features}

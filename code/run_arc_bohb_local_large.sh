@@ -6,7 +6,7 @@
 #SBATCH -t 0-143:00:00
 #SBATCH --mem=80G
 #SBATCH --exclusive
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:4
 #SBATCH --account=synverse # give the account /project here
 #SBATCH --export=NONE # this makes sure the compute environment is clean
 

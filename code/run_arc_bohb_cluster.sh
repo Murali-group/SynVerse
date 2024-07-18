@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=SynVerse
-#SBATCH -p dgx_normal_q
+#SBATCH -p a100_normal_q
 #SBATCH --output=%j-%a.o
 #SBATCH --error=%j-%a.e
 #SBATCH --array=1-16
-#SBATCH -t 0-120:00:00
-#SBATCH --mem=180G
+#SBATCH -t 0-36:00:00
+#SBATCH --mem=100G
 #SBATCH --exclusive
 #SBATCH --gres=gpu:8
 #SBATCH --account=synverse # give the account /project here
@@ -21,9 +21,20 @@ echo $PWD
 echo "Running for config file: "
 echo $1
 if [ $SLURM_ARRAY_TASK_ID -eq 1 ]; then
-   CUDA_LAUNCH_BLOCKING=1 python -u main.py --config $1 --run_id $SLURM_JOB_ID --nic_name eno1 --shared_directory .
+  # Check if the third argument is provided
+  if [ -n "$3" ]; then
+    CUDA_LAUNCH_BLOCKING=1 python -u main.py --config $1 --feat "$2" --run_id $SLURM_JOB_ID --nic_name eno1 --shared_directory . > "$3" 2>&1
+  else
+    CUDA_LAUNCH_BLOCKING=1 python -u main.py --config $1 --run_id $SLURM_JOB_ID --nic_name eno1 --shared_directory . > "$2" 2>&1
+  fi
+
 else
-  CUDA_LAUNCH_BLOCKING=1 python -u main.py --config $1 --run_id $SLURM_JOB_ID --nic_name eno1 --shared_directory . --worker
+   # Check if the third argument is provided
+  if [ -n "$3" ]; then
+    CUDA_LAUNCH_BLOCKING=1 python -u main.py --config $1 --feat "$2" --run_id $SLURM_JOB_ID --nic_name eno1 --shared_directory . --worker > "$3" 2>&1
+  else
+    CUDA_LAUNCH_BLOCKING=1 python -u main.py --config $1 --run_id $SLURM_JOB_ID --nic_name eno1 --shared_directory . --worker > "$2" 2>&1
+  fi
 fi
 
 

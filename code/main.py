@@ -84,10 +84,11 @@ def run_SynVerse(inputs, params, **kwargs):
 
     ''' prepare split'''
     for split in splits:
-        print('SPLIT: ', split_type)
         split_type = split['type']
         n_folds = split['n_folds']
         test_frac = split['test_frac']
+        print('SPLIT: ', split_type)
+
 
         #split into train test
         split_prefix = split_dir + f'/{get_feat_prefix(dfeat_dict, cfeat_dict)}/k_{params.abundance}/{split_type}_{test_frac}_{n_folds}/'

@@ -1,3 +1,4 @@
+import copy
 import os.path
 
 import pandas as pd
@@ -83,6 +84,7 @@ def run_SynVerse(inputs, params, **kwargs):
 
     ''' prepare split'''
     for split in splits:
+        print('SPLIT: ', split_type)
         split_type = split['type']
         n_folds = split['n_folds']
         test_frac = split['test_frac']
@@ -97,19 +99,21 @@ def run_SynVerse(inputs, params, **kwargs):
         train_idx, val_idx = wrapper_nfold_split(train_df, split_type, n_folds, split_prefix, force_run=force_split)
 
         #convert feature dataframes into numpy arrays while in the array row i corresponds to the drug with numerical idx i
-        dfeat_dict['mtx'], cfeat_dict['mtx'] = get_index_sorted_feature_matrix(dfeat_dict['mtx'], drug_2_idx,
-                                               cfeat_dict['mtx'], cell_line_2_idx)
+        cur_dfeat_dict = copy.deepcopy(dfeat_dict)
+        cur_cfeat_dict = copy.deepcopy(cfeat_dict)
+        cur_dfeat_dict['mtx'], cur_cfeat_dict['mtx'] = get_index_sorted_feature_matrix(cur_dfeat_dict['mtx'], drug_2_idx,
+                                               cur_cfeat_dict['mtx'], cell_line_2_idx)
 
         #Normalize data based on training data. Use the mean, std from training data to normalize test data.
-        dfeat_dict['mtx'], cfeat_dict['mtx'] = normalization_wrapper(dfeat_dict['mtx'], cfeat_dict['mtx'], dfeat_dict['norm'], cfeat_dict['norm'], train_df)
+        cur_dfeat_dict['mtx'], cur_cfeat_dict['mtx'] = normalization_wrapper(cur_dfeat_dict['mtx'], cur_cfeat_dict['mtx'],
+                                                                    cur_dfeat_dict['norm'], cur_cfeat_dict['norm'], train_df)
 
         for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:
-            print('SPLIT: ', split_type)
             print('drug and cell line features in use: ', select_drug_feat, select_cell_feat)
 
             # only keep the selected drug and cell feature for training and further analysis
-            select_dfeat_dict = keep_selected_feat(dfeat_dict, select_drug_feat)
-            select_cfeat_dict = keep_selected_feat(cfeat_dict, select_cell_feat)
+            select_dfeat_dict = keep_selected_feat(cur_dfeat_dict, select_drug_feat)
+            select_cfeat_dict = keep_selected_feat(cur_cfeat_dict, select_cell_feat)
             # depending on the selected encoders modify the model architecture here.
             select_model_info = get_select_model_info(model_info, select_dfeat_dict['encoder'],
                                                       select_cfeat_dict['encoder'])
@@ -117,7 +121,6 @@ def run_SynVerse(inputs, params, **kwargs):
             hyperparam = combine_hyperparams(select_model_info)
             best_n_epochs = params.epochs
 
-            #todo: give explanatory outfile/directory names.
             out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type)
 
             # out_file_prefix = params.out_dir+'/test.txt'
@@ -141,6 +144,8 @@ def run_SynVerse(inputs, params, **kwargs):
             # evaluate model on test data
             test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
 
+        del cur_dfeat_dict
+        del cur_cfeat_dict
 def main(config_map, **kwargs):
 
     if 'snakemake' in globals():

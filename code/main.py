@@ -25,11 +25,13 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/d1hot_fingerprint_graph_c1hot.yaml",
+                       "config_files/experiment_1/dtarget_c1hot.yaml",
                        help="Configuration file for this script.")
 
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space.")
+    group.add_argument('--split', type=str,
+                       help="Put the name of the split types to run, separated by space.")
     group.add_argument('--n_workers', type=int, help='Number of workers to run in parallel.', default=2)
     group.add_argument('--worker', help='Flag to turn this into a worker process', action='store_true')
     group.add_argument('--run_id', type=str,
@@ -89,13 +91,20 @@ def run_SynVerse(inputs, params, **kwargs):
         test_frac = split['test_frac']
         print('SPLIT: ', split_type)
 
+        #if user defined split type is present as kwargs param, then only the split types common between config and kwargs param
+        #will run.
+        udef_split_types = kwargs.get('split')
+        if udef_split_types is not None:
+            udef_split_types = udef_split_types.split(' ')
+            if split_type not in udef_split_types: #do not run split type noe present in kwargs param
+                continue
 
         #split into train test
         split_prefix = split_dir + f'/{get_feat_prefix(dfeat_dict, cfeat_dict)}/k_{params.abundance}/{split_type}_{test_frac}_{n_folds}/'
 
         force_split = False
 
-        train_df, test_df, synergy_df, drug_2_idx, cell_line_2_idx = wrapper_train_test(synergy_df, split_type, test_frac, split_prefix, force_run=force_split)
+        train_df, test_df, drug_2_idx, cell_line_2_idx = wrapper_train_test(copy.deepcopy(synergy_df), split_type, test_frac, split_prefix, force_run=force_split)
         #split into train_val for n_folds
         train_idx, val_idx = wrapper_nfold_split(train_df, split_type, n_folds, split_prefix, force_run=force_split)
 

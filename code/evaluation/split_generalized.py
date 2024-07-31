@@ -338,12 +338,12 @@ def wrapper_train_test(df, split_type, test_frac, spec_dir, force_run=True):
 
     else:
         print('Loading train test folds')
-        test_df = pd.read_csv(test_file, sep='\t')
-        train_df = pd.read_csv(train_file, sep='\t')
-        df = pd.read_csv(all_triplets_file, sep='\t')
+        test_df = pd.read_csv(test_file, sep='\t', dtype={'drug_1_pid':str, 'drug_2_pid': str})
+        train_df = pd.read_csv(train_file, sep='\t', dtype={'drug_1_pid':str, 'drug_2_pid': str})
+        df = pd.read_csv(all_triplets_file, sep='\t', dtype={'drug_1_pid':str, 'drug_2_pid': str})
 
         drug_2_idx_df = pd.read_csv(drug_idx_file, dtype={'pid':str}, sep='\t')
-        drug_2_idx = dict(zip(drug_2_idx_df['pid'],drug_2_idx_df['idx']))
+        drug_2_idx = dict(zip(drug_2_idx_df['pid'], drug_2_idx_df['idx']))
 
         cell_line_2_idx_df = pd.read_csv(cell_idx_file, sep='\t')
         cell_line_2_idx = dict(zip(cell_line_2_idx_df['cell_line_name'],cell_line_2_idx_df['idx']))
@@ -359,7 +359,7 @@ def wrapper_train_test(df, split_type, test_frac, spec_dir, force_run=True):
         file.write(f'TEST #triplets: {len(test_df)} \n #drugs: {len(test_drugs)}'
           f' \n #cell lines: {len(test_cell_lines)}')
     file.close()
-    return train_df, test_df, df, drug_2_idx, cell_line_2_idx
+    return train_df, test_df, drug_2_idx, cell_line_2_idx
 
 def wrapper_nfold_split(df, split_type, n_folds, spec_dir, force_run=True):
 

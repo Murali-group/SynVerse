@@ -54,12 +54,8 @@ input_settings:
                      'positional_encoding_type': [ 'learnable', 'fixed' ] }
          hp: { 'transformer_batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 128 , #512 worked
                'transformer_n_head': 4, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }
-
-
      cell_encoder: null
-
   epochs: 1000
-
 
   splits:
     - type: 'leave_comb'

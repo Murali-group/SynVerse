@@ -7,9 +7,12 @@ input_settings:
   input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
 
   drug_features:
+    - name: 'd1hot'
+      use: [ true]
+
     - name: 'target'
       preprocess: 'rwr'
-      use: [true]
+      use: [false]
 
   cell_line_features:
     - name: 'c1hot'
@@ -37,16 +40,15 @@ input_settings:
 
 
   splits:
-
-    - type: 'leave_comb'
-      test_frac: 0.2
-      n_folds: 5
-
     - type: 'leave_drug'
       test_frac: 0.2
       n_folds: 5
 
     - type: 'leave_cell_line'
+      test_frac: 0.2
+      n_folds: 5
+
+    - type: 'leave_comb'
       test_frac: 0.2
       n_folds: 5
 

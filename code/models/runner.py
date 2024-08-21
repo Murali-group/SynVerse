@@ -1,7 +1,5 @@
 from models.model_utils import *
-
 import torch
-import wandb
 import pytz
 import datetime
 from abc import ABC, abstractmethod
@@ -9,6 +7,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB as BOHB
 import hpbandster.core.result as hpres
+import wandb
 
 import pickle
 import os

@@ -1,6 +1,5 @@
 import copy
 import os.path
-
 import pandas as pd
 from evaluation.split_generalized import *
 from utils import *
@@ -25,7 +24,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/d1hot_fingerprint_graph_c1hot.yaml",
+                       "config_files/experiment_1/d1hot_cgenex.yaml",
                        help="Configuration file for this script.")
 
     group.add_argument('--feat', type=str,
@@ -71,7 +70,7 @@ def run_SynVerse(inputs, params, **kwargs):
     '''Filter out the triplets based on the availability of drug and cell line features'''
     synergy_df = feature_based_filtering(synergy_df, dfeat_dict['mtx'], cfeat_dict['mtx'], params.feature)
 
-    '''keep the cell lines consisting of at least 5% of the total #triplets in the final dataset.'''
+    '''keep the cell lines consisting of at least params.abundance% of the total #triplets in the final dataset.'''
     synergy_df = abundance_based_filtering(synergy_df, min_frac=params.abundance)
 
     #******************************************* MODEL TRAINING ***********************************************

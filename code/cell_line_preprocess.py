@@ -2,7 +2,6 @@
 import pandas as pd
 import numpy as np
 from utils import *
-
 def prepare_cell_line_features(cell_line_features, cell_line_names,params, inputs):
 
     cfeat_names = [f['name'] for f in cell_line_features]
@@ -17,22 +16,24 @@ def prepare_cell_line_features(cell_line_features, cell_line_names,params, input
     cfeat_dict['encoder'] = {f['name']: f.get('encoder') for f in cell_line_features if f.get('encoder') is not None}
     cfeat_dict['use'] = {f['name']: f.get('use') for f in cell_line_features}
 
-
-    if ('c1hot' in cfeat_names):
+    if 'c1hot' in cfeat_names:
         one_hot_feat = pd.DataFrame(np.eye(len(cell_line_names)))
         one_hot_feat['cell_line_name'] = cell_line_names
         cfeat_dict['mtx']['c1hot'] = one_hot_feat
         cfeat_dict['dim']['c1hot'] = one_hot_feat.shape[1] - 1
 
-    if 'genex' in cfeat_names:
-        # feat_name = 'genex'
+    if 'genex_lincs_1000' in cfeat_names:
         ccle_file = inputs.cell_line_file
         ccle_df = pd.read_csv(ccle_file, sep='\t')
 
-        # do any preprocessing
-        if cfeat_dict['filter'].get('genex') == 'lincs_1000':
-            # feat_name = feat_name + '_lincs_1000'
-            ccle_df = landmark_gene_filter(ccle_df, inputs.lincs)
+        #Keep the landmark gene's expression only
+        ccle_df = landmark_gene_filter(ccle_df, inputs.lincs)
+        cfeat_dict['mtx']['genex_lincs_1000'] = ccle_df
+        cfeat_dict['dim']['genex_lincs_1000'] = ccle_df.shape[1] - 1
+
+    if 'genex' in cfeat_names:
+        ccle_file = inputs.cell_line_file
+        ccle_df = pd.read_csv(ccle_file, sep='\t')
         cfeat_dict['mtx']['genex'] = ccle_df
         cfeat_dict['dim']['genex'] = ccle_df.shape[1] - 1
 

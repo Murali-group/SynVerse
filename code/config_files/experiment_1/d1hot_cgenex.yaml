@@ -5,17 +5,21 @@ dataset_dir: "/home/grads/tasnina/Projects/SynVerse/datasets/"
 input_settings:
   # Base input directory
   input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
-
   drug_features:
     - name: 'd1hot'
       use: [true]
 
-
   cell_line_features:
-    - name: 'genex'
-      filter: 'lincs_1000'
+    - name: 'genex_lincs_1000'
       norm: 'std'
-      use: [true]
+      use: [true, False]
+
+    - name: 'genex'
+      norm: 'std'
+      use: [ true, False]
+
+    - name: 'c1hot'
+      use: [ true, False ]
 
   models:
     decoder:

@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="synverse (3)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="synverse (3)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="synverse" project-jdk-type="Python SDK" />
 </project>

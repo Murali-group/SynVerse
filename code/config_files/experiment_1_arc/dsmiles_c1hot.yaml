@@ -56,9 +56,8 @@ input_settings:
 
      cell_encoder: null
 
-  epochs: 1000
   batch_size: 128
-
+  epochs: 1000
 
   splits:
 
@@ -75,7 +74,7 @@ input_settings:
       n_folds: 5
 
   wandb:
-    enabled: True
+    enabled: False
     token: 'd9462b91edea6523563900fab17134d7e9177e16'
     project_name: 'Synverse'
     entity_name: 'ntasnina'
@@ -83,7 +82,7 @@ input_settings:
     timezone_format: '%Y-%m-%d_%H-%M-%S'
   bohb:
     min_budget: 9
-    max_budget: 243
+    max_budget: 729
     n_iterations: 3
     run_id : 'synverse_smiles'
     server_type: 'local' #or cluster
@@ -92,7 +91,7 @@ input_settings:
   abundance: 0.05
 
   max_feat: 1
-  mode: 'train_val'
+  mode: 'hp_tune'
         #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
         # 'train' =  training the model with both train+val dataset
         # 'train_val' = train the model on training data and validate it on validation fold

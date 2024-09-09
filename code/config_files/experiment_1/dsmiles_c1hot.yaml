@@ -90,7 +90,7 @@ input_settings:
   abundance: 0.05
 
   max_feat: 1
-  mode: 'hp_tune'
+  mode: 'train_val'
         #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
         # 'train' =  training the model with both train+val dataset
         # 'train_val' = train the model on training data and validate it on validation fold

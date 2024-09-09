@@ -24,7 +24,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/d1hot_cgenex.yaml",
+                       "config_files/experiment_1/test.yaml",
                        help="Configuration file for this script.")
 
     group.add_argument('--feat', type=str,
@@ -99,7 +99,8 @@ def run_SynVerse(inputs, params, **kwargs):
                 continue
 
         #split into train test
-        split_prefix = split_dir + f'/{get_feat_prefix(dfeat_dict, cfeat_dict)}/k_{params.abundance}/{split_type}_{test_frac}_{n_folds}/'
+        split_feat_str = get_feat_prefix(dfeat_dict, cfeat_dict)
+        split_prefix = split_dir + f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{n_folds}/'
 
         force_split = False
 
@@ -130,7 +131,7 @@ def run_SynVerse(inputs, params, **kwargs):
             hyperparam = combine_hyperparams(select_model_info)
             best_n_epochs = params.epochs
 
-            out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type)
+            out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type, split_feat_str=split_feat_str)
 
             # out_file_prefix = params.out_dir+'/test.txt'
             kwargs['split_type'] = split_type

@@ -258,9 +258,12 @@ def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=
     feat_model_prefix = (dfeat_str + cfeat_str).strip('_')
     return feat_model_prefix
 
-def create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type):
+def create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type, split_feat_str=''):
     dir_prefix = f"{params.out_dir}/k_{params.abundance}/{split_type}//"
     feat_model_prefix = get_feat_prefix(select_dfeat_dict, select_cfeat_dict, mention_norm=True, mention_encoder=True, mention_preprocess=True)
+
+    if feat_model_prefix == 'D_d1hot_C_c1hot': #when only 1hot feature is being used then we should keep track of which split it is running on as well
+        dir_prefix = dir_prefix + '/One-hot-versions/' + split_feat_str + '/'
     file_prefix = dir_prefix + feat_model_prefix
     return file_prefix
 

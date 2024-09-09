@@ -13,7 +13,6 @@
 module load Anaconda3/2020.11
 cd /home/tasnina/Projects/SynVerse/code/
 source activate synergy
-echo "hello world"
 echo $PWD
 
 # Check if the third argument is provided

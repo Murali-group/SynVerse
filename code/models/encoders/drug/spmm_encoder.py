@@ -1,28 +1,8 @@
 import torch
 import torch.nn as nn
 import math
-def get_sinusoidal_positional_encoding(seq_len, d_model, device):
-    """Generate sinusoidal positional encodings."""
-    pe = torch.zeros(seq_len, d_model, device=device)
-    position = torch.arange(0, seq_len, device=device).unsqueeze(1)
-    div_term = torch.exp(torch.arange(0, d_model, 2, device=device) * -(math.log(10000.0) / d_model))
 
-    pe[:, 0::2] = torch.sin(position * div_term)
-    pe[:, 1::2] = torch.cos(position * div_term)
-
-    return pe.unsqueeze(0)  # Add a batch dimension
-
-
-def pad_or_truncate(seq, max_len):
-
-    if len(seq) < max_len:
-        return seq + [0] * (max_len - len(seq))
-    else:
-        return seq[:max_len]
-
-#     # smiles_df['tokenized'] = smiles_df['tokenized'].apply(lambda x: pad_or_truncate(x, max_len))
-
-class Transformer_Encoder(nn.Module):
+class SPMM_Encoder(nn.Module):
     def __init__(self, vocab_size, config, device):
         super().__init__()
         self.device = device
@@ -49,10 +29,9 @@ class Transformer_Encoder(nn.Module):
         self.out_dim = self.d_model
 
     def forward(self, src):
-        #padding or truncating
-        src = [pad_or_truncate(x, self.max_seq_length) for x in src]
-        # Convert each element to a tensor and move it to the device
-        src = torch.stack([torch.tensor(element, dtype=torch.long) for element in src]).to(self.device)
+        if not isinstance(src, torch.Tensor):
+            # Convert each element to a tensor and move it to the device
+            src = torch.stack([torch.tensor(element, dtype=torch.long) for element in src]).to(self.device)
 
         # Get token embeddings
         src_embed = self.embedding(src)

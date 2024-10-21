@@ -6,7 +6,7 @@ def prepare_cell_line_features(cell_line_features, cell_line_names,params, input
 
     cfeat_names = [f['name'] for f in cell_line_features]
 
-    fields = ['norm', 'preprocess', 'filter', 'encoder', 'mtx', 'dim','use']  # for each feature we can have these fields.
+    fields = ['norm', 'preprocess', 'filter', 'encoder', 'value', 'dim','use']  # for each feature we can have these fields.
     cfeat_dict = {field: {} for field in fields}
 
     # parse norm, preprocessing and encoder for all features.
@@ -19,7 +19,7 @@ def prepare_cell_line_features(cell_line_features, cell_line_names,params, input
     if 'c1hot' in cfeat_names:
         one_hot_feat = pd.DataFrame(np.eye(len(cell_line_names)))
         one_hot_feat['cell_line_name'] = cell_line_names
-        cfeat_dict['mtx']['c1hot'] = one_hot_feat
+        cfeat_dict['value']['c1hot'] = one_hot_feat
         cfeat_dict['dim']['c1hot'] = one_hot_feat.shape[1] - 1
 
     if 'genex_lincs_1000' in cfeat_names:
@@ -28,13 +28,13 @@ def prepare_cell_line_features(cell_line_features, cell_line_names,params, input
 
         #Keep the landmark gene's expression only
         ccle_df = landmark_gene_filter(ccle_df, inputs.lincs)
-        cfeat_dict['mtx']['genex_lincs_1000'] = ccle_df
+        cfeat_dict['value']['genex_lincs_1000'] = ccle_df
         cfeat_dict['dim']['genex_lincs_1000'] = ccle_df.shape[1] - 1
 
     if 'genex' in cfeat_names:
         ccle_file = inputs.cell_line_file
         ccle_df = pd.read_csv(ccle_file, sep='\t')
-        cfeat_dict['mtx']['genex'] = ccle_df
+        cfeat_dict['value']['genex'] = ccle_df
         cfeat_dict['dim']['genex'] = ccle_df.shape[1] - 1
 
     return cfeat_dict, cfeat_names

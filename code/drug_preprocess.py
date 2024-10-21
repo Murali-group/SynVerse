@@ -10,7 +10,7 @@ from models.model_utils import *
 def prepare_drug_features(drug_features, drug_pids, params, inputs):
     dfeat_names = [f['name'] for f in drug_features]
 
-    fields = ['norm','preprocess','filter', 'encoder', 'mtx', 'dim', 'use'] #for each feature we can have these fields.
+    fields = ['norm','preprocess','filter', 'encoder', 'value', 'dim', 'use'] #for each feature we can have these fields.
     dfeat_dict = {field: {} for field in  fields}
 
     #parse norm, preprocessing and encoder for all features.
@@ -24,7 +24,7 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs):
     if ('d1hot' in dfeat_names):
         one_hot_feat= pd.DataFrame(np.eye(len(drug_pids)))
         one_hot_feat['pid'] = drug_pids
-        dfeat_dict['mtx']['d1hot'] = one_hot_feat
+        dfeat_dict['value']['d1hot'] = one_hot_feat
         dfeat_dict['dim']['d1hot'] = one_hot_feat.shape[1]-1
 
     if 'MACCS' in dfeat_names:
@@ -33,7 +33,7 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs):
         maccs_df = pd.read_csv(maccs_file,dtype={'pid':str}, sep='\t', index_col=None)
 
         #TODO: if any preprocessing step is mentioned for 'MACCS' feature, do that here.
-        dfeat_dict['mtx']['MACCS'] = maccs_df
+        dfeat_dict['value']['MACCS'] = maccs_df
         dfeat_dict['dim']['MACCS'] = maccs_df.shape[1]-1
 
     if 'MFP' in dfeat_names:
@@ -41,7 +41,7 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs):
         mfp_file = chem_prop_dir + 'Morgan_fingerprint.tsv'
         mfp_df = pd.read_csv(mfp_file,dtype={'pid':str}, sep='\t', index_col=None)
         #TODO: if any preprocessing step is mentioned for 'MACCS' feature, do that here.
-        dfeat_dict['mtx']['MFP'] = mfp_df
+        dfeat_dict['value']['MFP'] = mfp_df
         dfeat_dict['dim']['MFP'] = mfp_df.shape[1]-1
 
     if 'ECFP_4' in dfeat_names:
@@ -49,7 +49,7 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs):
         ecfp_file = chem_prop_dir + 'ECFP_4.tsv'
         ecfp_df = pd.read_csv(ecfp_file,dtype={'pid':str}, sep='\t', index_col=None)
         #TODO: if any preprocessing step is mentioned for 'MACCS' feature, do that here.
-        dfeat_dict['mtx']['ECFP_4'] = ecfp_df
+        dfeat_dict['value']['ECFP_4'] = ecfp_df
         dfeat_dict['dim']['ECFP_4'] = ecfp_df.shape[1]-1
 
 
@@ -59,18 +59,20 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs):
             pid_to_adjacency_mol_feat = pickle.load(file)
         #convert mol_graph to datatype compatible with GCN/GAT
         mol_pyg_dict, mol_feat_dim = mol_graph_to_GCN_data(pid_to_adjacency_mol_feat)
-        dfeat_dict['mtx']['mol_graph'] = mol_pyg_dict
+        dfeat_dict['value']['mol_graph'] = mol_pyg_dict
         dfeat_dict['dim']['mol_graph'] = mol_feat_dim
 
     if 'smiles' in dfeat_names:
         smiles_file = inputs.drug_smiles_file
         smiles_df = pd.read_csv(smiles_file,dtype={'pid':str}, sep='\t', index_col=None)
-        # max_len = params.models[0]['hp']['max_seq_length']
-        max_len = [model_info['hp']['max_seq_length']for model_info in params.models['drug_encoder'] if model_info['name'] =='Transformer'][0]
-        # max_len = [feat['max_seq_length'] for feat in drug_features if feat.get('name')=='smiles'][0]
-        smiles_df, vocab_size = get_vocab_smiles(smiles_df, max_len)
-        dfeat_dict['mtx']['smiles'] = smiles_df
-        dfeat_dict['dim']['smiles'] = vocab_size
+
+        if dfeat_dict['encoder'].get('smiles')=='Transformer':
+            # max_len = [model_info['hp']['max_seq_length'] for model_info in params.models['drug_encoder'] if
+            #            model_info['name'] == 'Transformer'][0]
+
+            smiles_df, vocab_size = get_vocab_smiles(smiles_df)
+            dfeat_dict['dim']['smiles'] = vocab_size
+            dfeat_dict['value']['smiles'] = smiles_df[['pid', 'tokenized']]
 
     if 'target' in dfeat_names:
         target_file = inputs.drug_target_file
@@ -84,11 +86,11 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs):
         if dfeat_dict['preprocess'].get('target')=='rwr':
             rwr_out_file = os.path.dirname(target_file) + '/rwr_target.tsv'
             rwr_target_feat_df = rwr_wrapper(target_feat_df, alpha=0.5, out_file=rwr_out_file, force_run=False)
-            dfeat_dict['mtx']['target']= rwr_target_feat_df
+            dfeat_dict['value']['target']= rwr_target_feat_df
             dfeat_dict['dim']['target']= rwr_target_feat_df.shape[1] - 1
 
         else:
-            dfeat_dict['mtx']['target'] = target_feat_df
+            dfeat_dict['value']['target'] = target_feat_df
             dfeat_dict['dim']['target'] = target_feat_df.shape[1] - 1
 
     return dfeat_dict, dfeat_names

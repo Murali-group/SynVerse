@@ -171,7 +171,7 @@ def find_drug_cell_feat_combs(drug_feat_combs, cell_feat_combs):
 
 
 def keep_selected_feat(feat_dict, selected_feat):
-    fields = ['norm', 'preprocess', 'filter', 'encoder', 'mtx', 'dim', 'use']  # for each feature we can have these fields.
+    fields = ['norm', 'preprocess', 'filter', 'encoder', 'value', 'dim', 'use']  # for each feature we can have these fields.
     select_feat_dict = {field: {} for field in fields}
 
     for field in fields:
@@ -199,10 +199,10 @@ def keep_selected_feat(feat_dict, selected_feat):
 
 
 def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=False, mention_preprocess=False):
-    dfeat_names = list(dfeat_dict['mtx'].keys())
+    dfeat_names = list(dfeat_dict['value'].keys())
     dfeat_names.sort() #sorting so that irrespective of the order of features in the config, the prefix remains same.
 
-    cfeat_names = list(cfeat_dict['mtx'].keys())
+    cfeat_names = list(cfeat_dict['value'].keys())
     cfeat_names.sort()#sorting so that irrespective of the order of features in the config, the prefix remains same.
 
     dfeat_str = 'D_'

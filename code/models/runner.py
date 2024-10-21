@@ -27,8 +27,8 @@ class Runner(ABC):
         self.split_type = kwargs.get('split_type')
         self.triplets_scores_dataset = self.get_triplets_score_dataset(train_val_triplets_df)
 
-        self.drug_feat = dfeat_dict['mtx']
-        self.cell_line_feat = cfeat_dict['mtx']
+        self.drug_feat = dfeat_dict['value']
+        self.cell_line_feat = cfeat_dict['value']
         self.dfeat_dim_dict = dfeat_dim_dict
         self.cfeat_dim_dict = cfeat_dim_dict
 
@@ -238,10 +238,10 @@ class Runner(ABC):
         model.train()
         idle_epochs = 0
         for i in range(int(n_epochs)):
-            t1 = time.time()
             train_loss = 0
 
             for inputs, targets in train_loader:
+                t1 = time.time()
                 #add (d2,d1,c) triplets for each corresponding (d1,d2,c) triplets.
                 inputs_og = copy.deepcopy(inputs)
                 inputs[:, [0,1]] = inputs[:, [1,0]]
@@ -254,6 +254,7 @@ class Runner(ABC):
                 train_loss += (loss.detach().cpu().numpy())
                 loss.backward()
                 optimizer.step()
+                print('time per batch: ', time.time() - t1)
 
                 #TODO: remove after making sure nn.dataparalle is working.
                 # print("Outside: input size", inputs_undir.size())

@@ -8,6 +8,8 @@ torch.set_default_dtype(torch.float64)
 
 from models.encoders.drug.gcn_encoder import GCN_Encoder
 from models.encoders.drug.transformer_encoder import Transformer_Encoder
+from models.encoders.drug.spmm_encoder import SPMM_Encoder
+
 from models.decoders.mlp import MLP
 
 class Encoder_MLP_wrapper(nn.Module):
@@ -43,6 +45,11 @@ class Encoder_MLP_wrapper(nn.Module):
                         self.transformer_encoder = Transformer_Encoder(self.dfeat_dim_dict[feat_name], config, self.device)
                         # update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.transformer_encoder.out_dim
+                    if encoder_name == 'SPMM':
+                        print(self.chosen_config)
+                        self.SPMM_encoder = SPMM_Encoder(self.dfeat_dim_dict[feat_name], config, self.device)
+                        # update the drug feat dim with the dimension of generated embedding
+                        self.dfeat_out_dim[feat_name] = self.SPMM_encoder.out_dim
 
         #TODO: other drug encoders.
 
@@ -67,7 +74,7 @@ class Encoder_MLP_wrapper(nn.Module):
         # For each ( feature_name: encoder, e.g., smiles:GCN ) from self.drug_encoder_dict
         # pass feature matrix(smiles) to GCN and get embedding of drugs.
         #return a dict with key='feature_name-encoder', e.g., 'smiles_GCN' and value=embedding.
-        drug_embed_raw = []
+        drug_represenatation = []
         embedded_feat=[]
 
         for feat_name in self.drug_feat_encoder_mapping:
@@ -77,12 +84,13 @@ class Encoder_MLP_wrapper(nn.Module):
                     if encoder_name=='GCN':
                         # create a list of drug_graphs where in index i, the molecular graph of drug i is present.
                         data_list = [drug_feat[feat_name][x] for x in range(len(drug_feat[feat_name].keys()))]
-                        drug_embed_raw.append(self.gcn_encoder(data_list, device))
+                        drug_represenatation.append(self.gcn_encoder(data_list, device))
                         embedded_feat.append(feat_name)
 
                     if encoder_name=='Transformer':
-                        source = drug_feat[feat_name][:, 2]
-                        drug_embed_raw.append(self.transformer_encoder(source))
+                        # source = drug_feat[feat_name][:, 2]#when tokenization was done in preprocessing
+                        source = drug_feat[feat_name][:,0]
+                        drug_represenatation.append(self.transformer_encoder(source))
                         embedded_feat.append(feat_name)
 
 
@@ -91,10 +99,10 @@ class Encoder_MLP_wrapper(nn.Module):
         #now concatenate any raw drug features present in drug_feat
         for feat_name in drug_feat:
             if feat_name not in embedded_feat: #features for which no encoder is given
-                drug_embed_raw.append(torch.from_numpy(drug_feat[feat_name]).to(device))
+                drug_represenatation.append(torch.from_numpy(drug_feat[feat_name]).to(device))
 
         #get the final features of drugs by concatenating both embedding and raw features
-        drug_final_embeds = torch.cat(drug_embed_raw, dim=1).to(device)
+        drug_final_embeds = torch.cat(drug_represenatation, dim=1).to(device)
         return drug_final_embeds
 
     def cell_line_encoder_wrap(self, cell_line_feat, device):

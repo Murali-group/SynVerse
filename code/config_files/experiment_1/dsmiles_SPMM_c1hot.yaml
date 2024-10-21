@@ -4,9 +4,7 @@ dataset_dir: "/home/grads/tasnina/Projects/SynVerse/datasets/"
 input_settings:
   # Base input directory
   input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
-
   drug_features:
-
     - name: 'MACCS'
       use: [ false ]
 
@@ -21,7 +19,7 @@ input_settings:
       use: [ false ]
 
     - name: 'smiles'
-      encoder: 'Transformer'
+      encoder: 'SPMM'
       use: [ true ]
 
     - name: 'd1hot'
@@ -34,7 +32,7 @@ input_settings:
   models:
      decoder:
        name: 'MLP'
-       hp_range: { 'lr': [ 1e-5, 1e-3 ], 'optimizer': [ 'Adam', 'SGD' ] , 'sgd_momentum': [ 0.0, 0.99 ] ,
+       hp_range: { 'lr': [ 1e-5, 1e-4 ], 'optimizer': [ 'Adam', 'SGD' ] , 'sgd_momentum': [ 0.0, 0.99 ] ,
                    'num_hid_layers': [ 1,3 ] , 'hid_0': [ 64, 2048 ] , 'hid_1': [ 64,2048 ] , 'hid_2': [ 64, 2048 ] ,
                    'in_dropout_rate': [ 0.0, 0.5 ] ,'hid_dropout_rate': [ 0.0, 0.5 ] }
        hp: {'hid_0': 1077, 'hid_dropout_rate': 0.2697798807963333, 'in_dropout_rate': 0.17927761184927016, 'lr': 0.00016381808734015385,
@@ -48,18 +46,47 @@ input_settings:
                'ff_num_layers': 1, 'ff_0': 128, 'gnn_dropout': 0.3 }
 
        - name: 'Transformer'
+         hp_range: { 'transformer_batch_norm': [ True, False ], 'transformer_num_layers': [2, 3, 4] ,'transformer_embedding_dim': [32, 64, 128, 256, 512] ,
+             'transformer_n_head': [4, 8], 'transformer_ff_num_layers': [32, 64, 128, 256, 512, 1024], 'max_seq_length': [120],
+              'positional_encoding_type': ['learnable', 'fixed'] }
+         hp: { 'transformer_batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 128 , #512 worked
+             'transformer_n_head': 4, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }
+
+       - name: 'SPMM'
          hp_range: { 'transformer_batch_norm': [ True, False ], 'transformer_num_layers': [ 2, 3, 4 ] ,'transformer_embedding_dim': [ 32, 64, 128, 256, 512 ] ,
                      'transformer_n_head': [ 4, 8 ], 'transformer_ff_num_layers': [ 32, 64, 128, 256, 512, 1024 ], 'max_seq_length': [ 120 ],
                      'positional_encoding_type': [ 'learnable', 'fixed' ] }
-         hp: { 'transformer_batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 128 , #512 worked
-               'transformer_n_head': 4, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }
+         hp: { "architectures": ["BertForMaskedLM"],
+            "attention_probs_dropout_prob": 0.1,
+            "hidden_act": "gelu", "hidden_dropout_prob": 0.1,
+            "hidden_size": 768,
+            "initializer_range": 0.02,
+            "intermediate_size": 3072,
+            "layer_norm_eps": 1e-12,
+            "max_position_embeddings": 512,
+            "model_type": "bert",
+            "num_attention_heads": 12,
+            "num_hidden_layers": 12,
+            "pad_token_id": 0,
+            "type_vocab_size": 2,
+            "vocab_size": 300,
+            "fusion_layer": 6,
+            "encoder_width": 768,
+            "autoregressive": 0,
+            "add_cross_attention": "True"}
 
      cell_encoder: null
 
-  batch_size: 2048
   epochs: 1000
+  batch_size: 128
+
 
   splits:
+
+    - type: 'leave_comb'
+      test_frac: 0.2
+      n_folds: 5
+
     - type: 'leave_drug'
       test_frac: 0.2
       n_folds: 5
@@ -68,21 +95,16 @@ input_settings:
       test_frac: 0.2
       n_folds: 5
 
-    - type: 'leave_comb'
-      test_frac: 0.2
-      n_folds: 5
-
   wandb:
-    enabled: False
+    enabled: True
     token: 'd9462b91edea6523563900fab17134d7e9177e16'
     project_name: 'Synverse'
     entity_name: 'ntasnina'
     timezone: 'US/Eastern'
     timezone_format: '%Y-%m-%d_%H-%M-%S'
-
   bohb:
-    min_budget: 27
-    max_budget: 729
+    min_budget: 9
+    max_budget: 243
     n_iterations: 3
     run_id : 'synverse_smiles'
     server_type: 'local' #or cluster

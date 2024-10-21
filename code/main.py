@@ -24,7 +24,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/test.yaml",
+                       "config_files/experiment_1/dsmiles_c1hot.yaml",
                        help="Configuration file for this script.")
 
     group.add_argument('--feat', type=str,
@@ -68,7 +68,7 @@ def run_SynVerse(inputs, params, **kwargs):
     cfeat_dict, cfeat_names = prepare_cell_line_features(cell_line_features, cell_line_names, params, inputs)
 
     '''Filter out the triplets based on the availability of drug and cell line features'''
-    synergy_df = feature_based_filtering(synergy_df, dfeat_dict['mtx'], cfeat_dict['mtx'], params.feature)
+    synergy_df = feature_based_filtering(synergy_df, dfeat_dict['value'], cfeat_dict['value'], params.feature)
 
     '''keep the cell lines consisting of at least params.abundance% of the total #triplets in the final dataset.'''
     synergy_df = abundance_based_filtering(synergy_df, min_frac=params.abundance)
@@ -111,11 +111,12 @@ def run_SynVerse(inputs, params, **kwargs):
         #convert feature dataframes into numpy arrays while in the array row i corresponds to the drug with numerical idx i
         cur_dfeat_dict = copy.deepcopy(dfeat_dict)
         cur_cfeat_dict = copy.deepcopy(cfeat_dict)
-        cur_dfeat_dict['mtx'], cur_cfeat_dict['mtx'] = get_index_sorted_feature_matrix(cur_dfeat_dict['mtx'], drug_2_idx,
-                                               cur_cfeat_dict['mtx'], cell_line_2_idx)
+        #TODO make sure thattokenized smiles is an array.
+        cur_dfeat_dict['value'], cur_cfeat_dict['value'] = get_index_sorted_feature_matrix(cur_dfeat_dict['value'], drug_2_idx,
+                                               cur_cfeat_dict['value'], cell_line_2_idx)
 
         #Normalize data based on training data. Use the mean, std from training data to normalize test data.
-        cur_dfeat_dict['mtx'], cur_cfeat_dict['mtx'] = normalization_wrapper(cur_dfeat_dict['mtx'], cur_cfeat_dict['mtx'],
+        cur_dfeat_dict['value'], cur_cfeat_dict['value'] = normalization_wrapper(cur_dfeat_dict['value'], cur_cfeat_dict['value'],
                                                                     cur_dfeat_dict['norm'], cur_cfeat_dict['norm'], train_df)
 
         for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:

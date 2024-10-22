@@ -2,7 +2,7 @@
 #SBATCH -J SynVerse #(run name give any name you want to track)
 #SBATCH -p dgx_normal_q # partision a100_normal_q takes time to get resource so test your code with v100_dev_q
 #SBATCH -N 1  # this requests 1 node
-#SBATCH --ntasks=4
+#SBATCH --ntasks=1
 #SBATCH -t 0-2:00:00
 #SBATCH --mem=80G
 #SBATCH --exclusive

@@ -67,12 +67,12 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs):
         smiles_df = pd.read_csv(smiles_file,dtype={'pid':str}, sep='\t', index_col=None)
 
         if dfeat_dict['encoder'].get('smiles')=='Transformer':
-            # max_len = [model_info['hp']['max_seq_length'] for model_info in params.models['drug_encoder'] if
-            #            model_info['name'] == 'Transformer'][0]
-
             smiles_df, vocab_size = get_vocab_smiles(smiles_df)
             dfeat_dict['dim']['smiles'] = vocab_size
             dfeat_dict['value']['smiles'] = smiles_df[['pid', 'tokenized']]
+        else :
+            dfeat_dict['value']['smiles'] = smiles_df[['pid', 'smiles']]
+
 
     if 'target' in dfeat_names:
         target_file = inputs.drug_target_file

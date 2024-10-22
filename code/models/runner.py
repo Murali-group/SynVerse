@@ -19,7 +19,7 @@ import logging
 
 class Runner(ABC):
     def __init__(self, train_val_triplets_df, train_idx, val_idx, dfeat_dict,
-                 cfeat_dict, dfeat_dim_dict, cfeat_dim_dict, out_file_prefix,
+                 cfeat_dict, out_file_prefix,
                  params, model_info, device, **kwargs):
 
         out_file = out_file_prefix + '.txt'
@@ -29,8 +29,8 @@ class Runner(ABC):
 
         self.drug_feat = dfeat_dict['value']
         self.cell_line_feat = cfeat_dict['value']
-        self.dfeat_dim_dict = dfeat_dim_dict
-        self.cfeat_dim_dict = cfeat_dim_dict
+        self.dfeat_dim_dict = dfeat_dict['dim']
+        self.cfeat_dim_dict = cfeat_dict['dim']
 
         self.train_idx = train_idx
         self.val_idx = val_idx

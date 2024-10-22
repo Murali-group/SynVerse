@@ -1,53 +1,52 @@
 import torch
 import torch.nn as nn
 import math
+from models.encoders.drug.xbert import BertConfig, BertForMaskedLM
+from transformers import BertTokenizer, WordpieceTokenizer
+
+
+class SPMM_embedder(nn.Module):
+    def __init__(self, tokenizer=None, config=None):
+        super().__init__()
+        self.tokenizer = tokenizer
+        # bert_config = BertConfig.from_json_file(config['bert_config_text'])
+        bert_config = BertConfig(**config)
+        self.text_encoder = BertForMaskedLM(config=bert_config)
+        for i in range(bert_config.fusion_layer, bert_config.num_hidden_layers):  self.text_encoder.bert.encoder.layer[i] = nn.Identity()
+        self.text_encoder.cls = nn.Identity()
+
+    def forward(self, text_input_ids, text_attention_mask):
+        vl_embeddings = self.text_encoder.bert(text_input_ids, attention_mask=text_attention_mask, return_dict=True, mode='text').last_hidden_state
+        vl_embeddings = vl_embeddings[:, 0, :]
+        return vl_embeddings
 
 class SPMM_Encoder(nn.Module):
-    def __init__(self, vocab_size, config, device):
+    def __init__(self, vocab_file, checkpoint_file, config, device):
         super().__init__()
         self.device = device
+        #TODO check if out_dim is right
+        self.out_dim=config['embed_dim']
 
-        self.max_seq_length = config['max_seq_length']
-        self.d_model = config['transformer_embedding_dim']
-        self.n_head = config['transformer_n_head']
-        self.transformer_n_layers = config['transformer_num_layers']
-        self.dim_feedforward = config['transformer_ff_num_layers']
-        self.positional_encoding_type = config['positional_encoding_type']
+        self.tokenizer = BertTokenizer(vocab_file=vocab_file, do_lower_case=False, do_basic_tokenize=False)
+        self.tokenizer.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.tokenizer.vocab, unk_token=self.tokenizer.unk_token,
+                                                           max_input_chars_per_word=250)
+        self.model = SPMM_embedder(config=config, tokenizer=self.tokenizer)
 
-        self.batch_norm = config['transformer_batch_norm']
+        print('LOADING PRETRAINED MODEL..')
+        checkpoint = torch.load(checkpoint_file, map_location='cpu')
+        state_dict = checkpoint['state_dict']
+        for key in list(state_dict.keys()):
+            if '_unk' in key:
+                new_key = key.replace('_unk', '_mask')
+                state_dict[new_key] = state_dict[key]
+                del state_dict[key]
+        self.model.load_state_dict(state_dict, strict=False)
+        self.model.to('cuda')
+        print('load checkpoint from %s' % checkpoint_file)
 
-        self.embedding = nn.Embedding(vocab_size, self.d_model, padding_idx=0)
-
-        if self.positional_encoding_type == 'learnable':
-            self.pos_encoder = nn.Embedding(self.max_seq_length, self.d_model)
-        elif self.positional_encoding_type == 'fixed':
-            self.positional_encoding = get_sinusoidal_positional_encoding(self.max_seq_length, self.d_model, self.device)
-
-        encoder_layers = nn.TransformerEncoderLayer(self.d_model, self.n_head, self.dim_feedforward)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layers, self.transformer_n_layers)
-
-        self.out_dim = self.d_model
-
-    def forward(self, src):
-        if not isinstance(src, torch.Tensor):
-            # Convert each element to a tensor and move it to the device
-            src = torch.stack([torch.tensor(element, dtype=torch.long) for element in src]).to(self.device)
-
-        # Get token embeddings
-        src_embed = self.embedding(src)
-
-        # Add positional encodings
-        if self.positional_encoding_type == 'learnable':
-            positions = torch.arange(0, src_embed.size(1), device=src_embed.device).unsqueeze(0).repeat(
-                src_embed.size(0), 1)
-            src_embed += self.pos_encoder(positions)
-        elif self.positional_encoding_type == 'fixed':
-            src_embed += self.positional_encoding[:, :src_embed.size(1), :].to(self.device)
-
-        # Pass through the transformer encoder
-        output = self.transformer_encoder(src_embed.transpose(0, 1))
-
-        # Use the output corresponding to the first token ([CLS] token)
-        output = output[0, :, :]
-
-        return output.squeeze()
+    def forward(self,smiles):
+        #add '[CLS]' token before smiles.
+        text = ['[CLS]'+x for x in smiles]
+        text_input = self.tokenizer(text, padding='longest', truncation=True, max_length=100, return_tensors="pt").to('cuda')
+        embedding = self.model(text_input.input_ids[:, 1:], text_input.attention_mask[:, 1:])
+        return embedding

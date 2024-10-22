@@ -9,7 +9,7 @@ class Encode_MLP_runner (Runner):
                  out_file_prefix, params,model_info, device, **kwargs):
 
         super().__init__(train_val_triplets_df, train_idx, val_idx, dfeat_dict,
-            cfeat_dict,dfeat_dict['dim'], cfeat_dict['dim'], out_file_prefix, params,model_info, device, **kwargs)
+            cfeat_dict, out_file_prefix, params,model_info, device, **kwargs)
 
         self.worker_cls = Encode_MLPWorker
         self.drug_encoder_info = model_info.get('drug_encoder')

@@ -15,7 +15,9 @@ def parse_args():
     args = parser.parse_args()
     kwargs = vars(args)
     with open(args.config, 'r') as conf:
-        config_map = yaml.load(conf, Loader=yaml.FullLoader)
+        # config_map = yaml.load(conf, Loader=yaml.FullLoader)
+        config_map = yaml.safe_load(conf)
+
     return config_map, kwargs
 
 def setup_opts():
@@ -176,6 +178,9 @@ def main(config_map, **kwargs):
         inputs.drug_smiles_file = input_dir + 'drug/smiles.tsv'
         inputs.drug_graph_file = input_dir + 'drug/molecular_graph.pickle'
         inputs.drug_target_file = input_dir + 'drug/target.tsv'
+        # inputs.vocab = input_dir + 'drug/vocab_bpe_300.txt'
+        # inputs.spmm_checkpoint = input_dir + 'drug/pretrain/checkpoint_SPMM.ckpt'
+
 
         inputs.cell_line_file = input_dir + 'cell-line/gene_expression.tsv'
         inputs.lincs = input_dir + 'cell-line/LINCS_1000.txt'

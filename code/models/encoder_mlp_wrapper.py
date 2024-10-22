@@ -35,6 +35,7 @@ class Encoder_MLP_wrapper(nn.Module):
             encoder_name = drug_feat_encoder_mapping[feat_name]
             for drug_encoder in self.drug_encoder_list:
                 if (drug_encoder['name'] == encoder_name):
+
                     if encoder_name=='GCN':
                         self.gcn_encoder = GCN_Encoder(self.dfeat_dim_dict[feat_name], config)
                         #update the drug feat dim with the dimension of generated embedding
@@ -45,9 +46,10 @@ class Encoder_MLP_wrapper(nn.Module):
                         self.transformer_encoder = Transformer_Encoder(self.dfeat_dim_dict[feat_name], config, self.device)
                         # update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.transformer_encoder.out_dim
+
                     if encoder_name == 'SPMM':
                         print(self.chosen_config)
-                        self.SPMM_encoder = SPMM_Encoder(self.dfeat_dim_dict[feat_name], config, self.device)
+                        self.SPMM_encoder = SPMM_Encoder(drug_encoder['params']['vocab'], drug_encoder['params']['checkpoint'],config, self.device)
                         # update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.SPMM_encoder.out_dim
 
@@ -88,13 +90,16 @@ class Encoder_MLP_wrapper(nn.Module):
                         embedded_feat.append(feat_name)
 
                     if encoder_name=='Transformer':
-                        # source = drug_feat[feat_name][:, 2]#when tokenization was done in preprocessing
                         source = drug_feat[feat_name][:,0]
                         drug_represenatation.append(self.transformer_encoder(source))
                         embedded_feat.append(feat_name)
+                    if encoder_name=='SPMM':
+                        drug_smiles = drug_feat[feat_name][:,0]
+                        drug_represenatation.append(self.SPMM_encoder(drug_smiles))
+                        embedded_feat.append(feat_name)
 
 
-            #TODO add more encoder here
+                    #TODO add more encoder here
 
         #now concatenate any raw drug features present in drug_feat
         for feat_name in drug_feat:

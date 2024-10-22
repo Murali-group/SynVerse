@@ -1,9 +1,9 @@
-dataset_dir: "/home/grads/tasnina/Projects/SynVerse/datasets/"
+dataset_dir: "/home/tasnina/Projects/SynVerse/datasets/"
 # Input Settings: initialize base input folder names,
 # dataset collections, and models to run over
 input_settings:
   # Base input directory
-  input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
+  input_dir: "/home/tasnina/Projects/SynVerse/inputs/"
   drug_features:
     - name: 'MACCS'
       use: [ false ]
@@ -84,7 +84,7 @@ input_settings:
 
      cell_encoder: null
 
-  batch_size: 10
+  batch_size: 512
   epochs: 1000
 
 
@@ -125,4 +125,4 @@ input_settings:
         # 'train_val' = train the model on training data and validate it on validation fold
 
 output_settings:
-  output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs/'
+  output_dir: '/home/tasnina/Projects/SynVerse/outputs/'

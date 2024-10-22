@@ -78,8 +78,8 @@ input_settings:
          }
          params:
            {
-              checkpoint: '/home/grads/tasnina/Projects/SynVerse/inputs/drug/pretrain/checkpoint_SPMM.ckpt',
-              vocab: '/home/grads/tasnina/Projects/SynVerse/inputs/drug/vocab_bpe_300.txt'
+              checkpoint: '/home/tasnina/Projects/SynVerse/inputs/drug/pretrain/checkpoint_SPMM.ckpt',
+              vocab: '/home/tasnina/Projects/SynVerse/inputs/drug/vocab_bpe_300.txt'
            }
 
      cell_encoder: null

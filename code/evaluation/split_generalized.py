@@ -301,7 +301,6 @@ def generalize_data(df):
 def wrapper_train_test(df, split_type, test_frac, spec_dir, force_run=True):
     '''Rename column names to more generalized ones. Also, convert drug and cell line ids to numerical ids compatible with models.'''
 
-
     split_type_2_function_map = {'random': get_random_train_test, 'leave_comb': get_edge_split_train_test,
                       'leave_drug':get_node_split_train_test, 'leave_cell_line':get_edge_type_split_train_test}
 

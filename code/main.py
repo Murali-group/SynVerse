@@ -97,7 +97,7 @@ def run_SynVerse(inputs, params, **kwargs):
         udef_split_types = kwargs.get('split')
         if udef_split_types is not None:
             udef_split_types = udef_split_types.split(' ')
-            if split_type not in udef_split_types: #do not run split type noe present in kwargs param
+            if split_type not in udef_split_types: #do not run split type not present in kwargs param
                 continue
 
         #split into train test

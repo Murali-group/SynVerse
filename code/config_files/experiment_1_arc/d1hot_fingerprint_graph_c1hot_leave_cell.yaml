@@ -23,7 +23,7 @@ input_settings:
 
     - name: 'smiles'
       encoder: 'Transformer'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'd1hot'
       use: [ true, false ]

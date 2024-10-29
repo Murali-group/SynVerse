@@ -188,6 +188,9 @@ class Runner(ABC):
             val_loss = {}
             train_loss = {}
             req_epochs = {}
+            loss_file = self.out_file.replace('.txt', '_train_val_loss.txt')
+            file = open(loss_file, 'w')
+            file.write(f'Config: {config}\n\n')
 
             for fold in range(self.n_folds):
                 model, optimizer, criterion = self.init_model(config)
@@ -204,6 +207,11 @@ class Runner(ABC):
                                     criterion, train_loader, best_n_epochs, self.check_freq,self.tolerance,
                                     self.is_wandb, self.device,early_stop=True,val_loader=val_loader, fold=fold)
 
+                file.write(f'fold: {fold}\n')
+                file.write(f'Number of epochs: {req_epochs[fold]}\n')
+                file.write(f'train_loss: {train_loss[fold]}\n')
+                file.write(f'val_loss: {val_loss[fold]}\n\n')
+
         return best_model_state, train_loss
 
     def _init_wandb(self, model, fold):
@@ -211,7 +219,7 @@ class Runner(ABC):
 
         # Generate a dynamic run name
         eastern = pytz.timezone(self.wandb.timezone)
-        run_name = f"run-{self.split_type}-{fold+1}-{datetime.datetime.now(eastern).strftime(self.wandb.timezone_format)}"
+        run_name = f"run-{self.split_type}-{fold}-{datetime.datetime.now(eastern).strftime(self.wandb.timezone_format)}"
         wandb.init(project=self.wandb.project_name, entity=self.wandb.entity_name, name=run_name)
         wandb.watch(model, log="all")
 
@@ -254,7 +262,7 @@ class Runner(ABC):
                 train_loss += (loss.detach().cpu().numpy())
                 loss.backward()
                 optimizer.step()
-                print('time per batch: ', time.time() - t1)
+                # print('time per batch: ', time.time() - t1)
 
                 #TODO: remove after making sure nn.dataparalle is working.
                 # print("Outside: input size", inputs_undir.size())

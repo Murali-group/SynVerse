@@ -35,6 +35,8 @@ class SPMM_Encoder(nn.Module):
         print('LOADING PRETRAINED MODEL..')
         checkpoint = torch.load(checkpoint_file, map_location='cpu')
         state_dict = checkpoint['state_dict']
+        print('LOADING COMPLETE for PRETRAINED MODEL..')
+
         for key in list(state_dict.keys()):
             if '_unk' in key:
                 new_key = key.replace('_unk', '_mask')

@@ -336,7 +336,7 @@ def wrapper_train_test(df, split_type, test_frac, spec_dir, force_run=True):
 
 
     else:
-        print('Loading train test folds')
+        print(f'Loading train test data from {spec_dir}')
         test_df = pd.read_csv(test_file, sep='\t', dtype={'drug_1_pid':str, 'drug_2_pid': str})
         train_df = pd.read_csv(train_file, sep='\t', dtype={'drug_1_pid':str, 'drug_2_pid': str})
         df = pd.read_csv(all_triplets_file, sep='\t', dtype={'drug_1_pid':str, 'drug_2_pid': str})
@@ -381,7 +381,7 @@ def wrapper_nfold_split(df, split_type, n_folds, spec_dir, force_run=True):
 
 
     else:
-        print('Loading train val folds')
+        print(f'Loading train val folds from {spec_dir}')
         with open(val_file, 'rb') as file:
             val_idx = pickle.load(file)
         with open(train_file, 'rb') as file:

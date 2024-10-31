@@ -43,12 +43,12 @@ class SPMM_Encoder(nn.Module):
                 state_dict[new_key] = state_dict[key]
                 del state_dict[key]
         self.model.load_state_dict(state_dict, strict=False)
-        self.model.to('cuda')
+        self.model.to(self.device)
         print('load checkpoint from %s' % checkpoint_file)
 
     def forward(self,smiles):
         #add '[CLS]' token before smiles.
         text = ['[CLS]'+x for x in smiles]
-        text_input = self.tokenizer(text, padding='longest', truncation=True, max_length=100, return_tensors="pt").to('cuda')
+        text_input = self.tokenizer(text, padding='longest', truncation=True, max_length=100, return_tensors="pt").to(self.device)
         embedding = self.model(text_input.input_ids[:, 1:], text_input.attention_mask[:, 1:])
         return embedding

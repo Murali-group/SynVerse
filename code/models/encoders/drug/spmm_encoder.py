@@ -32,7 +32,7 @@ class SPMM_Encoder(nn.Module):
                                                            max_input_chars_per_word=250)
         self.model = SPMM_embedder(config=config, tokenizer=self.tokenizer)
 
-        print('LOADING PRETRAINED MODEL..')
+        print(f'LOADING PRETRAINED MODEL from {checkpoint_file}')
         checkpoint = torch.load(checkpoint_file, map_location='cpu')
         state_dict = checkpoint['state_dict']
         print('LOADING COMPLETE for PRETRAINED MODEL..')

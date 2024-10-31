@@ -60,6 +60,10 @@ input_settings:
   epochs: 1000
 
   splits:
+    - type: 'leave_comb'
+      test_frac: 0.2
+      n_folds: 5
+
     - type: 'leave_drug'
       test_frac: 0.2
       n_folds: 5
@@ -68,9 +72,7 @@ input_settings:
       test_frac: 0.2
       n_folds: 5
 
-    - type: 'leave_comb'
-      test_frac: 0.2
-      n_folds: 5
+
 
   wandb:
     enabled: False

@@ -3,6 +3,7 @@ import os.path
 import pandas as pd
 from evaluation.split_generalized import *
 from utils import *
+from plot_utils import plot_dist
 import types
 import argparse
 from models.encoder_mlp_runner import *
@@ -47,6 +48,7 @@ def setup_opts():
 
 def run_SynVerse(inputs, params, **kwargs):
     #TODO: set default values for the params if not given in config file.
+    print(device)
     print('SYNVERSE STARTING')
     drug_features = params.drug_features
     cell_line_features = params.cell_line_features
@@ -54,6 +56,7 @@ def run_SynVerse(inputs, params, **kwargs):
     splits = params.splits
     split_dir = params.split_dir
     synergy_file = inputs.processed_syn_file
+    score_name = 'S_mean_mean' #synergy score to use
 
 
     '''Read synergy triplets'''
@@ -107,13 +110,18 @@ def run_SynVerse(inputs, params, **kwargs):
         force_split = False
 
         train_df, test_df, drug_2_idx, cell_line_2_idx = wrapper_train_test(copy.deepcopy(synergy_df), split_type, test_frac, split_prefix, force_run=force_split)
+        #plot synergy score distribution for train and test set
+        plot_dist(train_df[score_name], 'train', out_dir=split_prefix)
+        plot_dist(test_df[score_name], 'test', out_dir=split_prefix)
+
+
         #split into train_val for n_folds
         train_idx, val_idx = wrapper_nfold_split(train_df, split_type, n_folds, split_prefix, force_run=force_split)
 
         #convert feature dataframes into numpy arrays while in the array row i corresponds to the drug with numerical idx i
         cur_dfeat_dict = copy.deepcopy(dfeat_dict)
         cur_cfeat_dict = copy.deepcopy(cfeat_dict)
-        #TODO make sure thattokenized smiles is an array.
+        #TODO make sure that tokenized smiles is an array.
         cur_dfeat_dict['value'], cur_cfeat_dict['value'] = get_index_sorted_feature_matrix(cur_dfeat_dict['value'], drug_2_idx,
                                                cur_cfeat_dict['value'], cell_line_2_idx)
 
@@ -138,7 +146,7 @@ def run_SynVerse(inputs, params, **kwargs):
 
             # out_file_prefix = params.out_dir+'/test.txt'
             kwargs['split_type'] = split_type
-            runner = Encode_MLP_runner(train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
+            runner = Encode_MLP_runner(train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict, score_name,
                      out_file_prefix, params, select_model_info, device, **kwargs)
 
             if params.mode == 'hp_tune':
@@ -146,6 +154,8 @@ def run_SynVerse(inputs, params, **kwargs):
                 hyperparam, best_n_epochs = runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
                 # train the model with best hyperparam and both train and validation dataset
                 trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
+                # evaluate model on test data
+                test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
 
             elif params.mode== 'train_val':
                 trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs,
@@ -153,9 +163,9 @@ def run_SynVerse(inputs, params, **kwargs):
             elif params.mode == 'train':
                 # train the model with best hyperparam and both train and validation dataset
                 trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
+                # evaluate model on test data
+                test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
 
-            # evaluate model on test data
-            test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
 
         del cur_dfeat_dict
         del cur_cfeat_dict

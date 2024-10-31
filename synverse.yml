@@ -1,10 +1,10 @@
 name: synverse
 channels:
   - bioconda
-  - anaconda
-  - pyg
-  - mcs07
   - pytorch
+  - pyg
+  - anaconda
+  - mcs07
   - nvidia
   - conda-forge
   - defaults
@@ -311,6 +311,7 @@ dependencies:
   - zope.event=5.0
   - zope.interface=5.4.0
   - zstd=1.5.5
+  - transformers 
   - pip:
       - click==8.1.7
       - configspace==0.7.1

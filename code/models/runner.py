@@ -4,6 +4,8 @@ import pytz
 import datetime
 from abc import ABC, abstractmethod
 from torch.utils.data import DataLoader, TensorDataset
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB as BOHB
 import hpbandster.core.result as hpres
@@ -19,13 +21,13 @@ import logging
 
 class Runner(ABC):
     def __init__(self, train_val_triplets_df, train_idx, val_idx, dfeat_dict,
-                 cfeat_dict, out_file_prefix,
+                 cfeat_dict, score_name, out_file_prefix,
                  params, model_info, device, **kwargs):
 
         out_file = out_file_prefix + '.txt'
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         self.split_type = kwargs.get('split_type')
-        self.triplets_scores_dataset = self.get_triplets_score_dataset(train_val_triplets_df)
+        self.triplets_scores_dataset = self.get_triplets_score_dataset(train_val_triplets_df, score_name=score_name)
 
         self.drug_feat = dfeat_dict['value']
         self.cell_line_feat = cfeat_dict['value']
@@ -44,8 +46,8 @@ class Runner(ABC):
         self.params=params
         self.model_info = model_info
 
-        self.check_freq = 2
-        self.tolerance = 15
+        self.check_freq = 2 #previously ran with 2 , 3
+        self.tolerance = 45 #previously ran with 15, 30
         self.batch_size = int(params.batch_size)
 
         self.result_logger = hpres.json_result_logger(directory=out_file.replace('.txt',''), overwrite=True)
@@ -57,9 +59,9 @@ class Runner(ABC):
        pass
 
     @staticmethod
-    def get_triplets_score_dataset(triplets_df):
+    def get_triplets_score_dataset(triplets_df, score_name='S_mean_mean'):
         triplets = torch.tensor(triplets_df[['source', 'target', 'edge_type']].values)
-        synergy_scores = torch.tensor(triplets_df['S_mean_mean'].values)
+        synergy_scores = torch.tensor(triplets_df[score_name].values)
         triplets_scores_dataset = TensorDataset(triplets, synergy_scores)
         return triplets_scores_dataset
 
@@ -235,19 +237,19 @@ class Runner(ABC):
         # if (is_wandb) & (n_epochs>200):  # plot loss with wandb
         if (is_wandb):  # plot loss with wandb
             self._init_wandb(model, fold)
-            # import wandb
-            # wandb.login(key='d9462b91edea6523563900fab17134d7e9177e16')
-            # wandb.init(project="Synverse", entity="ntasnina")
-            # wandb.watch(model, log="all")
 
         min_val_loss = 1000000
         req_epochs = n_epochs
 
         model.train()
         idle_epochs = 0
+
+        # Scheduler to reduce learning rate on plateau
+        # TODO: remove after effect of not using scheduler is investigated
+        # scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)
+
         for i in range(int(n_epochs)):
             train_loss = 0
-
             for inputs, targets in train_loader:
                 t1 = time.time()
                 #add (d2,d1,c) triplets for each corresponding (d1,d2,c) triplets.
@@ -262,54 +264,56 @@ class Runner(ABC):
                 train_loss += (loss.detach().cpu().numpy())
                 loss.backward()
                 optimizer.step()
-                # print('time per batch: ', time.time() - t1)
-
-                #TODO: remove after making sure nn.dataparalle is working.
-                # print("Outside: input size", inputs_undir.size())
 
             train_loss = train_loss / len(train_loader)
             print('e: ', i, '  train_loss: ', train_loss)
             f.write(f'e {i}: train_loss: {train_loss}\n')
 
-            if early_stop:
-                assert val_loader is not None, 'Require validation dataset during training'
+            if (val_loader is not None):
                 if (i % check_freq) == 0:
                     # checkpoint to provide early stop mechanism
                     val_loss = self.eval_model(model, val_loader, criterion, device)
-                    # print('e: ', i, 'time: ', time.time() - t1)
+                    model.train()
+
+                    #TODO: remove after effect of not using scheduler is investigated
+                    # Step the scheduler with the validation loss
+                    # scheduler.step(val_loss)
+
                     print('                                   e: ', i, '  val_loss: ', val_loss)
                     f.write(f'\n------------------------------e {i}: val_loss: {val_loss}\n\n')
-                    # if (is_wandb) & (n_epochs>200):  # plot loss with wandb
+
                     if (is_wandb):  # plot loss with wandb
                         wandb.log({"epoch": i, "train_loss": train_loss, "val_loss": val_loss})
-                    model.train()
-                    # if for number of tolerance(50) epochs validation loss did not decrease then return last best model.
-                    idle_epochs += 1
-                    if val_loss < min_val_loss:
-                        min_val_loss = val_loss
-                        idle_epochs = 0  # reset idle epochs
-                        best_model = model.state_dict()
-                        # torch.save(best_model, 'best_MLP_model.pth')
-                    if idle_epochs > tolerance:
-                        req_epochs = i
-                        # if (is_wandb) & (n_epochs > 200):
-                        if is_wandb:
-                            wandb.finish()
-                        f.close()
-                        return best_model, min_val_loss, train_loss, req_epochs
+
+                    if early_stop:
+                        # if for number of tolerance epochs validation loss did not decrease then return last best model.
+                        idle_epochs += 1
+                        if val_loss < min_val_loss:
+                            min_val_loss = val_loss
+                            idle_epochs = 0  # reset idle epochs
+                            best_model = model.state_dict()
+                            # torch.save(best_model, 'best_MLP_model.pth')
+                        if idle_epochs > tolerance:
+                            req_epochs = i
+                            # if (is_wandb) & (n_epochs > 200):
+                            if is_wandb:
+                                wandb.finish()
+                            f.close()
+                            return best_model, min_val_loss, train_loss, req_epochs
+
+
             else:
-                # if (is_wandb) & (n_epochs>200):
-                if (is_wandb):
+                if (is_wandb) and ((i % check_freq) == 0):
                     wandb.log({"epoch": i, "train_loss": train_loss})
 
         if not early_stop:
             best_model = model.state_dict()
 
-        # if (is_wandb) & (n_epochs > 200):
         if is_wandb:
             wandb.finish()
         f.close()
         return best_model, min_val_loss, train_loss, req_epochs  # model has been trained for given number of epochs. Now return the best model so far.
+
 
     def eval_model(self, model, val_loader, criterion, device, save_output=False):
         '''

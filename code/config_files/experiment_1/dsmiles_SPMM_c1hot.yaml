@@ -36,8 +36,8 @@ input_settings:
        hp_range: { 'lr': [ 1e-5, 1e-4 ], 'optimizer': [ 'Adam', 'SGD' ] , 'sgd_momentum': [ 0.0, 0.99 ] ,
                    'num_hid_layers': [ 1,3 ] , 'hid_0': [ 64, 2048 ] , 'hid_1': [ 64,2048 ] , 'hid_2': [ 64, 2048 ] ,
                    'in_dropout_rate': [ 0.0, 0.5 ] ,'hid_dropout_rate': [ 0.0, 0.5 ] }
-       hp: {'hid_0': 1077, 'hid_dropout_rate': 0.2697798807963333, 'in_dropout_rate': 0.17927761184927016, 'lr': 0.00016381808734015385,
-              'num_hid_layers': 2, 'optimizer': 'SGD', 'hid_1': 113, 'sgd_momentum': 0.21730082740135556}
+       hp: { 'hid_0': 107, 'hid_dropout_rate': 0.1979690297048191, 'in_dropout_rate': 0.3484321779065158,
+            'lr': 0.00035603226284629366, 'num_hid_layers': 2, 'optimizer': 'Adam', 'hid_1': 1276 }
 
      drug_encoder:
        - name: 'GCN'
@@ -54,28 +54,6 @@ input_settings:
              'transformer_n_head': 4, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }
 
        - name: 'SPMM'
-#         hp: {
-#            "architectures": ["BertForMaskedLM"],
-#            "attention_probs_dropout_prob": 0.1,
-#            "hidden_act": "gelu",
-#            "hidden_dropout_prob": 0.1,
-#            "hidden_size": 768,
-#            "embed_dim": 256,
-#            "initializer_range": 0.02,
-#            "intermediate_size": 3072,
-#            "layer_norm_eps": 0.000000000001,
-#            "max_position_embeddings": 512,
-#            "model_type": "bert",
-#            "num_attention_heads": 12,
-#            "num_hidden_layers": 12,
-#            "pad_token_id": 0,
-#            "type_vocab_size": 2,
-#            "vocab_size": 300,
-#            "fusion_layer": 6,
-#            "encoder_width": 768,
-#            "autoregressive": 0,
-#            "add_cross_attention": "True"
-#         }
          params:
            {
               checkpoint: '/home/grads/tasnina/Projects/SynVerse/inputs/drug/pretrain/checkpoint_SPMM.ckpt',
@@ -84,7 +62,7 @@ input_settings:
 
      cell_encoder: null
 
-  batch_size: 1024
+  batch_size: 2048
   epochs: 1000
 
 
@@ -102,7 +80,7 @@ input_settings:
       n_folds: 5
 
   wandb:
-    enabled: False
+    enabled: True
     token: 'd9462b91edea6523563900fab17134d7e9177e16'
     project_name: 'Synverse'
     entity_name: 'ntasnina'
@@ -119,10 +97,12 @@ input_settings:
   abundance: 0.05
 
   max_feat: 1
-  mode: 'hp_tune'
+  mode: 'debug'
         #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
         # 'train' =  training the model with both train+val dataset
         # 'train_val' = train the model on training data and validate it on validation fold
+        # 'debug' = train the model on training data and validate it on validation fold. Then  train the model with both train+val dataset and return test loss.
+
 
 output_settings:
   output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs/'

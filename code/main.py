@@ -111,8 +111,8 @@ def run_SynVerse(inputs, params, **kwargs):
 
         train_df, test_df, drug_2_idx, cell_line_2_idx = wrapper_train_test(copy.deepcopy(synergy_df), split_type, test_frac, split_prefix, force_run=force_split)
         #plot synergy score distribution for train and test set
-        plot_dist(train_df[score_name], 'train', out_dir=split_prefix)
-        plot_dist(test_df[score_name], 'test', out_dir=split_prefix)
+        # plot_dist(train_df[score_name], 'train', out_dir=split_prefix)
+        # plot_dist(test_df[score_name], 'test', out_dir=split_prefix)
 
 
         #split into train_val for n_folds
@@ -157,15 +157,14 @@ def run_SynVerse(inputs, params, **kwargs):
                 # evaluate model on test data
                 test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
 
-            elif params.mode== 'train_val':
+            if (params.mode== 'train_val') or (params.mode=='debug') :
                 trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs,
                                                                                   validation=True)
-            elif params.mode == 'train':
+            if (params.mode == 'train') or (params.mode== 'debug'):
                 # train the model with best hyperparam and both train and validation dataset
                 trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
                 # evaluate model on test data
                 test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
-
 
         del cur_dfeat_dict
         del cur_cfeat_dict

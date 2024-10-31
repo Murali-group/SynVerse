@@ -263,7 +263,7 @@ class Runner(ABC):
                 train_loss += (loss.detach().cpu().numpy())
                 loss.backward()
                 optimizer.step()
-                print('batch done')
+                # print('batch done')
 
             train_loss = train_loss / len(train_loader)
             print('e: ', i, '  train_loss: ', train_loss)

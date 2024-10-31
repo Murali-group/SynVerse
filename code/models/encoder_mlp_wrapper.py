@@ -42,13 +42,13 @@ class Encoder_MLP_wrapper(nn.Module):
                         self.dfeat_out_dim[feat_name] = self.gcn_encoder.out_dim
 
                     if encoder_name == 'Transformer':
-                        print(self.chosen_config)
+                        # print(self.chosen_config)
                         self.transformer_encoder = Transformer_Encoder(self.dfeat_dim_dict[feat_name], config, self.device)
                         # update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.transformer_encoder.out_dim
 
                     if encoder_name == 'SPMM':
-                        print(self.chosen_config)
+                        # print(self.chosen_config)
                         self.SPMM_encoder = SPMM_Encoder(drug_encoder['params']['vocab'], drug_encoder['params']['checkpoint'],config, self.device)
                         # update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.SPMM_encoder.out_dim

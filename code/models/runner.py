@@ -47,7 +47,7 @@ class Runner(ABC):
         self.model_info = model_info
 
         self.check_freq = 2 #previously ran with 2 , 3
-        self.tolerance = 45 #previously ran with 15, 30
+        self.tolerance = 15 #previously ran with 15, 30
         self.batch_size = int(params.batch_size)
 
         self.result_logger = hpres.json_result_logger(directory=out_file.replace('.txt',''), overwrite=True)
@@ -130,8 +130,7 @@ class Runner(ABC):
                         host=host,
                         nameserver=ns_host,
                         nameserver_port=ns_port,
-                        min_budget=min_budget, max_budget=max_budget
-                        )
+                        min_budget=min_budget, max_budget=max_budget)
             res = bohb.run(n_iterations=n_iterations, min_n_workers=n_workers)
 
         # Step 4: Shutdown
@@ -264,6 +263,7 @@ class Runner(ABC):
                 train_loss += (loss.detach().cpu().numpy())
                 loss.backward()
                 optimizer.step()
+                print('batch done')
 
             train_loss = train_loss / len(train_loader)
             print('e: ', i, '  train_loss: ', train_loss)

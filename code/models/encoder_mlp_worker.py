@@ -114,8 +114,7 @@ class Encode_MLPWorker(Worker):
         #************************ ENCODER specific configurations **************************************
 
         for drug_encoder in model_params['drug_encoder']:
-            encoder_params = drug_encoder['hp_range']
-
+            encoder_params = drug_encoder.get('hp_range')
             if (drug_encoder['name'] == 'GCN'):
                 batch_norm = CSH.CategoricalHyperparameter('batch_norm', encoder_params['batch_norm'])
                 cs.add_hyperparameters([batch_norm])
@@ -151,6 +150,7 @@ class Encode_MLPWorker(Worker):
                 dropout = CSH.UniformFloatHyperparameter('gnn_dropout', lower=encoder_params['gnn_dropout'][0],
                                         upper=encoder_params['gnn_dropout'][1], default_value=0.5, log=False)
                 cs.add_hyperparameters([dropout])
+
             if (drug_encoder['name']=='Transformer'):
                 tx_batch_norm = CSH.CategoricalHyperparameter('transformer_batch_norm', encoder_params['transformer_batch_norm'])
                 tx_num_layers = CSH.CategoricalHyperparameter('transformer_num_layers', encoder_params['transformer_num_layers'])
@@ -159,9 +159,7 @@ class Encode_MLPWorker(Worker):
                 tx_ff_num_layers = CSH.CategoricalHyperparameter('transformer_ff_num_layers', encoder_params['transformer_ff_num_layers'])
                 tx_max_length = CSH.CategoricalHyperparameter('max_seq_length', encoder_params['max_seq_length'])
                 tx_pos_encoding = CSH.CategoricalHyperparameter('positional_encoding_type', encoder_params['positional_encoding_type'])
-
                 cs.add_hyperparameters([tx_batch_norm, tx_num_layers,tx_embedding_dim,tx_n_head,tx_ff_num_layers,tx_max_length,tx_pos_encoding ])
-
 
         return cs
 

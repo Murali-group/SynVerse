@@ -54,28 +54,6 @@ input_settings:
              'transformer_n_head': 4, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }
 
        - name: 'SPMM'
-         hp_range: {}
-         hp: {
-            "architectures": ["BertForMaskedLM"],
-            "attention_probs_dropout_prob": 0.1,
-            "hidden_act": "gelu", "hidden_dropout_prob": 0.1,
-            "hidden_size": 768,
-            "embed_dim": 256,
-            "initializer_range": 0.02,
-            "intermediate_size": 3072,
-            "layer_norm_eps": 0.000000000001,
-            "max_position_embeddings": 512,
-            "model_type": "bert",
-            "num_attention_heads": 12,
-            "num_hidden_layers": 12,
-            "pad_token_id": 0,
-            "type_vocab_size": 2,
-            "vocab_size": 300,
-            "fusion_layer": 6,
-            "encoder_width": 768,
-            "autoregressive": 0,
-            "add_cross_attention": "True"
-         }
          params:
            {
               checkpoint: '/home/tasnina/Projects/SynVerse/inputs/drug/pretrain/checkpoint_SPMM.ckpt',
@@ -84,7 +62,7 @@ input_settings:
 
      cell_encoder: null
 
-  batch_size: 512
+  batch_size: 2048
   epochs: 1000
 
 
@@ -109,8 +87,8 @@ input_settings:
     timezone: 'US/Eastern'
     timezone_format: '%Y-%m-%d_%H-%M-%S'
   bohb:
-    min_budget: 9
-    max_budget: 243
+    min_budget: 27
+    max_budget: 729
     n_iterations: 3
     run_id : 'synverse_smiles'
     server_type: 'local' #or cluster
@@ -119,7 +97,7 @@ input_settings:
   abundance: 0.05
 
   max_feat: 1
-  mode: 'train_val'
+  mode: 'hp_tune'
         #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
         # 'train' =  training the model with both train+val dataset
         # 'train_val' = train the model on training data and validate it on validation fold

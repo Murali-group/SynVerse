@@ -277,7 +277,7 @@ def combine_hyperparams(model_info):
                    'in_dropout_rate': [ 0.0, 0.5 ] ,'hid_dropout_rate': [ 0.0, 0.5 ] }
        hp: {'hid_0': 1077, 'hid_dropout_rate': 0.2697798807963333, 'in_dropout_rate': 0.17927761184927016, 'lr': 0.00016381808734015385,
               'num_hid_layers': 2, 'optimizer': 'SGD', 'hid_1': 113, 'sgd_momentum': 0.21730082740135556}
-
+     #
      drug_encoder:
        - name: 'GCN'
          hp_range: { 'batch_norm': [ True, False ], 'gnn_num_layers': [ 1,3 ], 'gnn_0': [ 64, 2048 ] ,'gnn_1': [ 64, 2048 ],'gnn_2': [ 64, 2048 ] ,
@@ -289,16 +289,16 @@ def combine_hyperparams(model_info):
     '''
     hp = {}
     decoder = model_info['decoder']
-    hp.update(decoder['hp'])
+    hp.update(decoder.get('hp', {}))
 
     drug_encoders = model_info.get('drug_encoder',[])
     cell_encoders = model_info.get('cell_encoder',[])
 
     for drug_encoder in drug_encoders if drug_encoders is not None else [] :
-        hp.update(drug_encoder['hp'])
+        hp.update(drug_encoder.get('hp', {}))
 
     for cell_encoder in cell_encoders if cell_encoders is not None else [] :
-        hp.update(cell_encoder['hp'])
+        hp.update(cell_encoder.get('hp', {}))
 
     return hp
 

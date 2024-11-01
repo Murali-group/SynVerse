@@ -67,10 +67,10 @@ def run_SynVerse(inputs, params, **kwargs):
 
    #********************************** GET FEATURES READY *******************************************************
     ''' Read parsed drug features and do user-chosen filtering and preprocessing.'''
-    dfeat_dict, dfeat_names = prepare_drug_features(drug_features, drug_pids, params, inputs)
+    dfeat_dict, dfeat_names = prepare_drug_features(drug_features, drug_pids, params, inputs, device)
 
     ''' Read parsed cell line features and do user-chosen filtering and preprocessing.'''
-    cfeat_dict, cfeat_names = prepare_cell_line_features(cell_line_features, cell_line_names, params, inputs)
+    cfeat_dict, cfeat_names = prepare_cell_line_features(cell_line_features, cell_line_names, params, inputs, device)
 
     '''Filter out the triplets based on the availability of drug and cell line features'''
     synergy_df = feature_based_filtering(synergy_df, dfeat_dict['value'], cfeat_dict['value'], params.feature)
@@ -187,8 +187,8 @@ def main(config_map, **kwargs):
         inputs.drug_smiles_file = input_dir + 'drug/smiles.tsv'
         inputs.drug_graph_file = input_dir + 'drug/molecular_graph.pickle'
         inputs.drug_target_file = input_dir + 'drug/target.tsv'
-        # inputs.vocab = input_dir + 'drug/vocab_bpe_300.txt'
-        # inputs.spmm_checkpoint = input_dir + 'drug/pretrain/checkpoint_SPMM.ckpt'
+        inputs.vocab = input_dir + 'drug/vocab_bpe_300.txt'
+        inputs.spmm_checkpoint = input_dir + 'drug/pretrain/checkpoint_SPMM.ckpt'
 
 
         inputs.cell_line_file = input_dir + 'cell-line/gene_expression.tsv'

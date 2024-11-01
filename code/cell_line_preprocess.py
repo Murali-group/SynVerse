@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np
 from utils import *
-def prepare_cell_line_features(cell_line_features, cell_line_names,params, inputs):
+def prepare_cell_line_features(cell_line_features, cell_line_names,params, inputs, device):
 
     cfeat_names = [f['name'] for f in cell_line_features]
 

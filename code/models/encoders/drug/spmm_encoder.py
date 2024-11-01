@@ -51,7 +51,6 @@ class SPMM_Encoder(nn.Module):
         SPMM_config.update(config)
 
         self.device = device
-        #TODO check if out_dim is right
         self.out_dim=SPMM_config['hidden_size']
 
         self.tokenizer = BertTokenizer(vocab_file=vocab_file, do_lower_case=False, do_basic_tokenize=False)
@@ -90,3 +89,4 @@ class SPMM_Encoder(nn.Module):
 
         # print('embedding shape: ', embedding.shape)
         return embedding
+

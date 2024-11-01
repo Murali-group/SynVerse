@@ -6,8 +6,9 @@ import pickle
 from network_algorithms.rwr_runner import *
 from utils import *
 from models.model_utils import *
+from models.pretrained.spmm_encoder import get_SPMM_embedding
 
-def prepare_drug_features(drug_features, drug_pids, params, inputs):
+def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
     dfeat_names = [f['name'] for f in drug_features]
 
     fields = ['norm','preprocess','filter', 'encoder', 'value', 'dim', 'use'] #for each feature we can have these fields.
@@ -68,9 +69,17 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs):
 
         if dfeat_dict['encoder'].get('smiles')=='Transformer':
             smiles_df, vocab_size = get_vocab_smiles(smiles_df)
-            dfeat_dict['dim']['smiles'] = vocab_size
+
+            #TODO check what is the effect of commenting out vocab_size as dim
+            # dfeat_dict['dim']['smiles'] = vocab_size
             dfeat_dict['value']['smiles'] = smiles_df[['pid', 'tokenized']]
-        # elif dfeat_dict['encoder'].get('smiles') == 'SPMM':
+
+        elif dfeat_dict['encoder'].get('smiles') == 'SPMM':
+            embedding, embed_dim = get_SPMM_embedding(list(smiles_df['smiles']), inputs.vocab, inputs.spmm_checkpoint, device)
+            spmm_df = pd.DataFrame(embedding)
+            spmm_df['pid'] = smiles_df['pid']
+            dfeat_dict['value']['smiles'] = spmm_df
+            dfeat_dict['dim']['smiles'] = embed_dim
 
         else :
             dfeat_dict['value']['smiles'] = smiles_df[['pid', 'smiles']]

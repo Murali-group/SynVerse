@@ -47,11 +47,11 @@ class Encoder_MLP_wrapper(nn.Module):
                         # update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.transformer_encoder.out_dim
 
-                    if encoder_name == 'SPMM':
-                        # print(self.chosen_config)
-                        self.SPMM_encoder = SPMM_Encoder(drug_encoder['params']['vocab'], drug_encoder['params']['checkpoint'],config, self.device)
-                        # update the drug feat dim with the dimension of generated embedding
-                        self.dfeat_out_dim[feat_name] = self.SPMM_encoder.out_dim
+                    # if encoder_name == 'SPMM':
+                    #     # print(self.chosen_config)
+                    #     self.SPMM_encoder = SPMM_Encoder(drug_encoder['params']['vocab'], drug_encoder['params']['checkpoint'],config, self.device)
+                    #     # update the drug feat dim with the dimension of generated embedding
+                    #     self.dfeat_out_dim[feat_name] = self.SPMM_encoder.out_dim
 
         #TODO: other drug encoders.
 
@@ -96,10 +96,10 @@ class Encoder_MLP_wrapper(nn.Module):
                         drug_represenatation.append(self.transformer_encoder(source))
                         embedded_feat.append(feat_name)
 
-                    if encoder_name=='SPMM':
-                        drug_smiles = drug_feat[feat_name][batch_drugs,0]
-                        drug_represenatation.append(self.SPMM_encoder(drug_smiles))
-                        embedded_feat.append(feat_name)
+                    # if encoder_name=='SPMM':
+                    #     drug_smiles = drug_feat[feat_name][batch_drugs,0]
+                    #     drug_represenatation.append(self.SPMM_encoder(drug_smiles))
+                    #     embedded_feat.append(feat_name)
 
                     #TODO add more encoder here
 

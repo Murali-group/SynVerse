@@ -15,6 +15,7 @@ class SPMM_embedder(nn.Module):
         for i in range(bert_config.fusion_layer, bert_config.num_hidden_layers):  self.text_encoder.bert.encoder.layer[i] = nn.Identity()
         self.text_encoder.cls = nn.Identity()
 
+
     def forward(self, text_input_ids, text_attention_mask):
         vl_embeddings = self.text_encoder.bert(text_input_ids, attention_mask=text_attention_mask, return_dict=True, mode='text').last_hidden_state
         vl_embeddings = vl_embeddings[:, 0, :]
@@ -56,7 +57,7 @@ class SPMM_Encoder(nn.Module):
         self.tokenizer = BertTokenizer(vocab_file=vocab_file, do_lower_case=False, do_basic_tokenize=False)
         self.tokenizer.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.tokenizer.vocab, unk_token=self.tokenizer.unk_token,
                                                            max_input_chars_per_word=250)
-        self.model = SPMM_embedder(config=SPMM_config, tokenizer=self.tokenizer)
+        self.spmm_embedder = SPMM_embedder(config=SPMM_config, tokenizer=self.tokenizer)
 
         print(f'LOADING PRETRAINED MODEL from {checkpoint_file}')
         checkpoint = torch.load(checkpoint_file, map_location='cpu')
@@ -68,14 +69,24 @@ class SPMM_Encoder(nn.Module):
                 new_key = key.replace('_unk', '_mask')
                 state_dict[new_key] = state_dict[key]
                 del state_dict[key]
-        self.model.load_state_dict(state_dict, strict=False)
-        self.model.to(self.device)
+        self.spmm_embedder.load_state_dict(state_dict, strict=False)
+        self.spmm_embedder.to(self.device)
+
+        # # Freeze BERT model
+        for param in self.spmm_embedder.parameters():
+            param.requires_grad = False
         print('load checkpoint from %s' % checkpoint_file)
+
+        # Nure: adding a layer norm after getting embedding from pretrained model.
+        # self.layer_norm_1 = nn.LayerNorm(SPMM_config['hidden_size'])
+
 
     def forward(self,smiles):
         #add '[CLS]' token before smiles.
         text = ['[CLS]'+x for x in smiles]
         text_input = self.tokenizer(text, padding='longest', truncation=True, max_length=100, return_tensors="pt").to(self.device)
-        embedding = self.model(text_input.input_ids[:, 1:], text_input.attention_mask[:, 1:])
+        embedding = self.spmm_embedder(text_input.input_ids[:, 1:], text_input.attention_mask[:, 1:])
+        # embedding = self.layer_norm_1(embedding)
+
         # print('embedding shape: ', embedding.shape)
         return embedding

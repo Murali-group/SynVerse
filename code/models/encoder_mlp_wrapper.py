@@ -86,16 +86,18 @@ class Encoder_MLP_wrapper(nn.Module):
                     if encoder_name=='GCN':
                         # create a list of drug_graphs where in index i, the molecular graph of drug i is present.
                         #TODO check if filtering out the batch_drugs is done properly.
-                        data_list = [drug_feat[feat_name][x] for x in range(len(drug_feat[feat_name].keys()))][batch_drugs]
+                        # data_list = [drug_feat[feat_name][x] for x in range(len(drug_feat[feat_name].keys()))][batch_drugs]
+                        data_list = [drug_feat[feat_name][x] for x in batch_drugs]
                         drug_represenatation.append(self.gcn_encoder(data_list, device))
                         embedded_feat.append(feat_name)
 
                     if encoder_name=='Transformer':
-                        source = drug_feat[feat_name][:,0][batch_drugs]
+                        source = drug_feat[feat_name][batch_drugs,0]
                         drug_represenatation.append(self.transformer_encoder(source))
                         embedded_feat.append(feat_name)
+
                     if encoder_name=='SPMM':
-                        drug_smiles = drug_feat[feat_name][:,0][batch_drugs]
+                        drug_smiles = drug_feat[feat_name][batch_drugs,0]
                         drug_represenatation.append(self.SPMM_encoder(drug_smiles))
                         embedded_feat.append(feat_name)
 
@@ -162,7 +164,6 @@ class Encoder_MLP_wrapper(nn.Module):
 
         drug_embeds = self.drug_encoder_wrap(drug_feat, batch_drugs, device)
         cell_embeds = self.cell_line_encoder_wrap(cell_line_feat, batch_cell_lines, device)
-
 
         x = self.concat_feat(batch_triplets, batch_drugs,batch_cell_lines, drug_embeds, cell_embeds)
         x = x.to(device)

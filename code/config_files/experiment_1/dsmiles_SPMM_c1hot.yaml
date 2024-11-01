@@ -36,8 +36,8 @@ input_settings:
        hp_range: { 'lr': [ 1e-5, 1e-4 ], 'optimizer': [ 'Adam', 'SGD' ] , 'sgd_momentum': [ 0.0, 0.99 ] ,
                    'num_hid_layers': [ 1,3 ] , 'hid_0': [ 64, 2048 ] , 'hid_1': [ 64,2048 ] , 'hid_2': [ 64, 2048 ] ,
                    'in_dropout_rate': [ 0.0, 0.5 ] ,'hid_dropout_rate': [ 0.0, 0.5 ] }
-       hp: { 'hid_0': 107, 'hid_dropout_rate': 0.1979690297048191, 'in_dropout_rate': 0.3484321779065158,
-            'lr': 0.00035603226284629366, 'num_hid_layers': 2, 'optimizer': 'Adam', 'hid_1': 1276 }
+       hp: { 'hid_0': 256, 'hid_1':64,  'hid_dropout_rate': 0.1, 'in_dropout_rate': 0.1,
+            'lr': 0.0001, 'num_hid_layers': 2, 'optimizer': 'Adam' }
 
      drug_encoder:
        - name: 'GCN'
@@ -67,11 +67,11 @@ input_settings:
 
 
   splits:
-    - type: 'leave_drug'
+    - type: 'leave_comb'
       test_frac: 0.2
       n_folds: 5
 
-    - type: 'leave_comb'
+    - type: 'leave_drug'
       test_frac: 0.2
       n_folds: 5
 

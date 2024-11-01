@@ -47,7 +47,7 @@ class Runner(ABC):
         self.model_info = model_info
 
         self.check_freq = 2 #previously ran with 2 , 3
-        self.tolerance = 15 #previously ran with 15, 30
+        self.tolerance = 45 #previously ran with 15, 30
         self.batch_size = int(params.batch_size)
 
         self.result_logger = hpres.json_result_logger(directory=out_file.replace('.txt',''), overwrite=True)
@@ -245,7 +245,7 @@ class Runner(ABC):
 
         # Scheduler to reduce learning rate on plateau
         # TODO: remove after effect of not using scheduler is investigated
-        # scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)
 
         for i in range(int(n_epochs)):
             train_loss = 0
@@ -262,6 +262,16 @@ class Runner(ABC):
                 loss = criterion(outputs, targets_undir.reshape(-1, 1))
                 train_loss += (loss.detach().cpu().numpy())
                 loss.backward()
+
+                #check if gradients are being computed.
+                # for name, param in model.named_parameters():
+                #     if param.grad is None:
+                #         print(f"No gradient for {name}")
+                #     else:
+                #         print(name)
+                for name, param in model.named_parameters():
+                    if param.grad is not None:
+                        wandb.log({f"{name}_grad": param.grad.mean().item()})
                 optimizer.step()
                 # print('batch done')
 
@@ -277,7 +287,7 @@ class Runner(ABC):
 
                     #TODO: remove after effect of not using scheduler is investigated
                     # Step the scheduler with the validation loss
-                    # scheduler.step(val_loss)
+                    scheduler.step(val_loss)
 
                     print('                                   e: ', i, '  val_loss: ', val_loss)
                     f.write(f'\n------------------------------e {i}: val_loss: {val_loss}\n\n')

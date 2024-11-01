@@ -42,7 +42,7 @@ input_settings:
 #            'lr': 0.00035603226284629366, 'num_hid_layers': 2, 'optimizer': 'Adam', 'hid_1': 1276}
 #       hp: { 'hid_0': 107, 'hid_dropout_rate': 0.1979690297048191, 'in_dropout_rate': 0.3484321779065158,
 #           'lr': 0.00035603226284629366, 'num_hid_layers': 2, 'optimizer': 'Adam', 'hid_1': 1276 }
-       hp: { 'num_hid_layers': 3, 'hid_0': 2048,'hid_1': 1024, 'hid_2': 56, 'hid_dropout_rate': 0.1979690297048191, 'in_dropout_rate': 0.3484321779065158,
+       hp: { 'num_hid_layers': 3, 'hid_0': 1024,'hid_1': 512, 'hid_2': 64, 'hid_dropout_rate': 0.1, 'in_dropout_rate': 0.1,
            'lr': 0.00035603226284629366, 'optimizer': 'Adam' }
 
 

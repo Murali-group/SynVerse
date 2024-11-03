@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 def plot_dist(values, prefix='', out_dir=None):
-
+    plt.clf()
     max = int(np.max(values))
     min = int(np.min(values))
 

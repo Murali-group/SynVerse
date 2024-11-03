@@ -111,8 +111,8 @@ def run_SynVerse(inputs, params, **kwargs):
 
         train_df, test_df, drug_2_idx, cell_line_2_idx = wrapper_train_test(copy.deepcopy(synergy_df), split_type, test_frac, split_prefix, force_run=force_split)
         #plot synergy score distribution for train and test set
-        # plot_dist(train_df[score_name], 'train', out_dir=split_prefix)
-        # plot_dist(test_df[score_name], 'test', out_dir=split_prefix)
+        plot_dist(train_df[score_name], 'train', out_dir=split_prefix)
+        plot_dist(test_df[score_name], 'test', out_dir=split_prefix)
 
 
         #split into train_val for n_folds

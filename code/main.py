@@ -3,7 +3,8 @@ import os.path
 import pandas as pd
 from evaluation.split_generalized import *
 from utils import *
-from plot_utils import plot_dist
+from plot_utils import *
+from analysis.statistical_synergy_prediction_model import *
 import types
 import argparse
 from models.encoder_mlp_runner import *
@@ -110,10 +111,12 @@ def run_SynVerse(inputs, params, **kwargs):
         force_split = False
 
         train_df, test_df, drug_2_idx, cell_line_2_idx = wrapper_train_test(copy.deepcopy(synergy_df), split_type, test_frac, split_prefix, force_run=force_split)
-        #plot synergy score distribution for train and test set
-        plot_dist(train_df[score_name], 'train', out_dir=split_prefix)
-        plot_dist(test_df[score_name], 'test', out_dir=split_prefix)
-
+        # #plot synergy score distribution for train and test set
+        # plot_dist(train_df[score_name], 'train', out_dir=split_prefix)
+        # plot_dist(test_df[score_name], 'test', out_dir=split_prefix)
+        if split_type=='leave_comb':
+            statistical_model(train_df, test_df, score_name)
+        # plot_nodewise_train_test_score_dist(train_df, test_df, score_name, out_dir=split_prefix)
 
         #split into train_val for n_folds
         train_idx, val_idx = wrapper_nfold_split(train_df, split_type, n_folds, split_prefix, force_run=force_split)

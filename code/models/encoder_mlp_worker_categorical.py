@@ -91,7 +91,10 @@ class Encode_MLPWorker(Worker):
 
             #********************* Configurations for synergy predicting MLP layer **********************
 
-            num_hid_layers = CSH.CategoricalHyperparameter('num_hid_layers', final_mlp_params['num_hid_layers'])
+            num_hid_layers = CSH.UniformIntegerHyperparameter('num_hid_layers',
+                                                              lower=final_mlp_params['num_hid_layers'][0],
+                                                              upper=final_mlp_params['num_hid_layers'][1],
+                                                              default_value=2)
 
             hid_0 = CSH.CategoricalHyperparameter('hid_0',final_mlp_params['hid_0'])
             hid_1 = CSH.CategoricalHyperparameter('hid_1', final_mlp_params['hid_1'])
@@ -120,7 +123,11 @@ class Encode_MLPWorker(Worker):
             if (drug_encoder['name'] == 'GCN'):
                 batch_norm = CSH.CategoricalHyperparameter('batch_norm', encoder_params['batch_norm'])
                 cs.add_hyperparameters([batch_norm])
-                gnn_num_layers = CSH.CategoricalHyperparameter('gnn_num_layers',encoder_params['gnn_num_layers'])
+
+                gnn_num_layers = CSH.UniformIntegerHyperparameter('gnn_num_layers',
+                                                                  lower=encoder_params['gnn_num_layers'][0],
+                                                                  upper=encoder_params['gnn_num_layers'][1],
+                                                                  default_value=2)
                 gnn_0 = CSH.CategoricalHyperparameter('gnn_0', encoder_params['gnn_0'])
                 gnn_1 = CSH.CategoricalHyperparameter('gnn_1', encoder_params['gnn_1'])
                 gnn_2 = CSH.CategoricalHyperparameter('gnn_2', encoder_params['gnn_2'])
@@ -131,7 +138,10 @@ class Encode_MLPWorker(Worker):
                 cond = CS.GreaterThanCondition(gnn_2, gnn_num_layers, 2)
                 cs.add_condition(cond)
                 #needs a/multiple feed forward layer as well
-                ff_num_layers = CSH.CategoricalHyperparameter('ff_num_layers', encoder_params['ff_num_layers'])
+                ff_num_layers = CSH.UniformIntegerHyperparameter('ff_num_layers',
+                                                                 lower=encoder_params['ff_num_layers'][0],
+                                                                 upper=encoder_params['ff_num_layers'][1],
+                                                                 default_value=2)
                 ff_0 = CSH.CategoricalHyperparameter('ff_0', encoder_params['ff_0'])
                 ff_1 = CSH.CategoricalHyperparameter('ff_1', encoder_params['ff_1'])
                 ff_2 = CSH.CategoricalHyperparameter('ff_2', encoder_params['ff_2'])

@@ -269,9 +269,11 @@ class Runner(ABC):
                 #         print(f"No gradient for {name}")
                 #     else:
                 #         print(name)
-                for name, param in model.named_parameters():
-                    if param.grad is not None:
-                        wandb.log({f"{name}_grad": param.grad.mean().item()})
+                if is_wandb:
+                    for name, param in model.named_parameters():
+                        if param.grad is not None:
+                            wandb.log({f"{name}_grad": param.grad.mean().item()})
+
                 optimizer.step()
                 # print('batch done')
 

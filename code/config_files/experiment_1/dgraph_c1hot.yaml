@@ -37,7 +37,7 @@ input_settings:
     decoder:
       name: 'MLP'
       hp_range: { 'lr': [ 1e-5, 1e-3 ], 'optimizer': [ 'Adam', 'SGD' ] , 'sgd_momentum': [ 0.5, 0.99 ] ,
-                  'num_hid_layers': [ 1,2,3,4 ] , 'hid_0': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
+                  'num_hid_layers': [ 1,4 ] , 'hid_0': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
                   'hid_1': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
                   'hid_2': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
                   'hid_3': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
@@ -52,9 +52,9 @@ input_settings:
       - name: 'GCN'
         #         hp_range: { 'batch_norm': [ True, False ], 'gnn_num_layers': [ 1,3 ], 'gnn_0': [ 64, 2048 ] ,'gnn_1': [ 64, 2048 ],'gnn_2': [ 64, 2048 ] ,
         #                     'ff_num_layers': [ 1,3 ], 'ff_0': [ 16, 2048 ] , 'ff_1': [ 16, 2048 ] , 'ff_2': [ 16, 2048 ] , 'gnn_dropout': [ 0.0,0.5 ] } #ran with these setup in arc before Nob 4, 2024.
-        hp_range: { 'batch_norm': [ True, False ], 'gnn_num_layers': [ 1, 2, 3 ], 'gnn_0': [ 64, 128, 256, 512, 1024, 2048, 4096 ] ,'gnn_1': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
+        hp_range: { 'batch_norm': [ True, False ], 'gnn_num_layers': [ 1, 3 ], 'gnn_0': [ 64, 128, 256, 512, 1024, 2048, 4096 ] ,'gnn_1': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
                     'gnn_2': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
-                    'ff_num_layers': [ 1,2,3 ], 'ff_0': [ 64, 128, 256, 512, 1024, 2048, 4096 ] , 'ff_1': [ 64, 128, 256, 512, 1024, 2048, 4096 ] , 'ff_2': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
+                    'ff_num_layers': [ 1,3 ], 'ff_0': [ 64, 128, 256, 512, 1024, 2048, 4096 ] , 'ff_1': [ 64, 128, 256, 512, 1024, 2048, 4096 ] , 'ff_2': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
                     'gnn_dropout': [ 0.0,0.5 ] }
 
         hp: { 'batch_norm': True, 'gnn_num_layers': 2 ,'gnn_0': 512 ,'gnn_1': 128,
@@ -67,22 +67,17 @@ input_settings:
   batch_size: 2048
 
   splits:
-
     - type: 'leave_drug'
       test_frac: 0.2
       n_folds: 5
-
 
     - type: 'leave_comb'
       test_frac: 0.2
       n_folds: 5
 
-
     - type: 'leave_cell_line'
       test_frac: 0.2
       n_folds: 5
-
-
   wandb:
     enabled: False
     token: 'd9462b91edea6523563900fab17134d7e9177e16'

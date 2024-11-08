@@ -99,14 +99,11 @@ class Encode_MLPWorker(Worker):
             hid_0 = CSH.CategoricalHyperparameter('hid_0',final_mlp_params['hid_0'])
             hid_1 = CSH.CategoricalHyperparameter('hid_1', final_mlp_params['hid_1'])
             hid_2 = CSH.CategoricalHyperparameter('hid_2', final_mlp_params['hid_2'])
-            hid_3 = CSH.CategoricalHyperparameter('hid_3', final_mlp_params['hid_3'])
-            cs.add_hyperparameters([num_hid_layers, hid_0, hid_1, hid_2, hid_3])
+            cs.add_hyperparameters([num_hid_layers, hid_0, hid_1, hid_2])
             # add conditions so that hid_2 will be considered when num_hid_layers>1 and so on.
             cond = CS.GreaterThanCondition(hid_1, num_hid_layers, 1)
             cs.add_condition(cond)
             cond = CS.GreaterThanCondition(hid_2, num_hid_layers, 2)
-            cs.add_condition(cond)
-            cond = CS.GreaterThanCondition(hid_3, num_hid_layers, 3)
             cs.add_condition(cond)
             in_dropout_rate = CSH.UniformFloatHyperparameter('in_dropout_rate', lower=final_mlp_params['in_dropout_rate'][0],
                                     upper=final_mlp_params['in_dropout_rate'][1], default_value=0.5,log=False)

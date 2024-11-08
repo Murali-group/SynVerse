@@ -180,7 +180,8 @@ class Runner(ABC):
             torch.save(best_model_state, model_file)
 
             #save train_loss
-            loss_file = self.out_file.replace('.txt', '_train_loss.txt')
+            # loss_file = self.out_file.replace('.txt', '_train_loss.txt')
+            loss_file = self.out_file.replace('.txt', '_loss.txt')
             with open(loss_file, 'w') as file:
                 file.write(f'Best config: {config}\n\n')
                 file.write(f'Number of epochs: {best_n_epochs}\n\n')
@@ -244,8 +245,7 @@ class Runner(ABC):
         idle_epochs = 0
 
         # Scheduler to reduce learning rate on plateau
-        # TODO: remove after effect of not using scheduler is investigated
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10, verbose=True)
 
         for i in range(int(n_epochs)):
             train_loss = 0
@@ -275,7 +275,6 @@ class Runner(ABC):
                             wandb.log({f"{name}_grad": param.grad.mean().item()})
 
                 optimizer.step()
-                # print('batch done')
 
             train_loss = train_loss / len(train_loader)
             print('e: ', i, '  train_loss: ', train_loss)
@@ -287,7 +286,6 @@ class Runner(ABC):
                     val_loss = self.eval_model(model, val_loader, criterion, device)
                     model.train()
 
-                    #TODO: remove after effect of not using scheduler is investigated
                     # Step the scheduler with the validation loss
                     scheduler.step(val_loss)
 
@@ -381,10 +379,10 @@ class Runner(ABC):
         print('test loss: ', test_loss)
         # save test loss result
 
-        out_file =self.out_file.replace('.txt', '_test_loss.txt')
-        with open(out_file, 'w') as file:
-            file.write(f'Best config: {config}\n\n')
-            file.write(f'Number of epochs: {best_n_epochs}\n\n')
+        out_file =self.out_file.replace('.txt', '_loss.txt')
+        with open(out_file, 'a') as file:
+            # file.write(f'Best config: {config}\n\n')
+            # file.write(f'Number of epochs: {best_n_epochs}\n\n')
             file.write(f'test_loss: {test_loss}\n\n')
 
         file.close()

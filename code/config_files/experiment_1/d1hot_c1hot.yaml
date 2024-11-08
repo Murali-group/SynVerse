@@ -35,46 +35,39 @@ input_settings:
   models:
      decoder:
        name: 'MLP'
-       hp_range: { 'lr': [ 1e-5, 1e-3 ], 'optimizer': [ 'Adam', 'SGD' ] , 'sgd_momentum': [ 0.0, 0.99 ] ,
-                   'num_hid_layers': [ 1,3 ] , 'hid_0': [ 64, 2048 ] , 'hid_1': [ 64,2048 ] , 'hid_2': [ 64, 2048 ] ,
+       hp_range: { 'lr': [ 1e-5, 1e-3 ], 'optimizer': [ 'Adam', 'SGD' ] , 'sgd_momentum': [ 0.5, 0.99 ] ,
+                   'num_hid_layers': [ 1,3 ] ,
+                   'hid_0': [ 128, 256, 512, 1024, 2048 ],
+                   'hid_1': [ 128, 256, 512, 1024, 2048 ],
+                   'hid_2': [ 128, 256, 512, 1024, 2048 ],
                    'in_dropout_rate': [ 0.0, 0.5 ] ,'hid_dropout_rate': [ 0.0, 0.5 ] }
-#       hp: {'hid_0': 107, 'hid_dropout_rate': 0.1, 'in_dropout_rate': 0.1,
-#            'lr': 0.00035603226284629366, 'num_hid_layers': 2, 'optimizer': 'Adam', 'hid_1': 1276}
-#       hp: { 'hid_0': 107, 'hid_dropout_rate': 0.1979690297048191, 'in_dropout_rate': 0.3484321779065158,
-#           'lr': 0.00035603226284629366, 'num_hid_layers': 2, 'optimizer': 'Adam', 'hid_1': 1276 }
-       hp: { 'num_hid_layers': 3, 'hid_0': 1024,'hid_1': 512, 'hid_2': 64, 'hid_dropout_rate': 0.1, 'in_dropout_rate': 0.1,
-           'lr': 0.00035603226284629366, 'optimizer': 'Adam' }
 
+       hp: {'num_hid_layers': 2, 'hid_0': 512, 'hid_1': 1024, 'hid_dropout_rate': 0.1, 'in_dropout_rate': 0.1,
+            'lr': 0.00035603226284629366,  'optimizer': 'Adam'}
 
-     drug_encoder:
-       - name: 'GCN'
-         hp_range: { 'batch_norm': [ True, False ], 'gnn_num_layers': [ 1,3 ], 'gnn_0': [ 64, 2048 ] ,'gnn_1': [ 64, 2048 ],'gnn_2': [ 64, 2048 ] ,
-                     'ff_num_layers': [ 1,3 ], 'ff_0': [ 64, 2048 ] , 'ff_1': [ 64, 2048 ] , 'ff_2': [ 64, 2048 ] , 'gnn_dropout': [ 0.0,0.5 ] }
-         hp: { 'batch_norm': True, 'gnn_num_layers': 2 ,'gnn_0': 512 ,'gnn_1': 128,
-               'ff_num_layers': 1, 'ff_0': 128, 'gnn_dropout': 0.3 }
-
-       - name: 'Transformer'
-         hp_range: { 'transformer_batch_norm': [ True, False ], 'transformer_num_layers': [ 2, 3, 4 ] ,'transformer_embedding_dim': [ 32, 64, 128, 256, 512 ] ,
-                     'transformer_n_head': [ 4, 8 ], 'transformer_ff_num_layers': [ 32, 64, 128, 256, 512, 1024 ], 'max_seq_length': [ 120 ],
-                     'positional_encoding_type': [ 'learnable', 'fixed' ] }
-         hp: { 'transformer_batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 128 , #512 worked
-               'transformer_n_head': 4, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }
+     drug_encoder: null
      cell_encoder: null
+
+  batch_size: 2048
   epochs: 1000
-#  batch_size: 512
 
 
   splits:
-    - type: 'leave_comb'
+
+    - type: 'leave_drug'
       test_frac: 0.2
+      val_frac: 0.25
       n_folds: 5
-#
-#    - type: 'leave_drug'
+
+#    - type: 'leave_comb'
 #      test_frac: 0.2
+#      val_frac: 0.25
 #      n_folds: 5
-#
+
+
 #    - type: 'leave_cell_line'
 #      test_frac: 0.2
+#    val_frac: 0.25
 #      n_folds: 5
 
 

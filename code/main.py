@@ -1,7 +1,7 @@
 import copy
 import os.path
 import pandas as pd
-from evaluation.split_generalized import *
+from evaluation.split import *
 from utils import *
 from plot_utils import *
 from analysis.statistical_synergy_prediction_model import *
@@ -28,7 +28,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/dsmiles_SPMM_c1hot.yaml",
+                       "config_files/experiment_1/debug.yaml",
                        help="Configuration file for this script.")
 
     group.add_argument('--feat', type=str,
@@ -90,87 +90,86 @@ def run_SynVerse(inputs, params, **kwargs):
 
 
     ''' prepare split'''
-    for split in splits:
-        split_type = split['type']
-        n_folds = split['n_folds']
-        test_frac = split['test_frac']
-        print('SPLIT: ', split_type)
+    for run_no in range(5):
+        for split in splits:
+            split_type = split['type']
+            # n_folds = split['n_folds']
+            test_frac = split['test_frac']
+            val_frac = split['val_frac']
+            print('SPLIT: ', split_type)
 
-        #if user defined split type is present as kwargs param, then only the split types common between config and kwargs param
-        #will run.
-        udef_split_types = kwargs.get('split')
-        if udef_split_types is not None:
-            udef_split_types = udef_split_types.split(' ')
-            if split_type not in udef_split_types: #do not run split type not present in kwargs param
-                continue
+            #if user defined split type is present as kwargs param, then only the split types common between config and kwargs param
+            #will run.
+            udef_split_types = kwargs.get('split')
+            if udef_split_types is not None:
+                udef_split_types = udef_split_types.split(' ')
+                if split_type not in udef_split_types: #do not run split type not present in kwargs param
+                    continue
 
-        #split into train test
-        split_feat_str = get_feat_prefix(dfeat_dict, cfeat_dict)
-        split_prefix = split_dir + f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{n_folds}/'
+            split_feat_str = get_feat_prefix(dfeat_dict, cfeat_dict)
+            # split_prefix = split_dir + f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{n_folds}/run_{run_no}/'
+            split_prefix = split_dir + f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/'
 
-        force_split = False
 
-        train_df, test_df, drug_2_idx, cell_line_2_idx = wrapper_train_test(copy.deepcopy(synergy_df), split_type, test_frac, split_prefix, force_run=force_split)
-        # #plot synergy score distribution for train and test set
-        # plot_dist(train_df[score_name], 'train', out_dir=split_prefix)
-        # plot_dist(test_df[score_name], 'test', out_dir=split_prefix)
-        if split_type=='leave_comb':
-            statistical_model(train_df, test_df, score_name)
-        # plot_nodewise_train_test_score_dist(train_df, test_df, score_name, out_dir=split_prefix)
+            force_split = False
 
-        #split into train_val for n_folds
-        train_idx, val_idx = wrapper_nfold_split(train_df, split_type, n_folds, split_prefix, force_run=force_split)
+            #split into train test val
+            test_df, all_train_df, train_idx, val_idx, drug_2_idx, cell_line_2_idx = wrapper_test_train_val(copy.deepcopy(synergy_df), split_type, test_frac, val_frac, split_prefix, seed=run_no, force_run=force_split)
 
-        #convert feature dataframes into numpy arrays while in the array row i corresponds to the drug with numerical idx i
-        cur_dfeat_dict = copy.deepcopy(dfeat_dict)
-        cur_cfeat_dict = copy.deepcopy(cfeat_dict)
-        #TODO make sure that tokenized smiles is an array.
-        cur_dfeat_dict['value'], cur_cfeat_dict['value'] = get_index_sorted_feature_matrix(cur_dfeat_dict['value'], drug_2_idx,
-                                               cur_cfeat_dict['value'], cell_line_2_idx)
+            # #plot synergy score distribution for train and test set
+            # plot_dist(all_train_df[score_name], 'train', out_dir=split_prefix)
+            # plot_dist(test_df[score_name], 'test', out_dir=split_prefix)
 
-        #Normalize data based on training data. Use the mean, std from training data to normalize test data.
-        cur_dfeat_dict['value'], cur_cfeat_dict['value'] = normalization_wrapper(cur_dfeat_dict['value'], cur_cfeat_dict['value'],
-                                                                    cur_dfeat_dict['norm'], cur_cfeat_dict['norm'], train_df)
+            #convert feature dataframes into numpy arrays while in the array row i corresponds to the drug with numerical idx i
+            cur_dfeat_dict = copy.deepcopy(dfeat_dict)
+            cur_cfeat_dict = copy.deepcopy(cfeat_dict)
+            #TODO make sure that tokenized smiles is an array.
+            cur_dfeat_dict['value'], cur_cfeat_dict['value'] = get_index_sorted_feature_matrix(cur_dfeat_dict['value'], drug_2_idx,
+                                                   cur_cfeat_dict['value'], cell_line_2_idx)
 
-        for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:
-            print('drug and cell line features in use: ', select_drug_feat, select_cell_feat)
+            #Normalize data based on training data. Use the mean, std from training data to normalize test data.
+            cur_dfeat_dict['value'], cur_cfeat_dict['value'] = normalization_wrapper(cur_dfeat_dict['value'], cur_cfeat_dict['value'],
+                                                                        cur_dfeat_dict['norm'], cur_cfeat_dict['norm'], all_train_df)
 
-            # only keep the selected drug and cell feature for training and further analysis
-            select_dfeat_dict = keep_selected_feat(cur_dfeat_dict, select_drug_feat)
-            select_cfeat_dict = keep_selected_feat(cur_cfeat_dict, select_cell_feat)
-            # depending on the selected encoders modify the model architecture here.
-            select_model_info = get_select_model_info(model_info, select_dfeat_dict['encoder'],
-                                                      select_cfeat_dict['encoder'])
+            for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:
+                print('drug and cell line features in use: ', select_drug_feat, select_cell_feat)
 
-            hyperparam = combine_hyperparams(select_model_info)
-            best_n_epochs = params.epochs
+                # only keep the selected drug and cell feature for training and further analysis
+                select_dfeat_dict = keep_selected_feat(cur_dfeat_dict, select_drug_feat)
+                select_cfeat_dict = keep_selected_feat(cur_cfeat_dict, select_cell_feat)
+                # depending on the selected encoders modify the model architecture here.
+                select_model_info = get_select_model_info(model_info, select_dfeat_dict['encoder'],
+                                                          select_cfeat_dict['encoder'])
 
-            out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type, split_feat_str=split_feat_str)
+                hyperparam = combine_hyperparams(select_model_info)
+                best_n_epochs = params.epochs
 
-            # out_file_prefix = params.out_dir+'/test.txt'
-            kwargs['split_type'] = split_type
-            runner = Encode_MLP_runner(train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict, score_name,
-                     out_file_prefix, params, select_model_info, device, **kwargs)
+                out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type, split_feat_str=split_feat_str, run_no=run_no)
 
-            if params.mode == 'hp_tune':
-                # find best hyperparam setup
-                hyperparam, best_n_epochs = runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
-                # train the model with best hyperparam and both train and validation dataset
-                trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
-                # evaluate model on test data
-                test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
+                # out_file_prefix = params.out_dir+'/test.txt'
+                kwargs['split_type'] = split_type
+                runner = Encode_MLP_runner(all_train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict, score_name,
+                         out_file_prefix, params, select_model_info, device, **kwargs)
 
-            if (params.mode== 'train_val') or (params.mode=='debug') :
-                trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs,
-                                                                                  validation=True)
-            if (params.mode == 'train') or (params.mode== 'debug'):
-                # train the model with best hyperparam and both train and validation dataset
-                trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
-                # evaluate model on test data
-                test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
+                if params.mode == 'hp_tune':
+                    # find best hyperparam setup
+                    hyperparam, best_n_epochs = runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
+                    # train the model with best hyperparam and both train and validation dataset
+                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
+                    # evaluate model on test data
+                    test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
 
-        del cur_dfeat_dict
-        del cur_cfeat_dict
+                if (params.mode== 'train_val') or (params.mode=='debug') :
+                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs,
+                                                                                      validation=True)
+                if (params.mode == 'train') or (params.mode=='debug'):
+                    # train the model with best hyperparam and both train and validation dataset
+                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
+                    # evaluate model on test data
+                    test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
+
+            del cur_dfeat_dict
+            del cur_cfeat_dict
 def main(config_map, **kwargs):
 
     if 'snakemake' in globals():

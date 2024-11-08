@@ -8,7 +8,6 @@ torch.set_default_dtype(torch.float64)
 
 from models.encoders.drug.gcn_encoder import GCN_Encoder
 from models.encoders.drug.transformer_encoder import Transformer_Encoder
-from models.encoders.drug.spmm_encoder import SPMM_Encoder
 
 from models.decoders.mlp import MLP
 

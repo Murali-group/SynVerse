@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-import math
-from xbert import BertConfig, BertForMaskedLM
+from models.pretrained.xbert import BertConfig, BertForMaskedLM
 from transformers import BertTokenizer, WordpieceTokenizer
 
 

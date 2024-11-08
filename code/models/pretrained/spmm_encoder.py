@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
+import math
 from models.pretrained.xbert import BertConfig, BertForMaskedLM
 from transformers import BertTokenizer, WordpieceTokenizer
 
 
 class SPMM_embedder(nn.Module):
-    def __init__(self, tokenizer=None, config=Nne):
+    def __init__(self, tokenizer=None, config=None):
         super().__init__()
         self.tokenizer = tokenizer
         # bert_config = BertConfig.from_json_file(config['bert_config_text'])

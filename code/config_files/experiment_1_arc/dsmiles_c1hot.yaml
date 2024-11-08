@@ -67,15 +67,18 @@ input_settings:
   splits:
     - type: 'leave_comb'
       test_frac: 0.2
-      n_folds: 5
+      val_frac: 0.25
+#      n_folds: 5
 
     - type: 'leave_drug'
       test_frac: 0.2
-      n_folds: 5
+      val_frac: 0.25
+#      n_folds: 5
 
     - type: 'leave_cell_line'
       test_frac: 0.2
-      n_folds: 5
+      val_frac: 0.25
+#      n_folds: 5
 
 
   wandb:

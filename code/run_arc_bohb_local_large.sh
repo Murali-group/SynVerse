@@ -4,7 +4,7 @@
 #SBATCH -N 1  # this requests 1 node
 #SBATCH --ntasks=1
 #SBATCH -t 0-72:00:00
-#SBATCH --mem=120G
+#SBATCH --mem=80G
 #SBATCH --exclusive
 #SBATCH --gres=gpu:1
 #SBATCH --account=synverse # give the account /project here

@@ -41,8 +41,8 @@ input_settings:
                    'hid_2': [ 64, 128, 256, 512, 1024, 2048 ],
                    'in_dropout_rate': [ 0.0, 0.5 ] ,'hid_dropout_rate': [ 0.0, 0.5 ] }
 
-       hp: {'hid_0': 1077, 'hid_dropout_rate': 0.2697798807963333, 'in_dropout_rate': 0.17927761184927016, 'lr': 0.000016381808734015385,
-              'num_hid_layers': 2, 'optimizer': 'Adam', 'hid_1': 113}
+       hp: {'hid_0': 1024, 'hid_dropout_rate': 0.4, 'in_dropout_rate': 0.3, 'lr': 0.00001,
+              'num_hid_layers': 2, 'optimizer': 'Adam', 'hid_1': 256}
 
      drug_encoder:
        - name: 'GCN'
@@ -60,7 +60,7 @@ input_settings:
                'transformer_n_head': 4, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }
 
 
-  batch_size: 2048
+  batch_size: 4096
   epochs: 1000
 
 

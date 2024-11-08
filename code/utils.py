@@ -261,7 +261,7 @@ def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=
 def create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type, split_feat_str='', run_no=None):
     dir_prefix = f"{params.out_dir}/k_{params.abundance}/{split_type}/"
     if run_no is not None:
-        dir_prefix=dir_prefix+'/'+str(run_no)
+        dir_prefix=dir_prefix+'/run_'+str(run_no)
     feat_model_prefix = get_feat_prefix(select_dfeat_dict, select_cfeat_dict, mention_norm=True, mention_encoder=True, mention_preprocess=True)
 
     if feat_model_prefix == 'D_d1hot_C_c1hot': #when only 1hot feature is being used then we should keep track of which split it is running on as well

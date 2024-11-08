@@ -1,12 +1,12 @@
 import torch
 import torch.nn as nn
 import math
-from models.encoders.drug.xbert import BertConfig, BertForMaskedLM
+from xbert import BertConfig, BertForMaskedLM
 from transformers import BertTokenizer, WordpieceTokenizer
 
 
 class SPMM_embedder(nn.Module):
-    def __init__(self, tokenizer=None, config=None):
+    def __init__(self, tokenizer=None, config=Nne):
         super().__init__()
         self.tokenizer = tokenizer
         # bert_config = BertConfig.from_json_file(config['bert_config_text'])

@@ -41,8 +41,8 @@ input_settings:
                    'hid_2': [ 64, 128, 256, 512, 1024, 2048 ],
                    'in_dropout_rate': [ 0.0, 0.5 ] ,'hid_dropout_rate': [ 0.0, 0.5 ] }
 
-       hp: {'hid_0': 1077, 'hid_dropout_rate': 0.2697798807963333, 'in_dropout_rate': 0.17927761184927016, 'lr': 0.00016381808734015385,
-              'num_hid_layers': 2, 'optimizer': 'SGD', 'hid_1': 113, 'sgd_momentum': 0.21730082740135556}
+       hp: {'hid_0': 1077, 'hid_dropout_rate': 0.2697798807963333, 'in_dropout_rate': 0.17927761184927016, 'lr': 0.000016381808734015385,
+              'num_hid_layers': 2, 'optimizer': 'Adam', 'hid_1': 113}
 
      drug_encoder:
        - name: 'GCN'

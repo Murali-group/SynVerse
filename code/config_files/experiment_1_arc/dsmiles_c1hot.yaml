@@ -41,7 +41,7 @@ input_settings:
                    'hid_2': [ 64, 128, 256, 512, 1024, 2048 ],
                    'in_dropout_rate': [ 0.0, 0.5 ] ,'hid_dropout_rate': [ 0.0, 0.5 ] }
 
-       hp: {'hid_0': 1024, 'hid_dropout_rate': 0.4, 'in_dropout_rate': 0.3, 'lr': 0.00001,
+       hp: {'hid_0': 1024, 'hid_dropout_rate': 0.4, 'in_dropout_rate': 0.3, 'lr': 0.00005,
               'num_hid_layers': 2, 'optimizer': 'Adam', 'hid_1': 256}
 
      drug_encoder:

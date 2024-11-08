@@ -5,7 +5,6 @@ import torch
 
 #***************************************************** FEATURE PREP ************************
 
-
 def get_vocab_smiles(smiles_df):
     # Create a vocabulary of characters
     vocab = sorted(set(''.join(smiles_df['smiles'].values)))

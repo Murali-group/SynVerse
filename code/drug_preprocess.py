@@ -69,9 +69,7 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
 
         if dfeat_dict['encoder'].get('smiles')=='Transformer':
             smiles_df, vocab_size = get_vocab_smiles(smiles_df)
-
-            #TODO check what is the effect of commenting out vocab_size as dim
-            # dfeat_dict['dim']['smiles'] = vocab_size
+            dfeat_dict['dim']['smiles'] = vocab_size
             dfeat_dict['value']['smiles'] = smiles_df[['pid', 'tokenized']]
 
         elif dfeat_dict['encoder'].get('smiles') == 'SPMM':

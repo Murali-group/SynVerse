@@ -5,6 +5,7 @@ import datetime
 from abc import ABC, abstractmethod
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from datetime import datetime
 
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB as BOHB
@@ -81,6 +82,8 @@ class Runner(ABC):
             NS.start()
 
             # Step 2: Start a worker #Nure: Model specific
+            formatted_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            run_id = f'{run_id}_{formatted_time}'
             w = self.worker_cls(self, sleep_interval=0, nameserver=name_server, run_id=run_id)
             w.run(background=True)
 
@@ -221,7 +224,7 @@ class Runner(ABC):
 
         # Generate a dynamic run name
         eastern = pytz.timezone(self.wandb.timezone)
-        run_name = f"run-{self.split_type}-{fold}-{datetime.datetime.now(eastern).strftime(self.wandb.timezone_format)}"
+        run_name = f"run-{self.split_type}-{fold}-{datetime.now(eastern).strftime(self.wandb.timezone_format)}"
         wandb.init(project=self.wandb.project_name, entity=self.wandb.entity_name, name=run_name)
         wandb.watch(model, log="all")
 

@@ -82,7 +82,7 @@ class Runner(ABC):
             NS.start()
 
             # Step 2: Start a worker #Nure: Model specific
-            formatted_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            formatted_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
             run_id = f'{run_id}_{formatted_time}'
             w = self.worker_cls(self, sleep_interval=0, nameserver=name_server, run_id=run_id)
             w.run(background=True)

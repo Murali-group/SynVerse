@@ -8,6 +8,7 @@ from analysis.statistical_synergy_prediction_model import *
 import types
 import argparse
 from models.encoder_mlp_runner import *
+from train_ae import *
 from cell_line_preprocess import *
 from drug_preprocess import *
 from network_algorithms.rwr_runner import *
@@ -19,7 +20,6 @@ def parse_args():
     with open(args.config, 'r') as conf:
         # config_map = yaml.load(conf, Loader=yaml.FullLoader)
         config_map = yaml.safe_load(conf)
-
     return config_map, kwargs
 
 def setup_opts():
@@ -28,9 +28,8 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/dsmiles_c1hot.yaml",
+                       "config_files/experiment_1/d1hot_fingerprint_graph_smiles_c1hot.yaml",
                        help="Configuration file for this script.")
-
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space.")
     group.add_argument('--split', type=str,
@@ -43,7 +42,6 @@ def setup_opts():
                         'The valid interface names for VT arc is among: [lo, eno1, enp33s0f0, eno2, enp33s0f1, ib0]')
     group.add_argument('--shared_directory', type=str,
                         help='A directory that is accessible for all processes, e.g. a NFS share.')
-
     return parser
 
 
@@ -71,7 +69,7 @@ def run_SynVerse(inputs, params, **kwargs):
     dfeat_dict, dfeat_names = prepare_drug_features(drug_features, drug_pids, params, inputs, device)
 
     ''' Read parsed cell line features and do user-chosen filtering and preprocessing.'''
-    cfeat_dict, cfeat_names = prepare_cell_line_features(cell_line_features, cell_line_names, params, inputs, device)
+    cfeat_dict, cfeat_names = prepare_cell_line_features(cell_line_features, cell_line_names, inputs)
 
     '''Filter out the triplets based on the availability of drug and cell line features'''
     synergy_df = feature_based_filtering(synergy_df, dfeat_dict['value'], cfeat_dict['value'], params.feature)
@@ -108,13 +106,14 @@ def run_SynVerse(inputs, params, **kwargs):
 
             split_feat_str = get_feat_prefix(dfeat_dict, cfeat_dict)
             # split_prefix = split_dir + f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{n_folds}/run_{run_no}/'
-            split_prefix = split_dir + f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/'
+            split_info_str = f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/'
+            split_file_path = split_dir + f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/'
 
 
             force_split = False
 
             #split into train test val
-            test_df, all_train_df, train_idx, val_idx, drug_2_idx, cell_line_2_idx = wrapper_test_train_val(copy.deepcopy(synergy_df), split_type, test_frac, val_frac, split_prefix, seed=run_no, force_run=force_split)
+            test_df, all_train_df, train_idx, val_idx, drug_2_idx, cell_line_2_idx = wrapper_test_train_val(copy.deepcopy(synergy_df), split_type, test_frac, val_frac, split_file_path, seed=run_no, force_run=force_split)
 
             # #plot synergy score distribution for train and test set
             # plot_dist(all_train_df[score_name], 'train', out_dir=split_prefix)
@@ -127,9 +126,21 @@ def run_SynVerse(inputs, params, **kwargs):
             cur_dfeat_dict['value'], cur_cfeat_dict['value'] = get_index_sorted_feature_matrix(cur_dfeat_dict['value'], drug_2_idx,
                                                    cur_cfeat_dict['value'], cell_line_2_idx)
 
-            #Normalize data based on training data. Use the mean, std from training data to normalize test data.
+            #Normalize data based on training data. Use the computed mean, std from training data to normalize test data.
             cur_dfeat_dict['value'], cur_cfeat_dict['value'] = normalization_wrapper(cur_dfeat_dict['value'], cur_cfeat_dict['value'],
                                                                         cur_dfeat_dict['norm'], cur_cfeat_dict['norm'], all_train_df)
+
+            # Reduce dimension of data or compress data using autoenencoder
+            train_drug_idx = list(set(all_train_df['source']).union(set(all_train_df['target'])))
+            train_cell_idx = list(set(all_train_df['edge_type']).union(set(all_train_df['edge_type'])))
+
+            cur_dfeat_dict['value'], cur_dfeat_dict['dim'] = autoencoder_wrapper(cur_dfeat_dict['value'],cur_dfeat_dict['dim'], cur_dfeat_dict['compress'],
+                                                          train_drug_idx, hidden_dim_options=params.autoencoder_dims, epoch=500,
+                                                          file_prefix=f'{params.input_dir}/drug/{split_info_str}/', device=device, force_run=force_split)
+            cur_cfeat_dict['value'], cur_cfeat_dict['dim'] = autoencoder_wrapper(cur_cfeat_dict['value'], cur_cfeat_dict['dim'], cur_cfeat_dict['compress'],
+                                                          train_cell_idx, hidden_dim_options=params.autoencoder_dims, epoch=500,
+                                                          file_prefix=f'{params.input_dir}/cell-line/{split_info_str}/',
+                                                          device=device, force_run=force_split)
 
             for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:
                 print('drug and cell line features in use: ', select_drug_feat, select_cell_feat)
@@ -138,8 +149,7 @@ def run_SynVerse(inputs, params, **kwargs):
                 select_dfeat_dict = keep_selected_feat(cur_dfeat_dict, select_drug_feat)
                 select_cfeat_dict = keep_selected_feat(cur_cfeat_dict, select_cell_feat)
                 # depending on the selected encoders modify the model architecture here.
-                select_model_info = get_select_model_info(model_info, select_dfeat_dict['encoder'],
-                                                          select_cfeat_dict['encoder'])
+                select_model_info = get_select_model_info(model_info, select_dfeat_dict['encoder'], select_cfeat_dict['encoder'])
 
                 hyperparam = combine_hyperparams(select_model_info)
                 best_n_epochs = params.epochs
@@ -189,6 +199,7 @@ def main(config_map, **kwargs):
         inputs.drug_smiles_file = input_dir + 'drug/smiles.tsv'
         inputs.drug_graph_file = input_dir + 'drug/molecular_graph.pickle'
         inputs.drug_target_file = input_dir + 'drug/target.tsv'
+
         inputs.vocab = input_dir + 'drug/vocab_bpe_300.txt'
         inputs.spmm_checkpoint = input_dir + 'drug/pretrain/checkpoint_SPMM.ckpt'
 
@@ -200,6 +211,7 @@ def main(config_map, **kwargs):
         params.cell_line_features = config_map['input_settings']['cell_line_features']
         params.models = config_map['input_settings']['models']
         params.epochs = config_map['input_settings']['epochs']
+        params.autoencoder_dims = [[1024, 512], [512, 256], [256, 128], [256, 64]]
 
         params.splits = config_map['input_settings']['splits']
         params.feature = config_map['input_settings']['feature']
@@ -211,6 +223,7 @@ def main(config_map, **kwargs):
         params.wandb = types.SimpleNamespace(**input_settings.get('wandb', {}))
         params.bohb = config_map['input_settings']['bohb']
         params.drug_chemprop_dir = input_dir + '/drug/chemprop/'
+        params.input_dir= input_dir
         params.out_dir = output_dir
         params.split_dir = input_dir + 'splits'
         run_SynVerse(inputs, params, **kwargs)

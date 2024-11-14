@@ -171,7 +171,7 @@ def find_drug_cell_feat_combs(drug_feat_combs, cell_feat_combs):
 
 
 def keep_selected_feat(feat_dict, selected_feat):
-    fields = ['norm', 'preprocess', 'filter', 'encoder', 'value', 'dim', 'use']  # for each feature we can have these fields.
+    fields = ['norm', 'preprocess', 'filter', 'encoder', 'value', 'dim', 'use','compress']  # for each feature we can have these fields.
     select_feat_dict = {field: {} for field in fields}
 
     for field in fields:
@@ -198,7 +198,7 @@ def keep_selected_feat(feat_dict, selected_feat):
 
 
 
-def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=False, mention_preprocess=False):
+def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=False, mention_preprocess=False, mention_compress=False):
     dfeat_names = list(dfeat_dict['value'].keys())
     dfeat_names.sort() #sorting so that irrespective of the order of features in the config, the prefix remains same.
 
@@ -229,7 +229,13 @@ def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=
             norm_str = f"_{norm_str}" if norm_str else norm_str
         else:
             norm_str=''
-        dfeat_str = dfeat_str + f'{feat_name}{filter_str}{norm_str}{pp_str}{encoder_str}_'
+
+        if mention_compress:
+            comp_str = dfeat_dict['compress'].get(feat_name, '')
+            comp_str = f"_comp_{comp_str}" if comp_str else comp_str
+        else:
+            comp_str = ''
+        dfeat_str = dfeat_str + f'{feat_name}{filter_str}{norm_str}{pp_str}{comp_str}{encoder_str}_'
 
     for feat_name in cfeat_names:
 
@@ -252,8 +258,13 @@ def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=
             norm_str = f"_{norm_str}" if norm_str else norm_str
         else:
             norm_str=''
+        if mention_compress:
+            comp_str = cfeat_dict['compress'].get(feat_name, '')
+            comp_str = f"_comp_{comp_str}" if comp_str else comp_str
+        else:
+            comp_str = ''
 
-        cfeat_str = cfeat_str + f'{feat_name}{filter_str}{norm_str}{pp_str}{encoder_str}_'
+        cfeat_str = cfeat_str + f'{feat_name}{filter_str}{norm_str}{pp_str}{comp_str}{encoder_str}_'
 
     feat_model_prefix = (dfeat_str + cfeat_str).strip('_')
     return feat_model_prefix
@@ -262,7 +273,8 @@ def create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type,
     dir_prefix = f"{params.out_dir}/k_{params.abundance}/{split_type}/"
     if run_no is not None:
         dir_prefix=dir_prefix+'/run_'+str(run_no)+'/'
-    feat_model_prefix = get_feat_prefix(select_dfeat_dict, select_cfeat_dict, mention_norm=True, mention_encoder=True, mention_preprocess=True)
+    feat_model_prefix = get_feat_prefix(select_dfeat_dict, select_cfeat_dict, mention_norm=True, mention_encoder=True, mention_preprocess=True,
+                                        mention_compress=True)
 
     if feat_model_prefix == 'D_d1hot_C_c1hot': #when only 1hot feature is being used then we should keep track of which split it is running on as well
         dir_prefix = dir_prefix + '/One-hot-versions/' + split_feat_str + '/'
@@ -372,14 +384,14 @@ def normalization_wrapper(dfeat_mtx_dict, cfeat_mtx_dict, dfeat_norm_dict, cfeat
 
     for feat_name in cfeat_norm_dict:  # if feature name is present in norm dict.
         cfeat_mtx_train = cfeat_mtx_dict[feat_name][train_cell_idx, :]  # keep the training data only
-
         if cfeat_norm_dict[feat_name] == 'std':  # if norm type='std'
             mean = np.mean(cfeat_mtx_train, axis=0)
             std = np.std(cfeat_mtx_train, axis=0)
             ##normalize both train and test data with mean and std computed from train data only
             cfeat_mtx_dict[feat_name] = (cfeat_mtx_dict[feat_name] - mean) / std
-
     return dfeat_mtx_dict, cfeat_mtx_dict
+
+
 
 def mol_graph_to_GCN_data(mol_graph_dict):
     '''convert atom features and adjacency list of each drug molecule into a data compatible with

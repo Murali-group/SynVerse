@@ -11,7 +11,7 @@ from models.pretrained.spmm_encoder import get_SPMM_embedding
 def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
     dfeat_names = [f['name'] for f in drug_features]
 
-    fields = ['norm','preprocess','filter', 'encoder', 'value', 'dim', 'use'] #for each feature we can have these fields.
+    fields = ['norm','preprocess','filter', 'encoder', 'value', 'compress', 'dim', 'use'] #for each feature we can have these fields.
     dfeat_dict = {field: {} for field in  fields}
 
     #parse norm, preprocessing and encoder for all features.
@@ -19,6 +19,7 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
     dfeat_dict['filter'] = {f['name']: f.get('filter') for f in drug_features if f.get('filter') is not None}
     dfeat_dict['norm'] = {f['name']: f.get('norm') for f in drug_features if  f.get('norm') is not None}
     dfeat_dict['encoder'] = {f['name']: f.get('encoder') for f in drug_features if f.get('encoder') is not None}
+    dfeat_dict['compress'] = {f['name']: f.get('compress', False) for f in drug_features}
     dfeat_dict['use'] = {f['name']: f.get('use') for f in drug_features}
 
 

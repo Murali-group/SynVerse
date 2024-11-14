@@ -2,11 +2,11 @@
 import pandas as pd
 import numpy as np
 from utils import *
-def prepare_cell_line_features(cell_line_features, cell_line_names,params, inputs, device):
+def prepare_cell_line_features(cell_line_features, cell_line_names, inputs):
 
     cfeat_names = [f['name'] for f in cell_line_features]
 
-    fields = ['norm', 'preprocess', 'filter', 'encoder', 'value', 'dim','use']  # for each feature we can have these fields.
+    fields = ['norm', 'preprocess', 'filter', 'encoder', 'compress', 'value', 'dim','use']  # for each feature we can have these fields.
     cfeat_dict = {field: {} for field in fields}
 
     # parse norm, preprocessing and encoder for all features.
@@ -14,6 +14,7 @@ def prepare_cell_line_features(cell_line_features, cell_line_names,params, input
     cfeat_dict['filter'] = {f['name']: f.get('filter') for f in cell_line_features if f.get('filter') is not None}
     cfeat_dict['norm'] = {f['name']: f.get('norm') for f in cell_line_features if f.get('norm') is not None}
     cfeat_dict['encoder'] = {f['name']: f.get('encoder') for f in cell_line_features if f.get('encoder') is not None}
+    cfeat_dict['compress'] = {f['name']: f.get('compress') for f in cell_line_features if f.get('compress') is not None}
     cfeat_dict['use'] = {f['name']: f.get('use') for f in cell_line_features}
 
     if 'c1hot' in cfeat_names:

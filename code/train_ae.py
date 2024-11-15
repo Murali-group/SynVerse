@@ -25,7 +25,7 @@ def train_autoencoder(feat, hidden_dims, epoch, model_file, device):
             optimizer.zero_grad()
             trn_loss.backward()
             optimizer.step()
-            print(f"Epoch {i:03d} | Train Loss: {trn_loss.item():.6f}")
+            # print(f"Epoch {i:03d} | Train Loss: {trn_loss.item():.6f}")
     os.makedirs(os.path.dirname(model_file), exist_ok=True)
     torch.save(model.state_dict(), model_file)
 
@@ -78,7 +78,7 @@ def train_cv(feat_tensor, input_dim, hidden_dims, epoch, patience=10, device='cp
                     val_loss += batch_loss.item()  # Moving loss to CPU and summing up
 
             avg_val_loss = val_loss / len(val_loader)
-            print(f"Epoch {i:03d} | Validation Loss: {avg_val_loss:.6f}")
+            # print(f"Epoch {i:03d} | Validation Loss: {avg_val_loss:.6f}")
 
             # Check if validation loss improved
             if avg_val_loss < best_val_loss:

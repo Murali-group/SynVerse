@@ -1,10 +1,10 @@
-dataset_dir: "/home/tasnina/Projects/SynVerse/datasets/"
+dataset_dir: "/home/grads/tasnina/Projects/SynVerse/datasets/"
 
 # Input Settings: initialize base input folder names,
 # dataset collections, and models to run over
 input_settings:
   # Base input directory
-  input_dir: "/home/tasnina/Projects/SynVerse/inputs/"
+  input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
 
   drug_features:
     - name: 'd1hot'
@@ -38,7 +38,7 @@ input_settings:
             'num_hid_layers': 2, 'optimizer': 'SGD', 'hid_1': 113, 'sgd_momentum': 0.21730082740135556 }
 
   batch_size: 4096
-  epochs: 1000
+  epochs: 10
 
 
   splits:
@@ -73,10 +73,10 @@ input_settings:
   abundance: 0.05
 
   max_feat: 1
-  mode: 'hp_tune'
+  mode: 'debug'
     #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
   # 'train' =  training the model with both train+val dataset
   # 'train_val' = train the model on training data and validate it on validation fold
 
 output_settings:
-    output_dir: '/home/tasnina/Projects/SynVerse/outputs/'
+    output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs/'

@@ -1,4 +1,5 @@
-
+import sys
+from pathlib import Path
 def get_SPMM_embedding(smiles, input_dir, device):
     from models.pretrained.SPMM.encoder import SPMM_Encoder
 
@@ -18,7 +19,12 @@ def get_SPMM_embedding(smiles, input_dir, device):
     return embeddings, pretrained_spmm.out_dim
 
 def get_MolE_embedding(smiles, input_dir, device):
-    from models.pretrained.mole_public.mole.cli import mole_predict
+    mole_public_path = Path(__file__).resolve().parent /"mole_public"
+    if str(mole_public_path) not in sys.path:
+        sys.path.append(str(mole_public_path))
+
+    from mole.cli import mole_predict
+
     checkpoint_file = input_dir + 'drug/pretrain/MolE_GuacaMol_27113.ckpt'
     embeddings = mole_predict.encode(smiles=smiles, pretrained_model= checkpoint_file, batch_size = 32, num_workers = 4)
 

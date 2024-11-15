@@ -28,7 +28,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/d1hot_fingerprint_graph_smiles_c1hot.yaml",
+                       "config_files/experiment_1/dsmiles_MolE_c1hot.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space.")
@@ -199,9 +199,6 @@ def main(config_map, **kwargs):
         inputs.drug_smiles_file = input_dir + 'drug/smiles.tsv'
         inputs.drug_graph_file = input_dir + 'drug/molecular_graph.pickle'
         inputs.drug_target_file = input_dir + 'drug/target.tsv'
-
-        inputs.vocab = input_dir + 'drug/vocab_bpe_300.txt'
-        inputs.spmm_checkpoint = input_dir + 'drug/pretrain/checkpoint_SPMM.ckpt'
 
 
         inputs.cell_line_file = input_dir + 'cell-line/gene_expression.tsv'

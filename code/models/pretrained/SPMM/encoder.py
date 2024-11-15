@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-import math
-from models.pretrained.xbert import BertConfig, BertForMaskedLM
+from models.pretrained.SPMM.xbert import BertConfig, BertForMaskedLM
 from transformers import BertTokenizer, WordpieceTokenizer
 
 
@@ -90,15 +89,4 @@ class SPMM_Encoder(nn.Module):
         # print('embedding shape: ', embedding.shape)
         return embedding
 
-def get_SPMM_embedding(smiles, vocab_file, checkpoint_file, device):
-    pretrained_spmm = SPMM_Encoder(vocab_file, checkpoint_file, device)
-    #get drug embedding in batches
-    embeddings=[]
-    b_size=512
-    i=0
-    while True:
-        if i>=len(smiles):
-            break
-        embeddings.extend(pretrained_spmm(smiles[i:min(i+b_size, len(smiles))]).cpu().numpy())
-        i=i+b_size
-    return embeddings, pretrained_spmm.out_dim
+

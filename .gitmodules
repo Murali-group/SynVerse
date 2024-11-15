@@ -1,0 +1,3 @@
+[submodule "code/models/pretrained/mole_public"]
+	path = code/models/pretrained/mole_public
+	url = https://github.com/recursionpharma/mole_public.git

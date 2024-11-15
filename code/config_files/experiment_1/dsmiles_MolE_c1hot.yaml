@@ -19,7 +19,7 @@ input_settings:
       use: [ false ]
 
     - name: 'smiles'
-      encoder: 'KPGT'
+      encoder: 'MolE'
       use: [ true ]
 
 
@@ -55,15 +55,15 @@ input_settings:
   splits:
     - type: 'leave_drug'
       test_frac: 0.2
-      n_folds: 5
+      val_frac: 0.25
 
     - type: 'leave_comb'
       test_frac: 0.2
-      n_folds: 5
+      val_frac: 0.25
 
     - type: 'leave_cell_line'
       test_frac: 0.2
-      n_folds: 5
+      val_frac: 0.25
 
 
 

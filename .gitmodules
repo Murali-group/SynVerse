@@ -1,3 +1,6 @@
 [submodule "code/submodules/KPGT"]
 	path = code/submodules/KPGT
 	url = https://github.com/lihan97/KPGT.git
+[submodule "code/submodules/mole_public"]
+	path = code/submodules/mole_public
+	url = https://github.com/recursionpharma/mole_public.git

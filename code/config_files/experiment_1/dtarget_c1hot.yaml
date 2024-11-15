@@ -34,7 +34,7 @@ input_settings:
               'num_hid_layers': 2, 'optimizer': 'SGD', 'hid_1': 113, 'sgd_momentum': 0.21730082740135556}
 
   batch_size: 4096
-  epochs: 10
+  epochs: 1
 
   splits:
     - type: 'leave_comb'

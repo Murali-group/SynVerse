@@ -14,7 +14,7 @@ def prepare_cell_line_features(cell_line_features, cell_line_names, inputs):
     cfeat_dict['filter'] = {f['name']: f.get('filter') for f in cell_line_features if f.get('filter') is not None}
     cfeat_dict['norm'] = {f['name']: f.get('norm') for f in cell_line_features if f.get('norm') is not None}
     cfeat_dict['encoder'] = {f['name']: f.get('encoder') for f in cell_line_features if f.get('encoder') is not None}
-    cfeat_dict['compress'] = {f['name']: f.get('compress') for f in cell_line_features if f.get('compress') is not None}
+    cfeat_dict['compress'] = {f['name']: f.get('compress', False) for f in cell_line_features}
     cfeat_dict['use'] = {f['name']: f.get('use') for f in cell_line_features}
 
     if 'c1hot' in cfeat_names:

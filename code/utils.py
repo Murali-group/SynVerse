@@ -231,8 +231,8 @@ def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=
             norm_str=''
 
         if mention_compress:
-            comp_str = dfeat_dict['compress'].get(feat_name, '')
-            comp_str = f"_comp_{comp_str}" if comp_str else comp_str
+            comp_str = dfeat_dict['compress'].get(feat_name)
+            comp_str = f"_comp_{comp_str}" if comp_str else ''
         else:
             comp_str = ''
         dfeat_str = dfeat_str + f'{feat_name}{filter_str}{norm_str}{pp_str}{comp_str}{encoder_str}_'
@@ -259,8 +259,8 @@ def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=
         else:
             norm_str=''
         if mention_compress:
-            comp_str = cfeat_dict['compress'].get(feat_name, '')
-            comp_str = f"_comp_{comp_str}" if comp_str else comp_str
+            comp_str = cfeat_dict['compress'].get(feat_name)
+            comp_str = f"_comp_{comp_str}" if comp_str else ''
         else:
             comp_str = ''
 

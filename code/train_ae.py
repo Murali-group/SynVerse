@@ -145,8 +145,8 @@ def get_embedding(feat, hidden_dims, model_file, device):
 
     # Evaluate and get reduced representations
     reduced_feat = []  # List to collect reduced dimensions
+    model.eval()
     with torch.no_grad():
-        model.eval()
         model.load_state_dict(torch.load(model_file))
         for x_batch, in test_loader:
             x_batch = x_batch.to(device)

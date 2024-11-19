@@ -19,7 +19,7 @@ input_settings:
       use: [ false ]
 
     - name: 'smiles'
-      encoder: 'MolE'
+      encoder: 'mole'
       use: [ true ]
 
 

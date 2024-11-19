@@ -1,7 +1,7 @@
 from network_algorithms.rwr_runner import *
 from utils import *
 from models.model_utils import *
-from models.pretrained.embedding_generator import get_SPMM_embedding, get_MolE_embedding
+from models.pretrained.embedding_generator import get_SPMM_embedding, get_mole_embedding
 
 def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
     dfeat_names = [f['name'] for f in drug_features]
@@ -75,15 +75,12 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
             dfeat_dict['value']['smiles'] = spmm_df
             dfeat_dict['dim']['smiles'] = embed_dim
 
-        elif dfeat_dict['encoder'].get('smiles') == 'MolE':
-            embedding, embed_dim = get_MolE_embedding(list(smiles_df['smiles']),params.input_dir , device)
+        elif dfeat_dict['encoder'].get('smiles') == 'mole':
+            embedding, embed_dim = get_mole_embedding(list(smiles_df['smiles']), params.input_dir)
             mole_df = pd.DataFrame(embedding)
             mole_df['pid'] = smiles_df['pid']
             dfeat_dict['value']['smiles'] = mole_df
             dfeat_dict['dim']['smiles'] = embed_dim
-
-        else :
-            dfeat_dict['value']['smiles'] = smiles_df[['pid', 'smiles']]
 
 
     if 'target' in dfeat_names:

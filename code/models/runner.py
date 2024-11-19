@@ -75,15 +75,16 @@ class Runner(ABC):
         if server_type == 'local':
             # get the used specified setting here about wandb and BOHB
             run_id = self.bohb_params['run_id']
-            name_server = '127.0.0.1'
+            # Step 2: Start a worker #Nure: Model specific
+            formatted_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            run_id = f'{run_id}_{formatted_time}'
 
+            name_server = '127.0.0.1'
             # Step 1: Start a nameserver
             NS = hpns.NameServer(run_id=run_id, host=name_server, port=None)
             NS.start()
 
-            # Step 2: Start a worker #Nure: Model specific
-            formatted_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-            run_id = f'{run_id}_{formatted_time}'
+
             w = self.worker_cls(self, sleep_interval=0, nameserver=name_server, run_id=run_id)
             w.run(background=True)
 
@@ -100,6 +101,10 @@ class Runner(ABC):
             n_workers = kwargs.get('n_workers')
             worker = kwargs.get('worker')
             run_id = kwargs.get('run_id')
+            # Step 2: Start a worker #Nure: Model specific
+            formatted_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            run_id = f'{run_id}_{formatted_time}'
+
             nic_name = kwargs.get('nic_name')
             shared_directory = kwargs.get('shared_directory')
 
@@ -180,11 +185,14 @@ class Runner(ABC):
                                                       self.tolerance, self.is_wandb, self.device, early_stop=False)
             # save the best model
             model_file = self.out_file.replace('.txt', '_model.pth')
+            os.makedirs(os.path.dirname(model_file), exist_ok=True)
             torch.save(best_model_state, model_file)
 
             #save train_loss
             # loss_file = self.out_file.replace('.txt', '_train_loss.txt')
             loss_file = self.out_file.replace('.txt', '_loss.txt')
+            os.makedirs(os.path.dirname(loss_file), exist_ok=True)
+
             with open(loss_file, 'w') as file:
                 file.write(f'Best config: {config}\n\n')
                 file.write(f'Number of epochs: {best_n_epochs}\n\n')
@@ -194,6 +202,9 @@ class Runner(ABC):
             train_loss = {}
             req_epochs = {}
             loss_file = self.out_file.replace('.txt', '_train_val_loss.txt')
+            os.makedirs(os.path.dirname(loss_file), exist_ok=True)
+
+
             file = open(loss_file, 'w')
             file.write(f'Config: {config}\n\n')
 
@@ -230,7 +241,7 @@ class Runner(ABC):
 
     def train_model(self, model, optimizer, criterion, train_loader, n_epochs, check_freq, tolerance, is_wandb, device,
                     early_stop=True, val_loader=None, fold=-1):
-
+        os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
         f = open(self.log_file, 'a')
         f.write(f'Configuraion: {model.chosen_config}\n')
         f.write(f"drug_encoder_list: {self.drug_encoder_info}")
@@ -368,6 +379,7 @@ class Runner(ABC):
             df['true'] = true_score
             df['predicted'] = pred_score
             # Save the DataFrame to a tab-separated file
+            os.makedirs(os.path.dirname(out_file), exist_ok=True)
             df.to_csv(out_file, sep='\t', index=False)
             print(f"Predicted score saved to {out_file}")
 
@@ -383,6 +395,7 @@ class Runner(ABC):
         # save test loss result
 
         out_file =self.out_file.replace('.txt', '_loss.txt')
+        os.makedirs(os.path.dirname(out_file), exist_ok=True)
         with open(out_file, 'a') as file:
             # file.write(f'Best config: {config}\n\n')
             # file.write(f'Number of epochs: {best_n_epochs}\n\n')

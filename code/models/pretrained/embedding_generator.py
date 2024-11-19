@@ -1,5 +1,8 @@
+import os.path
 import sys
-from pathlib import Path
+import subprocess
+import json
+import numpy as np
 def get_SPMM_embedding(smiles, input_dir, device):
     from models.pretrained.SPMM.encoder import SPMM_Encoder
 
@@ -16,22 +19,44 @@ def get_SPMM_embedding(smiles, input_dir, device):
             break
         embeddings.extend(pretrained_spmm(smiles[i:min(i+b_size, len(smiles))]).cpu().numpy())
         i=i+b_size
-    return embeddings, pretrained_spmm.out_dim
+    return np.array(embeddings), np.array(embeddings).shape[1]
 
-def get_MolE_embedding(smiles, input_dir, device):
-    mole_public_path = Path(__file__).resolve().parent /"mole_public"
-    if str(mole_public_path) not in sys.path:
-        sys.path.append(str(mole_public_path))
+def get_mole_embedding(smiles, input_dir):
+    # Path to the checkpoint file
+    local_dir = f'{input_dir}/drug/pretrain/'
+    docker_dir = "/mnt"
+    ckpt_file = f'{docker_dir}/MolE_GuacaMol_27113.ckpt'
 
-    from mole.cli import mole_predict
+    embeddings = []
+    b_size = 512
+    i = 0
+    while True:
+        if i >= len(smiles):
+            break
+        smiles_batch = smiles[i:min(i + b_size, len(smiles))]
+        i=i+b_size
 
-    checkpoint_file = input_dir + 'drug/pretrain/MolE_GuacaMol_27113.ckpt'
-    embeddings = mole_predict.encode(smiles=smiles, pretrained_model= checkpoint_file, batch_size = 32, num_workers = 4)
+        # List of SMILES strings
+        smiles_str = repr(smiles_batch)
+        docker_command = [
+            "docker", "run",
+            "-v", f"{local_dir}:{docker_dir}",  # Mount local directory to docker
+            "mole:base",  # The Docker image name
+            "python", "-c",  # Run Python code directly
+            f"from mole_public.mole.cli.mole_predict import encode; "
+            f"import json; "
+            f"embeddings = encode(smiles={smiles_str}, pretrained_model='{ckpt_file}', batch_size=32, num_workers=4); "
+            f"print('EMBEDDINGS:'); "
+            f"print(json.dumps(embeddings.tolist()))"
+        ]
 
-    return embeddings, embeddings.shape[1]
+        # Run the Docker command and capture the output (embeddings)
+        result = subprocess.run(docker_command, capture_output=True, text=True, check=True)
+
+        # Read the embeddings from the output file
+        embedding_list = result.stdout.split('EMBEDDINGS:\n')[-1]
+        embeddings.extend((eval(embedding_list)))
 
 
-
-
-
+    return np.array(embeddings),np.array(embeddings).shape[1]
 

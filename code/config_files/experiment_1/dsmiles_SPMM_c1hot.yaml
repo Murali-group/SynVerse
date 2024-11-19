@@ -1,18 +1,21 @@
 dataset_dir: "/home/grads/tasnina/Projects/SynVerse/datasets/"
+
 # Input Settings: initialize base input folder names,
 # dataset collections, and models to run over
 input_settings:
   # Base input directory
   input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
+
   drug_features:
+
     - name: 'MACCS'
       use: [ false ]
 
     - name: 'ECFP_4'
-      use: [ false ]
+      use: [false ]
 
     - name: 'MFP' #morgan fingerprint
-      use: [ false ]
+      use: [false ]
 
     - name: 'mol_graph'
       encoder: 'GCN'
@@ -21,7 +24,6 @@ input_settings:
     - name: 'smiles'
       encoder: 'SPMM'
       use: [ true ]
-
 
     - name: 'd1hot'
       use: [ false ]
@@ -33,39 +35,34 @@ input_settings:
   models:
      decoder:
        name: 'MLP'
-       hp_range: { 'lr': [ 1e-5, 1e-3 ], 'optimizer': [ 'Adam', 'SGD' ] , 'sgd_momentum': [ 0.5, 0.99 ] ,
-                   'num_hid_layers': [ 1,4 ] , 'hid_0': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
-                   'hid_1': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
-                   'hid_2': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
-                   'hid_3': [ 64, 128, 256, 512, 1024, 2048, 4096 ],
-                   'in_dropout_rate': [ 0.0, 0.5 ] ,'hid_dropout_rate': [ 0.0, 0.5 ] }
-#       hp: { 'hid_0': 1024, 'hid_1':256,  'hid_dropout_rate': 0.1, 'in_dropout_rate': 0.1,
-#            'lr': 0.0001, 'num_hid_layers': 2, 'optimizer': 'Adam' }#worked for leave_comb
-       hp: { 'hid_0': 2048, 'hid_1': 1024, 'hid_2':256,  'hid_dropout_rate': 0.1, 'in_dropout_rate': 0.1,
-           'lr': 0.0005, 'num_hid_layers': 3, 'optimizer': 'Adam' }
+       hp_range: { 'lr': [ 1e-5, 1e-3 ], 'optimizer': [ 'Adam', 'SGD' ],
+                   'sgd_momentum': [ 0.5, 0.99 ] ,
+                   'num_hid_layers': [ 1,3 ] ,
+                   'hid_0': [ 128, 256, 512, 1024, 2048, 4096 ],
+                   'hid_1': [ 128, 256, 512, 1024, 2048, 4096 ],
+                   'hid_2': [ 128, 256, 512, 1024, 2048, 4096 ],
+                   'in_dropout_rate': [ 0.0, 0.5 ],
+                   'hid_dropout_rate': [ 0.0, 0.5 ] }
 
+       hp: {'hid_0': 1077, 'hid_dropout_rate': 0.2697798807963333, 'in_dropout_rate': 0.17927761184927016, 'lr': 0.00016381808734015385,
+              'num_hid_layers': 2, 'optimizer': 'SGD', 'hid_1': 113, 'sgd_momentum': 0.21730082740135556}
 
-     drug_encoder: null
-     cell_encoder: null
-
-  batch_size: 2048
-  epochs: 1000
+  batch_size: 4096
+  epochs: 10
 
 
   splits:
-    - type: 'leave_drug'
-      test_frac: 0.2
-      n_folds: 5
-
     - type: 'leave_comb'
       test_frac: 0.2
-      n_folds: 5
+      val_frac: 0.25
+
+    - type: 'leave_drug'
+      test_frac: 0.2
+      val_frac: 0.25
 
     - type: 'leave_cell_line'
       test_frac: 0.2
-      n_folds: 5
-
-
+      val_frac: 0.25
 
 
   wandb:
@@ -90,8 +87,6 @@ input_settings:
         #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
         # 'train' =  training the model with both train+val dataset
         # 'train_val' = train the model on training data and validate it on validation fold
-        # 'debug' = train the model on training data and validate it on validation fold. Then  train the model with both train+val dataset and return test loss.
-
 
 output_settings:
   output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs/'

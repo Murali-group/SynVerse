@@ -68,7 +68,7 @@ input_settings:
 
 
   batch_size: 4096
-  epochs: 1000
+  epochs: 5
 
 
   splits:

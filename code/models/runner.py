@@ -81,7 +81,7 @@ class Runner(ABC):
 
             name_server = '127.0.0.1'
             # Step 1: Start a nameserver
-            NS = hpns.NameServer(run_id=run_id, host=name_server, port=0)
+            NS = hpns.NameServer(run_id=run_id, host=name_server, port=None)
             NS.start()
 
 

@@ -49,7 +49,7 @@ input_settings:
      cell_encoder: null
 
   batch_size: 2048
-  epochs: 1000
+  epochs: 5
 
 
   splits:

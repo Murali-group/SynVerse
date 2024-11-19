@@ -30,9 +30,13 @@ COPY environment.yml environment.yml
 # Create the conda environment
 RUN conda env create -f environment.yml && \
     conda clean -a -y
+RUN conda env list && conda run -n kpgt python -c "import torch; print(torch.__version__)"
 
 # Set the environment to use the conda environment
-SHELL ["conda", "run", "-n", "your_env_name", "/bin/bash", "-c"]
+SHELL ["conda", "run", "-n", "kpgt", "/bin/bash", "-c"]
+
+# Activate the conda environment explicitly for future commands
+ENV PATH /opt/conda/envs/kpgt/bin:$PATH
 
 # Clone the repository and install any additional dependencies
 RUN git clone https://github.com/lihan97/KPGT.git && \

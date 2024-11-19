@@ -3,6 +3,7 @@ import sys
 import subprocess
 import json
 import numpy as np
+import pandas as pd
 
 def get_pretrained_embedding(smiles, input_dir,encoder_name, device):
     prtrained_model_map = {"SPMM": get_SPMM_embedding, "mole": get_mole_embedding, "kpgt": get_kpgt_embedding}
@@ -27,7 +28,7 @@ def get_SPMM_embedding(smiles, input_dir, device):
         i=i+b_size
     return np.array(embeddings), np.array(embeddings).shape[1]
 
-def get_mole_embedding(smiles, input_dir, device):
+def get_mole_embedding(smiles, input_dir, device=None):
     # Path to the checkpoint file
     local_dir = f'{input_dir}/drug/pretrain/'
     docker_dir = "/mnt"
@@ -66,5 +67,56 @@ def get_mole_embedding(smiles, input_dir, device):
 
     return np.array(embeddings),np.array(embeddings).shape[1]
 
-def get_kpgt_embedding(smiles, input_dir, device):
-    print("Haven't been implemented yet")
+def get_kpgt_embedding(smiles, input_dir, device=None):
+    #save smile to a .csv file which is an acceptable form by KPGT
+    host_data_path = f"{input_dir}/drug/pretrain/" # Absolute path to your dataset directory on the host
+    smiles_file_name ='temp_smiles'
+    smiles_file_path = host_data_path + smiles_file_name+'/'+ smiles_file_name+'.csv'
+    os.makedirs(os.path.dirname(smiles_file_path), exist_ok=True)
+    pd.DataFrame({'smiles':smiles}).to_csv(smiles_file_path, index=False)
+
+
+    docker_image = "kpgt:base"
+    container_data_path = "/app/datasets"  # Path inside the container
+    preprocess_script = "preprocess_downstream_dataset.py"
+    embed_script = "extract_features.py"
+    model_file = "pretrained_kpgt.pth"
+
+    # # Construct the docker run command to preprocess SMILES and gte molecular graph data
+    # command = [
+    #     "docker", "run", "--rm",
+    #     "-v", f"{host_data_path}:{container_data_path}",
+    #     "-w", "/workspace/KPGT/scripts",
+    #     docker_image,
+    #     "python", preprocess_script,
+    #     "--data_path", container_data_path,
+    #     "--dataset", smiles_file_name
+    # ]
+    #
+    # # Run the command
+    # try:
+    #     subprocess.run(command, check=True)
+    #     print("Data preprocessing finished successfully.")
+    # except subprocess.CalledProcessError as e:
+    #     print(f"Error during execution: {e}")
+
+    # Construct the docker run command to generate embedding
+    command = [
+        "docker", "run", "--rm",
+        "-v", f"{host_data_path}:{container_data_path}",
+        "-w", "/workspace/KPGT/scripts",
+        docker_image,
+        "python", embed_script,
+        "--config", "base",
+        "--model_path", f"{container_data_path}/{model_file}"
+        "--data_path", container_data_path,
+        "--dataset", smiles_file_name
+    ]
+
+    # Run the command
+    try:
+        subprocess.run(command, check=True)
+        print("Embedding generation finished successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error during execution: {e}")
+

@@ -1,4 +1,4 @@
-name: KPGT
+name: kpgt
 channels:
   - pytorch
   - dglteam

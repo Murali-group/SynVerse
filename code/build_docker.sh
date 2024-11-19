@@ -13,7 +13,7 @@ if ([ $? = 0 ] && [ "$(docker images -q mole:base 2> /dev/null)" != "" ]); then
 elif [ "$(docker images -q mole:base 2> /dev/null)" != "" ]; then
     echo "Docker container failed to build, but an existing image exists at mole:base"
 else
-    echo "Oops! Unable to build Docker container for MolE"
+    echo "Oops! Unable to build Docker container for mole"
 fi
 
 
@@ -22,9 +22,9 @@ fi
 cd $BASEDIR/models/pretrained/kpgt
 docker build -t kpgt:base .
 if ([ $? = 0 ] && [ "$(docker images -q kpgt:base 2> /dev/null)" != "" ]); then
-    echo "Docker container for KPGT is built and tagged as KPGT:base"
+    echo "Docker container for kpgt is built and tagged as kpgt:base"
 elif [ "$(docker images -q kpgt:base 2> /dev/null)" != "" ]; then
-    echo "Docker container failed to build, but an existing image exists at KPGT:base"
+    echo "Docker container failed to build, but an existing image exists at kpgt:base"
 else
-    echo "Oops! Unable to build Docker container for KPGT"
+    echo "Oops! Unable to build Docker container for kpgt"
 fi

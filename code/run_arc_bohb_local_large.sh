@@ -4,7 +4,7 @@
 #SBATCH -N 1  # this requests 1 node
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH -t 0-24:00:00
+#SBATCH -t 0-48:00:00
 #SBATCH --exclusive
 #SBATCH --gres=gpu:1
 #SBATCH --account=synverse # give the account /project here

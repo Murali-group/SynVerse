@@ -93,8 +93,8 @@ input_settings:
     timezone: 'US/Eastern'
     timezone_format: '%Y-%m-%d_%H-%M-%S'
   bohb:
-    min_budget: 27
-    max_budget: 729
+    min_budget: 3
+    max_budget: 9
     n_iterations: 3
     run_id : 'synverse'
     server_type: 'local' #or cluster

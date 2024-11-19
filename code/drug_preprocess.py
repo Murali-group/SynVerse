@@ -1,7 +1,7 @@
 from network_algorithms.rwr_runner import *
 from utils import *
 from models.model_utils import *
-from models.pretrained.embedding_generator import get_SPMM_embedding, get_mole_embedding
+from models.pretrained.embedding_generator import get_pretrained_embedding
 
 def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
     dfeat_names = [f['name'] for f in drug_features]
@@ -62,25 +62,20 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
     if 'smiles' in dfeat_names:
         smiles_file = inputs.drug_smiles_file
         smiles_df = pd.read_csv(smiles_file,dtype={'pid':str}, sep='\t', index_col=None)
-
-        if dfeat_dict['encoder'].get('smiles') == 'Transformer':
+        encoder_name = dfeat_dict['encoder'].get('smiles')
+        if encoder_name == 'Transformer':
             smiles_df, vocab_size = get_vocab_smiles(smiles_df)
             dfeat_dict['value']['smiles'] = smiles_df[['pid', 'tokenized']]
             dfeat_dict['dim']['smiles'] = vocab_size
 
-        elif dfeat_dict['encoder'].get('smiles') == 'SPMM':
-            embedding, embed_dim = get_SPMM_embedding(list(smiles_df['smiles']), params.input_dir, device)
-            spmm_df = pd.DataFrame(embedding)
-            spmm_df['pid'] = smiles_df['pid']
-            dfeat_dict['value']['smiles'] = spmm_df
+        elif encoder_name in ['SPMM', 'mole','kpgt']:
+            embedding, embed_dim = get_pretrained_embedding(list(smiles_df['smiles']), params.input_dir,encoder_name, device)
+            df = pd.DataFrame(embedding)
+            df['pid'] = smiles_df['pid']
+            dfeat_dict['value']['smiles'] = df
             dfeat_dict['dim']['smiles'] = embed_dim
 
-        elif dfeat_dict['encoder'].get('smiles') == 'mole':
-            embedding, embed_dim = get_mole_embedding(list(smiles_df['smiles']), params.input_dir)
-            mole_df = pd.DataFrame(embedding)
-            mole_df['pid'] = smiles_df['pid']
-            dfeat_dict['value']['smiles'] = mole_df
-            dfeat_dict['dim']['smiles'] = embed_dim
+
 
 
     if 'target' in dfeat_names:

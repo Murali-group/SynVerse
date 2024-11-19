@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH -J SynVerse #(run name give any name you want to track)
-#SBATCH -p dgx_normal_q # partision a100_normal_q takes time to get resource so test your code with v100_dev_q
+#SBATCH -p dgx_normal_q # partition a100_normal_q takes time to get resource so test your code with v100_dev_q
 #SBATCH -N 1  # this requests 1 node
 #SBATCH --ntasks=1
-#SBATCH -t 0-72:00:00
-#SBATCH --mem=80G
+#SBATCH --cpus-per-task=16
+#SBATCH -t 0-24:00:00
 #SBATCH --exclusive
 #SBATCH --gres=gpu:1
 #SBATCH --account=synverse # give the account /project here

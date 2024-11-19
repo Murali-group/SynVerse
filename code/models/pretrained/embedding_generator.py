@@ -3,6 +3,12 @@ import sys
 import subprocess
 import json
 import numpy as np
+
+def get_pretrained_embedding(smiles, input_dir,encoder_name, device):
+    prtrained_model_map = {"SPMM": get_SPMM_embedding, "mole": get_mole_embedding, "kpgt": get_kpgt_embedding}
+    embedding, embed_dim = prtrained_model_map[encoder_name](smiles, input_dir, device)
+    return embedding, embed_dim
+
 def get_SPMM_embedding(smiles, input_dir, device):
     from models.pretrained.SPMM.encoder import SPMM_Encoder
 
@@ -21,7 +27,7 @@ def get_SPMM_embedding(smiles, input_dir, device):
         i=i+b_size
     return np.array(embeddings), np.array(embeddings).shape[1]
 
-def get_mole_embedding(smiles, input_dir):
+def get_mole_embedding(smiles, input_dir, device):
     # Path to the checkpoint file
     local_dir = f'{input_dir}/drug/pretrain/'
     docker_dir = "/mnt"
@@ -60,3 +66,5 @@ def get_mole_embedding(smiles, input_dir):
 
     return np.array(embeddings),np.array(embeddings).shape[1]
 
+def get_kpgt_embedding(smiles, input_dir, device):
+    print("Haven't been implemented yet")

@@ -84,7 +84,7 @@ def get_kpgt_embedding(smiles, input_dir, device=None):
 
     # # Construct the docker run command to preprocess SMILES and gte molecular graph data
     # command = [
-    #     "docker", "run", "--rm",
+    #     "docker", "run", "--rm", "--gpus", "all",
     #     "-v", f"{host_data_path}:{container_data_path}",
     #     "-w", "/workspace/KPGT/scripts",
     #     docker_image,
@@ -102,21 +102,24 @@ def get_kpgt_embedding(smiles, input_dir, device=None):
 
     # Construct the docker run command to generate embedding
     command = [
-        "docker", "run", "--rm",
+        "docker", "run", "--rm", "--gpus", "all",
         "-v", f"{host_data_path}:{container_data_path}",
         "-w", "/workspace/KPGT/scripts",
         docker_image,
         "python", embed_script,
         "--config", "base",
-        "--model_path", f"{container_data_path}/{model_file}"
+        "--model_path", f"{container_data_path}/{model_file}",
         "--data_path", container_data_path,
         "--dataset", smiles_file_name
     ]
 
-    # Run the command
     try:
         subprocess.run(command, check=True)
-        print("Embedding generation finished successfully.")
+        embeddings_path = f"{host_data_path}/{smiles_file_name}/kpgt_base.npz"
+        embeddings = np.load(embeddings_path)["fps"]
+        print(f"Embeddings successfully generated with shape: {embeddings.shape}")
+        return np.array(embeddings), np.array(embeddings).shape[1]
+
     except subprocess.CalledProcessError as e:
         print(f"Error during execution: {e}")
 

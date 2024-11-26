@@ -5,6 +5,7 @@
 #SBATCH -N 1  # this requests 1 node
 #SBATCH -t 0-143:00:00
 #SBATCH --gres=gpu:1
+#SBATCH --exclusive
 #SBATCH --export=NONE # this makes sure the compute environment is clean
 
 module load Anaconda3/2020.11

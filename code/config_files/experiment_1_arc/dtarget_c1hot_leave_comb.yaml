@@ -1,10 +1,10 @@
-dataset_dir: "/home/grads/tasnina/Projects/SynVerse/datasets/"
+dataset_dir: "/home/tasnina/Projects/SynVerse/datasets/"
 
 # Input Settings: initialize base input folder names,
 # dataset collections, and models to run over
 input_settings:
   # Base input directory
-  input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
+  input_dir: "/home/tasnina/Projects/SynVerse/inputs/"
 
   drug_features:
     - name: 'd1hot'
@@ -13,7 +13,6 @@ input_settings:
     - name: 'target'
       preprocess: 'rwr'
       use: [true, false]
-
 
   cell_line_features:
     - name: 'c1hot'
@@ -37,16 +36,9 @@ input_settings:
   batch_size: 4096
   epochs: 1000
 
+
   splits:
     - type: 'leave_comb'
-      test_frac: 0.2
-      val_frac: 0.25
-
-    - type: 'leave_drug'
-      test_frac: 0.2
-      val_frac: 0.25
-
-    - type: 'leave_cell_line'
       test_frac: 0.2
       val_frac: 0.25
 
@@ -75,4 +67,4 @@ input_settings:
         # 'train_val' = train the model on training data and validate it on validation fold
 
 output_settings:
-  output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs/'
+  output_dir: '/home/tasnina/Projects/SynVerse/outputs/'

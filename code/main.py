@@ -34,6 +34,9 @@ def setup_opts():
                        help="Put the name of the features to use, separated by space.")
     group.add_argument('--split', type=str,
                        help="Put the name of the split types to run, separated by space.")
+    group.add_argument('--start_run', type=int, help='From which run should the model start from. This is to help when'
+                    'some model has been trained for first 2 runs but the terminated by arc. Then next time we need to start from run 2, hence start_run should be 2', default=0)
+
     group.add_argument('--n_workers', type=int, help='Number of workers to run in parallel.', default=2)
     group.add_argument('--worker', help='Flag to turn this into a worker process', action='store_true')
     group.add_argument('--run_id', type=str,
@@ -87,8 +90,9 @@ def run_SynVerse(inputs, params, **kwargs):
                              use_feat=use_feat, max_feat=params.max_feat)
 
 
+    start_run = kwargs.get('start_run')
     ''' prepare split'''
-    for run_no in range(5):
+    for run_no in range(start_run, 5):
         for split in splits:
             split_type = split['type']
             # n_folds = split['n_folds']

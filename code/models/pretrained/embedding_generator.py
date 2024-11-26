@@ -83,22 +83,22 @@ def get_kpgt_embedding(smiles, input_dir, device=None):
     model_file = "pretrained_kpgt.pth"
 
     # # Construct the docker run command to preprocess SMILES and gte molecular graph data
-    # command = [
-    #     "docker", "run", "--rm",
-    #     "-v", f"{host_data_path}:{container_data_path}",
-    #     "-w", "/workspace/KPGT/scripts",
-    #     docker_image,
-    #     "python", preprocess_script,
-    #     "--data_path", container_data_path,
-    #     "--dataset", smiles_file_name
-    # ]
+    command = [
+        "docker", "run", "--rm",
+        "-v", f"{host_data_path}:{container_data_path}",
+        "-w", "/workspace/KPGT/scripts",
+        docker_image,
+        "python", preprocess_script,
+        "--data_path", container_data_path,
+        "--dataset", smiles_file_name
+    ]
     #
     # # Run the command
-    # try:
-    #     subprocess.run(command, check=True)
-    #     print("Data preprocessing finished successfully.")
-    # except subprocess.CalledProcessError as e:
-    #     print(f"Error during execution: {e}")
+    try:
+        subprocess.run(command, check=True)
+        print("Data preprocessing finished successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error during execution: {e}")
 
     # Construct the docker run command to generate embedding
     command = [

@@ -111,8 +111,10 @@ def run_SynVerse(inputs, params, **kwargs):
 
             split_feat_str = get_feat_prefix(dfeat_dict, cfeat_dict)
             # split_prefix = split_dir + f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{n_folds}/run_{run_no}/'
-            split_info_str = f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/'
-            split_file_path = split_dir + f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/'
+            split_info_str = f"/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/"
+
+            print('SPLIT STR: ', split_info_str)
+            split_file_path = split_dir + f"/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/"
 
 
             force_split = False

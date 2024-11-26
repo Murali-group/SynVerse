@@ -74,10 +74,10 @@ class Runner(ABC):
 
         if server_type == 'local':
             # get the used specified setting here about wandb and BOHB
-            run_id = self.bohb_params['run_id']
+            run_id = kwargs.get("run_id")
             # Step 2: Start a worker #Nure: Model specific
-            formatted_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-            run_id = f'{run_id}_{formatted_time}'
+            # formatted_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            # run_id = f'{run_id}_{formatted_time}'
 
             name_server = '127.0.0.1'
             # Step 1: Start a nameserver
@@ -101,9 +101,9 @@ class Runner(ABC):
             n_workers = kwargs.get('n_workers')
             worker = kwargs.get('worker')
             run_id = kwargs.get('run_id')
-            # Step 2: Start a worker #Nure: Model specific
-            formatted_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-            run_id = f'{run_id}_{formatted_time}'
+            # # Step 2: Start a worker #Nure: Model specific
+            # formatted_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            # run_id = f'{run_id}_{formatted_time}'
 
             nic_name = kwargs.get('nic_name')
             shared_directory = kwargs.get('shared_directory')

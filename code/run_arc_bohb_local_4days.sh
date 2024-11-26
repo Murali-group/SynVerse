@@ -14,11 +14,12 @@ echo "hello world"
 echo $PWD
 
 # Check if the third argument is provided
-if [ -n "$3" ]; then
-    CUDA_LAUNCH_BLOCKING=1 python -u main.py --config "$1" --feat "$2" --run_id "$SLURM_JOB_ID" > "$3" 2>&1
-elif [ -n "$5" ]; then
+if [ -n "$5" ]; then
     CUDA_LAUNCH_BLOCKING=1 python -u main.py --config "$1" --feat "$2" --start_run "$3" --end_run "$4" --run_id "$SLURM_JOB_ID" > "$5" 2>&1
+elif [ -n "$3" ]; then
+    CUDA_LAUNCH_BLOCKING=1 python -u main.py --config "$1" --feat "$2" --run_id "$SLURM_JOB_ID" > "$3" 2>&1
 else
     CUDA_LAUNCH_BLOCKING=1 python -u main.py --config "$1" --run_id "$SLURM_JOB_ID" > "$2" 2>&1
 fi
+
 

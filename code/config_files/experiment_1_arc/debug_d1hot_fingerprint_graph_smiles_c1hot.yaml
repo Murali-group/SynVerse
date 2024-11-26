@@ -44,8 +44,9 @@ input_settings:
                    'in_dropout_rate': [ 0.0, 0.5 ],
                    'hid_dropout_rate': [ 0.0, 0.5 ] }
 
-       hp: {'hid_0': 1077, 'hid_dropout_rate': 0.2697798807963333, 'in_dropout_rate': 0.17927761184927016, 'lr': 0.00016381808734015385,
-              'num_hid_layers': 2, 'optimizer': 'SGD', 'hid_1': 113, 'sgd_momentum': 0.21730082740135556}
+       hp: {'hid_0': 512, 'hid_dropout_rate': 0.27790093087782997, 'in_dropout_rate': 0.3322361296910593, 'lr': 9.84551140391281e-05,
+                  'num_hid_layers': 2,'hid_1': 256, 'sgd_momentum': 0.8146859656369245,
+                  'optimizer': 'SGD'}
 
      drug_encoder:
        - name: 'GCN'
@@ -59,8 +60,8 @@ input_settings:
          hp_range: { 'transformer_batch_norm': [ True, False ], 'transformer_num_layers': [ 2, 3, 4 ] ,'transformer_embedding_dim': [ 64, 128, 256, 512, 1024, 2048 ] ,
                      'transformer_n_head': [ 4, 8 ], 'transformer_ff_num_layers': [ 64, 128, 256, 512, 1024, 2048 ], 'max_seq_length': [ 120 ],
                      'positional_encoding_type': [ 'learnable', 'fixed' ] }
-         hp: { 'transformer_batch_norm': True, 'transformer_num_layers': 3 ,'transformer_embedding_dim': 128 , #512 worked
-               'transformer_n_head': 4, 'transformer_ff_num_layers': 64, 'max_seq_length': 120, 'positional_encoding_type': 'fixed' }
+         hp: {'positional_encoding_type': 'learnable', 'transformer_batch_norm': True, 'transformer_embedding_dim': 512,
+                  'transformer_ff_num_layers': 1024, 'transformer_n_head': 8, 'transformer_num_layers': 3,'max_seq_length': 120}
 
 
   batch_size: 4096

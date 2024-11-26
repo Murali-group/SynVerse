@@ -9,24 +9,24 @@ input_settings:
   drug_features:
 
     - name: 'MACCS'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'ECFP_4'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'MFP' #morgan fingerprint
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'mol_graph'
       encoder: 'GCN'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'smiles'
       encoder: 'Transformer'
-      use: [ true, false ]
+      use: [ true ]
 
     - name: 'd1hot'
-      use: [ true, false ]
+      use: [ false ]
 
   cell_line_features:
     - name: 'c1hot'
@@ -69,17 +69,12 @@ input_settings:
 
 
   splits:
-    - type: 'leave_comb'
-      test_frac: 0.2
-      val_frac: 0.25
+
 
     - type: 'leave_drug'
       test_frac: 0.2
       val_frac: 0.25
 
-    - type: 'leave_cell_line'
-      test_frac: 0.2
-      val_frac: 0.25
 
 
   wandb:

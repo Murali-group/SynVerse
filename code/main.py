@@ -141,10 +141,10 @@ def run_SynVerse(inputs, params, **kwargs):
 
             cur_dfeat_dict['value'], cur_dfeat_dict['dim'] = autoencoder_wrapper(cur_dfeat_dict['value'],cur_dfeat_dict['dim'], cur_dfeat_dict['compress'],
                                                           train_drug_idx, hidden_dim_options=params.autoencoder_dims, epoch=500,
-                                                          file_prefix=f'{params.input_dir}/drug/{split_info_str}/', device=device, force_run=force_split)
+                                                          file_prefix=f'{params.input_dir}/drug/AE/{split_info_str}/', device=device, force_run=force_split)
             cur_cfeat_dict['value'], cur_cfeat_dict['dim'] = autoencoder_wrapper(cur_cfeat_dict['value'], cur_cfeat_dict['dim'], cur_cfeat_dict['compress'],
                                                           train_cell_idx, hidden_dim_options=params.autoencoder_dims, epoch=500,
-                                                          file_prefix=f'{params.input_dir}/cell-line/{split_info_str}/',
+                                                          file_prefix=f'{params.input_dir}/cell-line/AE/{split_info_str}/',
                                                           device=device, force_run=force_split)
 
             for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:

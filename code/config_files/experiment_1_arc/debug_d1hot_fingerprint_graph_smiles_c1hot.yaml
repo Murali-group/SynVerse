@@ -78,7 +78,7 @@ input_settings:
 
 
   wandb:
-    enabled: True
+    enabled: False
     token: 'd9462b91edea6523563900fab17134d7e9177e16'
     project_name: 'Synverse_ARC'
     entity_name: 'ntasnina'

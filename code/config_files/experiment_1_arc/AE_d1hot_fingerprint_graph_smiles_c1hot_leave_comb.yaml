@@ -39,6 +39,7 @@ input_settings:
   cell_line_features:
     - name: 'c1hot'
       use: [true]
+      compress: true
 
   models:
      decoder:

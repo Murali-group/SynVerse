@@ -169,12 +169,12 @@ class Encoder_MLP_wrapper(nn.Module):
         try:
             x = self.mlp(x)
         except Exception as e:
-                # Print or log the data types and shapes of mat1 (input) and mat2 (weights)
-                print(f"Hello!!!!!!!! Input tensor (mat1): dtype={x.dtype}, shape={x.shape}")
-                for name, param in self.mlp.named_parameters():
-                    if name == "weight":  # Assuming the weight parameter is causing the issue
-                        print(f"Weight tensor (mat2): dtype={param.dtype}, shape={param.shape}")
-                raise  e# Re-raise the exception for further handling
+            # Print or log the data types and shapes of mat1 (input) and mat2 (weights)
+            print(f"Hello!!!!!!!! Input tensor (mat1): dtype={x.dtype}, shape={x.shape}")
+            for name, param in self.mlp.named_parameters():
+                if name == "weight":  # Assuming the weight parameter is causing the issue
+                    print(f"Weight tensor (mat2): dtype={param.dtype}, shape={param.shape}")
+            raise # Re-raise the exception for further handling
 
         return x
 

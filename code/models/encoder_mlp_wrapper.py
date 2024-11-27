@@ -166,7 +166,19 @@ class Encoder_MLP_wrapper(nn.Module):
 
         x = self.concat_feat(batch_triplets, batch_drugs,batch_cell_lines, drug_embeds, cell_embeds)
         x = x.to(device)
-        x = self.mlp(x)
+        try:
+            x = self.mlp(x)
+        except RuntimeError as e:
+            if "mat1 and mat2 must have the same type" in str(e):
+                # Print or log the data types and shapes of mat1 (input) and mat2 (weights)
+                print(f"Input tensor (mat1): dtype={x.dtype}, shape={x.shape}")
+                for name, param in self.mlp.named_parameters():
+                    if name == "weight":  # Assuming the weight parameter is causing the issue
+                        print(f"Weight tensor (mat2): dtype={param.dtype}, shape={param.shape}")
+                raise  # Re-raise the exception for further handling
+            else:
+                raise  # Re-raise for other RuntimeErrors
+
         return x
 
     def number_of_parameters(self):

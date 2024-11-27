@@ -80,7 +80,14 @@ class Runner(ABC):
             # run_id = f'{run_id}_{formatted_time}'
 
             name_server = '127.0.0.1'
-            # Step 1: Start a nameserver
+
+            # import socket
+            # def find_free_port(nameserver=name_server):
+            #     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            #         s.bind((nameserver, 0))  # Bind to the specified nameserver and any free port
+            #         return s.getsockname()[1]
+
+                    # Step 1: Start a nameserver
             NS = hpns.NameServer(run_id=run_id, host=name_server, port=None)
             NS.start()
 

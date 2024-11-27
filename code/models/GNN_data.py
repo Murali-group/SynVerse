@@ -7,6 +7,9 @@ from scipy import stats
 from torch_geometric.data import InMemoryDataset, DataLoader
 from torch_geometric import data as DATA
 import torch
+import torch
+torch.set_default_dtype(torch.float32)
+
 
 class GNN_data(InMemoryDataset):
     def __init__(self, root='/tmp', dataset='_drug',

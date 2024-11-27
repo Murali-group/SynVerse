@@ -13,6 +13,8 @@ from hpbandster.core.worker import Worker
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import time
+import torch
+torch.set_default_dtype(torch.float32)
 
 
 class Encode_MLPWorker(Worker):

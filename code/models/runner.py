@@ -18,6 +18,9 @@ import time
 import copy
 from torch.utils.data import DataLoader, Subset
 
+import torch
+torch.set_default_dtype(torch.float32)
+
 import logging
 
 class Runner(ABC):

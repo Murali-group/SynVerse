@@ -14,6 +14,8 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 import time
 
+import torch
+torch.set_default_dtype(torch.float32)
 
 class Encode_MLPWorker(Worker):
     # def __init__(self, train_val_dataset, train_idx, val_idx, input_dim=None, batch_size=4096,

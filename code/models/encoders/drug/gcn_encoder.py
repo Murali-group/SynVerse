@@ -4,6 +4,7 @@ from torch_geometric.nn import GCNConv
 import torch.nn.functional as F
 from torch_geometric.nn import global_max_pool as gmp
 from models.GNN_data import GNN_data
+torch.set_default_dtype(torch.float32)
 
 class GCN_Encoder(nn.Module):
     def __init__(self, input_size, config):

@@ -165,7 +165,7 @@ class Encoder_MLP_wrapper(nn.Module):
         cell_embeds = self.cell_line_encoder_wrap(cell_line_feat, batch_cell_lines, device)
 
         x = self.concat_feat(batch_triplets, batch_drugs,batch_cell_lines, drug_embeds, cell_embeds)
-        x = x.to(device)
+        x = x.float().to(device)
         try:
             x = self.mlp(x)
         except Exception as e:

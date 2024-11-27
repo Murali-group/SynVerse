@@ -1,4 +1,7 @@
 import torch.nn as nn
+import torch
+torch.set_default_dtype(torch.float32)
+
 class AutoEncoder(nn.Module):
     def __init__(self, input_dim, hidden_dims):
         '''

@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-from torch_geometric import data as DATA
-import torch
 
 #***************************************************** FEATURE PREP ************************
 

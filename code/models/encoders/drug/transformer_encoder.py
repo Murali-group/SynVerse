@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import math
+torch.set_default_dtype(torch.float32)
+
 def get_sinusoidal_positional_encoding(seq_len, d_model, device):
     """Generate sinusoidal positional encodings."""
     pe = torch.zeros(seq_len, d_model, device=device)

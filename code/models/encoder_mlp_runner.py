@@ -4,6 +4,8 @@ from models.runner import  Runner
 import torch.optim as optim
 # from models.encoder_mlp_worker import Encode_MLPWorker
 from models.encoder_mlp_worker_categorical import Encode_MLPWorker
+import torch
+torch.set_default_dtype(torch.float32)
 
 class Encode_MLP_runner (Runner):
     def __init__(self, train_val_triplets_df, train_idx, val_idx, dfeat_dict, cfeat_dict,score_name,

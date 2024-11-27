@@ -1,4 +1,8 @@
 import torch.nn as nn
+import torch
+torch.set_default_dtype(torch.float64)
+
+
 class MLP(nn.Module):
     def __init__(self, input_size, config):
         super().__init__()

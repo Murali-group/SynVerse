@@ -280,7 +280,7 @@ class Runner(ABC):
 
                 optimizer.zero_grad()
                 outputs = model(inputs_undir, self.drug_feat, self.cell_line_feat, device)
-                loss = criterion(outputs, targets_undir.reshape(-1, 1))
+                loss = criterion(outputs.float(), targets_undir.reshape(-1, 1).float())
                 train_loss += (loss.detach().cpu().numpy())
                 loss.backward()
 
@@ -365,7 +365,7 @@ class Runner(ABC):
                 inputs_undir = torch.cat((inputs_og, inputs), dim=0)
                 targets_undir = torch.cat((targets, targets), dim=0).to(device)
                 outputs = model(inputs_undir, self.drug_feat, self.cell_line_feat, device)
-                loss = criterion(outputs, targets_undir.reshape(-1, 1))
+                loss = criterion(outputs.float(), targets_undir.reshape(-1, 1).float())
                 total_loss += (loss.detach().cpu().numpy())
 
                 if save_output:

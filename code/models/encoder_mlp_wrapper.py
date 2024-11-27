@@ -69,7 +69,7 @@ class Encoder_MLP_wrapper(nn.Module):
         input_size = drug_dim*2+cell_dim
 
         #The synergy predictor MLP
-        self.mlp = MLP(input_size, config).float()
+        self.mlp = MLP(input_size, config)
 
     def drug_encoder_wrap(self, drug_feat, batch_drugs,  device):
         # For each ( feature_name: encoder, e.g., smiles:GCN ) from self.drug_encoder_dict
@@ -165,7 +165,7 @@ class Encoder_MLP_wrapper(nn.Module):
         cell_embeds = self.cell_line_encoder_wrap(cell_line_feat, batch_cell_lines, device)
 
         x = self.concat_feat(batch_triplets, batch_drugs,batch_cell_lines, drug_embeds, cell_embeds)
-        x = x.float().to(device)
+        x = x.to(device)
         x = self.mlp(x)
         return x
 

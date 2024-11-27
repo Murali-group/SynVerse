@@ -39,7 +39,7 @@ def setup_opts():
     group.add_argument('--end_run', type=int, help='How many runs you want. end_run=5 means we will get runs starting at start_run and ending at (end_run-1)', default=5)
     group.add_argument('--n_workers', type=int, help='Number of workers to run in parallel.', default=2)
     group.add_argument('--worker', help='Flag to turn this into a worker process', action='store_true')
-    group.add_argument('--run_id', type=str,
+    group.add_argument('--run_id', type=str, default = 'synverse',
                         help='A unique run id for this optimization run. An easy option is to use the job id of the clusters scheduler.')
     group.add_argument('--nic_name', type=str, default = 'eno1', help='Which network interface to use for communication.'
                         'The valid interface names for VT arc is among: [lo, eno1, enp33s0f0, eno2, enp33s0f1, ib0]')

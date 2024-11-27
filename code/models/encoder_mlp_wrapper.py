@@ -174,9 +174,7 @@ class Encoder_MLP_wrapper(nn.Module):
                 for name, param in self.mlp.named_parameters():
                     if name == "weight":  # Assuming the weight parameter is causing the issue
                         print(f"Weight tensor (mat2): dtype={param.dtype}, shape={param.shape}")
-                raise  # Re-raise the exception for further handling
-            else:
-                raise  # Re-raise for other RuntimeErrors
+                raise  e# Re-raise the exception for further handling
 
         return x
 

@@ -50,7 +50,7 @@ def extract_info_from_files(folder_path):
             # Iterate over each file in the 'run_x' folder
             for file_or_dirname in os.listdir(run_path):
                 # Consider files ending with '_loss.txt' but not 'train_val_loss.txt'
-                if file_or_dirname.endswith('_loss.txt') and 'train_val_loss.txt' not in file_or_dirname:
+                if file_or_dirname.endswith('_loss.txt'):
                     # Open and read the file content
                     file_path = os.path.join(run_path, file_or_dirname)
                     data = read_content(file_path, run_number, data)
@@ -61,7 +61,7 @@ def extract_info_from_files(folder_path):
                     for sub_dir in sub_dirs:
                         one_hot_files = os.listdir(os.path.join(run_path, file_or_dirname, sub_dir))
                         for one_hot_file in one_hot_files:
-                            if one_hot_file.endswith('_loss.txt') and 'train_val_loss.txt' not in one_hot_file:
+                            if one_hot_file.endswith('_loss.txt'):
                                 # Open and read the file content
                                 file_path= os.path.join(run_path, file_or_dirname, sub_dir, one_hot_file)
                                 data = read_content(file_path, run_number, data, one_hot_version=sub_dir)
@@ -78,7 +78,7 @@ def main():
     # Example usage
     base_folder = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05/'
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line']
-    outfile_detailed = base_folder + f'detailed_output.xlsx'
+    outfile_detailed = base_folder + f'combined_output.xlsx'
 
     #extract output for features other than where both drug and cell lines have one-hot encoding
     #save outputs for each runs across all splits and features

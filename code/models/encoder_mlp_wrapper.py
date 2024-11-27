@@ -4,7 +4,7 @@ Define the mlp model here.
 import copy
 import torch
 import torch.nn as nn
-torch.set_default_dtype(torch.float64)
+torch.set_default_dtype(torch.float32)
 
 from models.encoders.drug.gcn_encoder import GCN_Encoder
 from models.encoders.drug.transformer_encoder import Transformer_Encoder
@@ -165,15 +165,14 @@ class Encoder_MLP_wrapper(nn.Module):
         cell_embeds = self.cell_line_encoder_wrap(cell_line_feat, batch_cell_lines, device)
 
         x = self.concat_feat(batch_triplets, batch_drugs,batch_cell_lines, drug_embeds, cell_embeds)
-        x = x.double().to(device)
+        x = x.to(device)
         try:
             x = self.mlp(x)
         except Exception as e:
             # Print or log the data types and shapes of mat1 (input) and mat2 (weights)
             print(f"Hello!!!!!!!! Input tensor (mat1): dtype={x.dtype}, shape={x.shape}")
             for name, param in self.mlp.named_parameters():
-                if name == "weight":  # Assuming the weight parameter is causing the issue
-                    print(f"Weight tensor (mat2): dtype={param.dtype}, shape={param.shape}")
+                print(f"dtype={param.dtype}, shape={param.shape}")
             raise # Re-raise the exception for further handling
 
         return x

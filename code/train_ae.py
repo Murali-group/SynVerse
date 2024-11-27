@@ -4,17 +4,17 @@ import os
 from torch.utils.data import DataLoader, TensorDataset, Subset
 from sklearn.model_selection import KFold
 import numpy as np
-torch.set_default_dtype(torch.float64)
+torch.set_default_dtype(torch.float32)
 
 
 def train_autoencoder(feat, hidden_dims, epoch, model_file, device):
     '''
     Given a feature matrix feat, return the embedding matrix
     '''
-    feat_tensor = torch.tensor(feat, dtype=torch.float64)
+    feat_tensor = torch.tensor(feat, dtype=torch.float32)
     dataset = TensorDataset(feat_tensor)
 
-    model = AutoEncoder(feat_tensor.shape[1], hidden_dims).to(torch.float64).to(device)
+    model = AutoEncoder(feat_tensor.shape[1], hidden_dims).to(torch.float32).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.0001, weight_decay=0.01)
     trn_loader = DataLoader(dataset, batch_size=1024, shuffle=True)
 
@@ -50,7 +50,7 @@ def train_cv(feat_tensor, input_dim, hidden_dims, epoch, patience=10, device='cp
         val_loader = DataLoader(val_dataset, batch_size=1024, shuffle=False)
 
         # Initialize model
-        model = AutoEncoder(input_dim, hidden_dims).to(torch.float64).to(device)
+        model = AutoEncoder(input_dim, hidden_dims).to(torch.float32).to(device)
         optimizer = torch.optim.AdamW(model.parameters(), lr=0.0001, weight_decay=0.01)
 
         best_val_loss = float('inf')
@@ -116,7 +116,7 @@ def tune_hyperparam(feat, hidden_dim_options, epoch, device, patience=20):
     Returns the average validation loss across folds.
     '''
 
-    feat_tensor = torch.tensor(feat, dtype=torch.float64)
+    feat_tensor = torch.tensor(feat, dtype=torch.float32)
     input_dim = feat_tensor.shape[1]
 
     best_val_loss = float('inf')

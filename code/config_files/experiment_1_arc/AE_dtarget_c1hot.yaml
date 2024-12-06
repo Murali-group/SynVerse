@@ -12,9 +12,12 @@ input_settings:
 
     - name: 'target'
       use: [true]
+      compress: true
+
 
   cell_line_features:
     - name: 'c1hot'
+      compress: true
       use: [true]
 
   models:

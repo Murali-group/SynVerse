@@ -36,9 +36,7 @@ def read_content( file_path, run_number, data, one_hot_version=''):
         })
     return data
 
-def extract_info_from_files(folder_path):
-    data = []
-
+def iterate_files(folder_path):
     # Iterate over each 'run_x' folder
     for run_folder in os.listdir(folder_path):
         run_path = os.path.join(folder_path, run_folder)
@@ -50,10 +48,10 @@ def extract_info_from_files(folder_path):
             # Iterate over each file in the 'run_x' folder
             for file_or_dirname in os.listdir(run_path):
                 # Consider files ending with '_loss.txt' but not 'train_val_loss.txt'
-                if file_or_dirname.endswith('_loss.txt'):
+                if file_or_dirname.endswith('_test_predicted_scores.tsv'):
                     # Open and read the file content
                     file_path = os.path.join(run_path, file_or_dirname)
-                    data = read_content(file_path, run_number, data)
+                    scores_df = pd.read_csv(file_path, sep='\t')
 
                 # read files for one-hot encoding
                 if 'One-hot-versions' in file_or_dirname:
@@ -61,10 +59,10 @@ def extract_info_from_files(folder_path):
                     for sub_dir in sub_dirs:
                         one_hot_files = os.listdir(os.path.join(run_path, file_or_dirname, sub_dir))
                         for one_hot_file in one_hot_files:
-                            if one_hot_file.endswith('_loss.txt'):
+                            if one_hot_file.endswith('_test_predicted_scores.tsv'):
                                 # Open and read the file content
                                 file_path= os.path.join(run_path, file_or_dirname, sub_dir, one_hot_file)
-                                data = read_content(file_path, run_number, data, one_hot_version=sub_dir)
+                                scores_df = pd.read_csv(file_path, sep='\t')
 
 
 
@@ -85,7 +83,7 @@ def main():
     splitwise_df_dict = {}
     for split_type in split_types:
         spec_folder = f'{base_folder}/{split_type}/'
-        df = extract_info_from_files(spec_folder)
+        df = iterate_files(spec_folder)
         splitwise_df_dict[split_type] = df
         print(df)
 

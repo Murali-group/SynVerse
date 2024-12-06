@@ -27,7 +27,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/dsmiles_mole_c1hot.yaml",
+                       "config_files/experiment_1/dsmiles_kpgt_c1hot.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space.")
@@ -179,8 +179,8 @@ def run_SynVerse(inputs, params, **kwargs):
 
                 if (params.mode== 'train_val_test'):
                     trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs,
-                                                                                      validation=True)
-                    test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam)
+                                                                                      validation=True, save_output=False)
+                    test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=False)
 
 
 

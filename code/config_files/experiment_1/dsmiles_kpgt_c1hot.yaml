@@ -86,11 +86,9 @@ input_settings:
   abundance: 0.05
 
   max_feat: 1
-  mode: 'debug'
+  mode: 'train_val_test'
         #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
-        # 'train' =  training the model with both train+val dataset
-        # 'train_val' = train the model on training data and validate it on validation fold
-        # 'debug' = train the model on training data and validate it on validation fold. Then  train the model with both train+val dataset and return test loss.
+        # 'train_val_test' = train the model on training data and validate it on validation fold
 
 
 output_settings:

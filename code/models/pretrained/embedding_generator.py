@@ -29,43 +29,52 @@ def get_SPMM_embedding(smiles, input_dir, device):
     return np.array(embeddings), np.array(embeddings).shape[1]
 
 def get_mole_embedding(smiles, input_dir, device=None):
-    # Path to the checkpoint file
-    local_dir = f'{input_dir}/drug/pretrain/'
-    docker_dir = "/mnt"
-    ckpt_file = f'{docker_dir}/MolE_GuacaMol_27113.ckpt'
 
-    embeddings = []
-    b_size = 512
-    i = 0
-    while True:
-        if i >= len(smiles):
-            break
-        smiles_batch = smiles[i:min(i + b_size, len(smiles))]
-        i=i+b_size
+    mole_embed_file = f'{input_dir}/drug/mole_embed.npy'
 
-        # List of SMILES strings
-        smiles_str = repr(smiles_batch)
-        docker_command = [
-            "docker", "run",
-            "-v", f"{local_dir}:{docker_dir}",  # Mount local directory to docker
-            "mole:base",  # The Docker image name
-            "python", "-c",  # Run Python code directly
-            f"from mole_public.mole.cli.mole_predict import encode; "
-            f"import json; "
-            f"embeddings = encode(smiles={smiles_str}, pretrained_model='{ckpt_file}', batch_size=32, num_workers=4); "
-            f"print('EMBEDDINGS:'); "
-            f"print(json.dumps(embeddings.tolist()))"
-        ]
+    if not (os.path.exists(mole_embed_file)):
+        # Path to the checkpoint file
+        local_dir = f'{input_dir}/drug/pretrain/'
+        docker_dir = "/mnt"
+        ckpt_file = f'{docker_dir}/MolE_GuacaMol_27113.ckpt'
 
-        # Run the Docker command and capture the output (embeddings)
-        result = subprocess.run(docker_command, capture_output=True, text=True, check=True)
+        embeddings = []
+        b_size = 512
+        i = 0
+        while True:
+            if i >= len(smiles):
+                break
+            smiles_batch = smiles[i:min(i + b_size, len(smiles))]
+            i=i+b_size
 
-        # Read the embeddings from the output file
-        embedding_list = result.stdout.split('EMBEDDINGS:\n')[-1]
-        embeddings.extend((eval(embedding_list)))
+            # List of SMILES strings
+            smiles_str = repr(smiles_batch)
+            docker_command = [
+                "docker", "run",
+                "-v", f"{local_dir}:{docker_dir}",  # Mount local directory to docker
+                "mole:base",  # The Docker image name
+                "python", "-c",  # Run Python code directly
+                f"from mole_public.mole.cli.mole_predict import encode; "
+                f"import json; "
+                f"embeddings = encode(smiles={smiles_str}, pretrained_model='{ckpt_file}', batch_size=32, num_workers=4); "
+                f"print('EMBEDDINGS:'); "
+                f"print(json.dumps(embeddings.tolist()))"
+            ]
 
+            # Run the Docker command and capture the output (embeddings)
+            result = subprocess.run(docker_command, capture_output=True, text=True, check=True)
 
-    return np.array(embeddings),np.array(embeddings).shape[1]
+            # Read the embeddings from the output file
+            embedding_list = result.stdout.split('EMBEDDINGS:\n')[-1]
+            embeddings.extend((eval(embedding_list)))
+
+        mole_embed = np.array(embeddings)
+        #save embeddings
+        os.makedirs(os.path.dirname(mole_embed_file), exist_ok=True)
+        np.save(mole_embed_file, mole_embed)
+
+    mole_embed = np.load(mole_embed_file)
+    return mole_embed, np.array(mole_embed).shape[1]
 
 def get_kpgt_embedding(smiles, input_dir, device=None):
     #save smile to a .csv file which is an acceptable form by KPGT

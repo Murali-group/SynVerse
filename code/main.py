@@ -4,7 +4,6 @@ import pandas as pd
 from evaluation.split import *
 from utils import *
 from plot_utils import *
-from analysis.statistical_synergy_prediction_model import *
 import types
 import argparse
 from models.encoder_mlp_runner import *
@@ -28,7 +27,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/AE_d1hot_fingerprint_graph_smiles_c1hot.yaml",
+                       "config_files/experiment_1/dsmiles_mole_c1hot.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space.")
@@ -92,6 +91,8 @@ def run_SynVerse(inputs, params, **kwargs):
 
     start_run = kwargs.get('start_run')
     end_run = kwargs.get('end_run')
+
+
     ''' prepare split'''
     for run_no in range(start_run, end_run):
         for split in splits:
@@ -174,16 +175,14 @@ def run_SynVerse(inputs, params, **kwargs):
                     # train the model with best hyperparam and both train and validation dataset
                     trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
                     # evaluate model on test data
-                    test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
+                    test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam)
 
-                if (params.mode== 'train_val') or (params.mode=='debug') :
+                if (params.mode== 'train_val_test'):
                     trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs,
                                                                                       validation=True)
-                if (params.mode == 'train') or (params.mode=='debug'):
-                    # train the model with best hyperparam and both train and validation dataset
-                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
-                    # evaluate model on test data
-                    test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, best_n_epochs)
+                    test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam)
+
+
 
             del cur_dfeat_dict
             del cur_cfeat_dict

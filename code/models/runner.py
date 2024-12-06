@@ -183,7 +183,7 @@ class Runner(ABC):
         return best_config, best_epochs
 
 
-    def train_model_given_config(self, config, best_n_epochs, validation = False):
+    def train_model_given_config(self, config, best_n_epochs, validation = False, save_output=True):
 
         if not validation: #train model with both training and validation data
             # load dataset
@@ -193,30 +193,32 @@ class Runner(ABC):
             best_model_state,_,train_loss, _ = self.train_model(model, optimizer, criterion, train_loader,
                                                       best_n_epochs, self.check_freq,
                                                       self.tolerance, self.is_wandb, self.device, early_stop=False)
-            # save the best model
-            model_file = self.out_file.replace('.txt', '_model.pth')
-            os.makedirs(os.path.dirname(model_file), exist_ok=True)
-            torch.save(best_model_state, model_file)
 
-            #save train_loss
-            # loss_file = self.out_file.replace('.txt', '_train_loss.txt')
-            loss_file = self.out_file.replace('.txt', '_loss.txt')
-            os.makedirs(os.path.dirname(loss_file), exist_ok=True)
+            if save_output:
+                # save the best model
+                model_file = self.out_file.replace('.txt', '_model.pth')
+                os.makedirs(os.path.dirname(model_file), exist_ok=True)
+                torch.save(best_model_state, model_file)
 
-            with open(loss_file, 'w') as file:
-                file.write(f'Best config: {config}\n\n')
-                file.write(f'Number of epochs: {best_n_epochs}\n\n')
-                file.write(f'train_loss: {train_loss}\n\n')
+                #save train_loss
+                # loss_file = self.out_file.replace('.txt', '_train_loss.txt')
+                loss_file = self.out_file.replace('.txt', '_loss.txt')
+                os.makedirs(os.path.dirname(loss_file), exist_ok=True)
+
+                with open(loss_file, 'w') as file:
+                    file.write(f'Best config: {config}\n\n')
+                    file.write(f'Number of epochs: {best_n_epochs}\n\n')
+                    file.write(f'train_loss: {train_loss}\n\n')
         else:
             val_loss = {}
             train_loss = {}
             req_epochs = {}
-            loss_file = self.out_file.replace('.txt', '_train_val_loss.txt')
-            os.makedirs(os.path.dirname(loss_file), exist_ok=True)
 
-
-            file = open(loss_file, 'w')
-            file.write(f'Config: {config}\n\n')
+            if save_output:
+                loss_file = self.out_file.replace('.txt', '_train_val_loss.txt')
+                os.makedirs(os.path.dirname(loss_file), exist_ok=True)
+                file = open(loss_file, 'w')
+                file.write(f'Config: {config}\n\n')
 
             for fold in range(self.n_folds):
                 model, optimizer, criterion = self.init_model(config)
@@ -232,11 +234,11 @@ class Runner(ABC):
                 best_model_state, val_loss[fold], train_loss[fold], req_epochs[fold] = self.train_model(model, optimizer,
                                     criterion, train_loader, best_n_epochs, self.check_freq,self.tolerance,
                                     self.is_wandb, self.device,early_stop=True,val_loader=val_loader, fold=fold)
-
-                file.write(f'fold: {fold}\n')
-                file.write(f'Number of epochs: {req_epochs[fold]}\n')
-                file.write(f'train_loss: {train_loss[fold]}\n')
-                file.write(f'val_loss: {val_loss[fold]}\n\n')
+                if save_output:
+                    file.write(f'fold: {fold}\n')
+                    file.write(f'Number of epochs: {req_epochs[fold]}\n')
+                    file.write(f'train_loss: {train_loss[fold]}\n')
+                    file.write(f'val_loss: {val_loss[fold]}\n\n')
 
         return best_model_state, train_loss
 
@@ -349,7 +351,7 @@ class Runner(ABC):
         return best_model, min_val_loss, train_loss, req_epochs  # model has been trained for given number of epochs. Now return the best model so far.
 
 
-    def eval_model(self, model, val_loader, criterion, device, save_output=False):
+    def eval_model(self, model, val_loader, criterion, device, save_output=True):
         '''
         Return validation loss per sample.
         '''
@@ -395,20 +397,21 @@ class Runner(ABC):
 
         return avg_loss
 
-    def get_test_score(self, test_df, best_model_state, config, best_n_epochs):
+    def get_test_score(self, test_df, best_model_state, config, save_output=True):
         test_loader = DataLoader(self.get_triplets_score_dataset(test_df), batch_size=4096, shuffle=True)
         # evaluate model on test dataset
         model, optimizer, criterion = self.init_model(config)
         model.load_state_dict(best_model_state)
-        test_loss = self.eval_model(model, test_loader, criterion, self.device, save_output=True)
+        test_loss = self.eval_model(model, test_loader, criterion, self.device, save_output=save_output)
         print('test loss: ', test_loss)
         # save test loss result
 
-        out_file =self.out_file.replace('.txt', '_loss.txt')
-        os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        with open(out_file, 'a') as file:
-            # file.write(f'Best config: {config}\n\n')
-            # file.write(f'Number of epochs: {best_n_epochs}\n\n')
-            file.write(f'test_loss: {test_loss}\n\n')
+        if save_output:
+            out_file =self.out_file.replace('.txt', '_loss.txt')
+            os.makedirs(os.path.dirname(out_file), exist_ok=True)
+            with open(out_file, 'a') as file:
+                # file.write(f'Best config: {config}\n\n')
+                # file.write(f'Number of epochs: {best_n_epochs}\n\n')
+                file.write(f'test_loss: {test_loss}\n\n')
 
-        file.close()
+            file.close()

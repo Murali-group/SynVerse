@@ -48,7 +48,7 @@ input_settings:
               'num_hid_layers': 2, 'optimizer': 'SGD', 'hid_1': 113, 'sgd_momentum': 0.21730082740135556}
 
   batch_size: 4096
-  epochs: 10
+  epochs: 1000
 
 
   splits:
@@ -85,8 +85,7 @@ input_settings:
   max_feat: 1
   mode: 'hp_tune'
         #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
-        # 'train' =  training the model with both train+val dataset
-        # 'train_val' = train the model on training data and validate it on validation fold
+        # 'train_val_test' = train the model on training data and validate it on validation fold
 
 output_settings:
   output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs/'

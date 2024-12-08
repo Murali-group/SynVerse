@@ -17,6 +17,9 @@ echo $PWD
 # Check if the third argument is provided
 if [ -n "$5" ]; then
     CUDA_LAUNCH_BLOCKING=1 python -u main.py --config "$1" --feat "$2" --start_run "$3" --end_run "$4" --run_id "$SLURM_JOB_ID" > "$5" 2>&1
+elif [ -n "$4" ]; then
+    CUDA_LAUNCH_BLOCKING=1 python -u main.py --config "$1" --start_run "$2" --end_run "$3" --run_id "$SLURM_JOB_ID" > "$4" 2>&1
+
 elif [ -n "$3" ]; then
     CUDA_LAUNCH_BLOCKING=1 python -u main.py --config "$1" --feat "$2" --run_id "$SLURM_JOB_ID" > "$3" 2>&1
 else

@@ -30,7 +30,7 @@ def setup_opts():
                        "config_files/experiment_1/dsmiles_kpgt_c1hot.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--feat', type=str,
-                       help="Put the name of the features to use, separated by space.")
+                       help="Put the name of the features to use, separated by space. Applicable when you want to run just one set of features.")
     group.add_argument('--split', type=str,
                        help="Put the name of the split types to run, separated by space.")
     group.add_argument('--start_run', type=int, help='From which run should the model start from. This is to help when'

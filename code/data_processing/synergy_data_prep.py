@@ -130,7 +130,6 @@ def aggregate_synergy_data(mapped_filename, drug_name_to_pcomp_file, processed_s
         sort_paired_cols(synergy_df, 'drug_1_pid', 'drug_2_pid', inplace=True, relation='greater')
         #Group the same drug-pair-cell-line triplets and take the mean and std scores.
         synergy_df = synergy_df.groupby(['drug_1_pid','drug_2_pid','cell_line_name'])[['S_mean','synergy_zip', 'synergy_loewe', 'synergy_bliss', 'synergy_hsa']].agg(['mean','median', 'std', 'count']).reset_index()
-        #TODO: Make sure we are getting nan because of singular presence of a triplet
         #std=nan means only one sample was present, hence 0 standard deviation
         # synergy_df.columns = ['_'.join(col) if col[1]!='' else col[0] for col in synergy_df.columns.values]
         synergy_df.columns = ['_'.join(col).strip('_') if isinstance(col, tuple) else col for col in synergy_df.columns]

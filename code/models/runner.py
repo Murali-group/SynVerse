@@ -31,7 +31,8 @@ class Runner(ABC):
         out_file = out_file_prefix + '.txt'
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         self.split_type = kwargs.get('split_type')
-        self.triplets_scores_dataset = self.get_triplets_score_dataset(train_val_triplets_df, score_name=score_name)
+        self.score_name = score_name
+        self.triplets_scores_dataset = self.get_triplets_score_dataset(train_val_triplets_df, score_name=self.score_name)
 
         self.drug_feat = dfeat_dict['value']
         self.cell_line_feat = cfeat_dict['value']
@@ -215,7 +216,7 @@ class Runner(ABC):
             req_epochs = {}
 
             if save_output:
-                loss_file = self.out_file.replace('.txt', '_train_val_loss.txt')
+                loss_file = self.out_file.replace('.txt', '_train_val_test_loss.txt')
                 os.makedirs(os.path.dirname(loss_file), exist_ok=True)
                 file = open(loss_file, 'w')
                 file.write(f'Config: {config}\n\n')
@@ -239,6 +240,11 @@ class Runner(ABC):
                     file.write(f'Number of epochs: {req_epochs[fold]}\n')
                     file.write(f'train_loss: {train_loss[fold]}\n')
                     file.write(f'val_loss: {val_loss[fold]}\n\n')
+
+                    # save the best model trained only on training split
+                    model_file = self.out_file.replace('.txt', f'_train_split_model_{fold}.pth')
+                    os.makedirs(os.path.dirname(model_file), exist_ok=True)
+                    torch.save(best_model_state, model_file)
 
         return best_model_state, train_loss
 
@@ -351,7 +357,7 @@ class Runner(ABC):
         return best_model, min_val_loss, train_loss, req_epochs  # model has been trained for given number of epochs. Now return the best model so far.
 
 
-    def eval_model(self, model, val_loader, criterion, device, save_output=True):
+    def eval_model(self, model, val_loader, criterion, device, return_preds=False):
         '''
         Return validation loss per sample.
         '''
@@ -359,10 +365,9 @@ class Runner(ABC):
         model.eval()
 
         with torch.no_grad():
-            if save_output:
-                triplets = []
-                true_score = []
-                pred_score = []
+            triplets = []
+            true_score = []
+            pred_score = []
             total_loss = 0
             for inputs, targets in val_loader:
                 inputs_og = copy.deepcopy(inputs)
@@ -373,16 +378,14 @@ class Runner(ABC):
                 loss = criterion(outputs.float(), targets_undir.reshape(-1, 1).float())
                 total_loss += (loss.detach().cpu().numpy())
 
-                if save_output:
-                    triplets.append(inputs_undir.to('cpu'))
-                    true_score.append(targets_undir.reshape(-1, 1).to('cpu'))
-                    pred_score.append(outputs.to('cpu'))
+                triplets.append(inputs_undir.to('cpu'))
+                true_score.append(targets_undir.reshape(-1, 1).to('cpu'))
+                pred_score.append(outputs.to('cpu'))
 
         # loss_per_sample
         avg_loss = total_loss / len(val_loader)
-        if save_output:#save predicted scores
-            out_file = self.out_file.replace('.txt', '_test_predicted_scores.tsv')
 
+        if return_preds:
             triplets = torch.cat(triplets, dim=0).numpy()
             true_score = torch.cat(true_score, dim=0).numpy()
             pred_score = torch.cat(pred_score, dim=0).numpy()
@@ -390,26 +393,33 @@ class Runner(ABC):
             df = pd.DataFrame(triplets, columns=['drug1', 'drug2', 'cell_line'])
             df['true'] = true_score
             df['predicted'] = pred_score
-            # Save the DataFrame to a tab-separated file
-            os.makedirs(os.path.dirname(out_file), exist_ok=True)
-            df.to_csv(out_file, sep='\t', index=False)
-            print(f"Predicted score saved to {out_file}")
+            return avg_loss, df
 
-        return avg_loss
+        else:
+            return avg_loss
 
-    def get_test_score(self, test_df, best_model_state, config, save_output=True):
-        test_loader = DataLoader(self.get_triplets_score_dataset(test_df), batch_size=4096, shuffle=True)
+    def get_test_score(self, test_df, best_model_state, config, save_output=True, file_prefix = '_'):
+        '''
+        :return:
+        '''
+        test_loader = DataLoader(self.get_triplets_score_dataset(test_df, score_name=self.score_name), batch_size=4096, shuffle=True)
         # evaluate model on test dataset
         model, optimizer, criterion = self.init_model(config)
         model.load_state_dict(best_model_state)
-        test_loss = self.eval_model(model, test_loader, criterion, self.device, save_output=save_output)
+        test_loss, pred_df = self.eval_model(model, test_loader, criterion, self.device, return_preds=save_output)
         print('test loss: ', test_loss)
         # save test loss result
 
-        if save_output:
-            out_file =self.out_file.replace('.txt', '_loss.txt')
-            os.makedirs(os.path.dirname(out_file), exist_ok=True)
-            with open(out_file, 'a') as file:
+        if save_output: #save predicted scores
+            # Save the DataFrame to a tab-separated file
+            pred_score_file = self.out_file.replace('.txt', f'{file_prefix}test_predicted_scores.tsv')
+            os.makedirs(os.path.dirname(pred_score_file), exist_ok=True)
+            pred_df.to_csv(pred_score_file, sep='\t', index=False)
+            print(f"Predicted score saved to {pred_score_file}")
+
+            loss_file =self.out_file.replace('.txt', f'{file_prefix}loss.txt')
+            os.makedirs(os.path.dirname(loss_file), exist_ok=True)
+            with open(loss_file, 'a') as file:
                 # file.write(f'Best config: {config}\n\n')
                 # file.write(f'Number of epochs: {best_n_epochs}\n\n')
                 file.write(f'test_loss: {test_loss}\n\n')

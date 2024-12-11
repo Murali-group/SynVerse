@@ -27,7 +27,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/dsmiles_kpgt_c1hot.yaml",
+                       "config_files/experiment_1/debug.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space. Applicable when you want to run just one set of features.")
@@ -57,7 +57,8 @@ def run_SynVerse(inputs, params, **kwargs):
     splits = params.splits
     split_dir = params.split_dir
     synergy_file = inputs.processed_syn_file
-    score_name = 'S_mean_mean' #synergy score to use
+
+    score_name = 'synergy_loewe_mean' #synergy score to use
 
 
     '''Read synergy triplets'''
@@ -111,11 +112,10 @@ def run_SynVerse(inputs, params, **kwargs):
                     continue
 
             split_feat_str = get_feat_prefix(dfeat_dict, cfeat_dict)
-            # split_prefix = split_dir + f'/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{n_folds}/run_{run_no}/'
-            split_info_str = f"/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/"
+            split_info_str = f"/{split_feat_str}/k_{params.abundance}_{score_name}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/"
 
             print('SPLIT STR: ', split_info_str)
-            split_file_path = split_dir + f"/{split_feat_str}/k_{params.abundance}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/"
+            split_file_path = split_dir + split_info_str
 
 
             force_split = False
@@ -162,7 +162,7 @@ def run_SynVerse(inputs, params, **kwargs):
                 hyperparam = combine_hyperparams(select_model_info)
                 best_n_epochs = params.epochs
 
-                out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type, split_feat_str=split_feat_str, run_no=run_no)
+                out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type,score_name, split_feat_str=split_feat_str, run_no=run_no)
 
                 # out_file_prefix = params.out_dir+'/test.txt'
                 kwargs['split_type'] = split_type
@@ -173,15 +173,22 @@ def run_SynVerse(inputs, params, **kwargs):
                     # find best hyperparam setup
                     hyperparam, best_n_epochs = runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
                     # train the model with best hyperparam and both train and validation dataset
-                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs)
+                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs, validation=False, save_output=True)
                     # evaluate model on test data
-                    test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam)
+                    runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True)
+
+
+                    #also train the model only on training data, use validation for LR reducing
+                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs, validation=True, save_output=True)
+                    runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True, file_prefix='_train_val_test_')
+
+
+
 
                 if (params.mode== 'train_val_test'):
                     trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs,
-                                                                                      validation=True, save_output=False)
-                    test_loss = runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=False)
-
+                                                                                      validation=True, save_output=True)
+                    test_loss, pred_df = runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True, file_prefix='_train_val_test_')
 
 
             del cur_dfeat_dict
@@ -201,7 +208,9 @@ def main(config_map, **kwargs):
         inputs = types.SimpleNamespace()
         params = types.SimpleNamespace()
 
-        inputs.processed_syn_file = input_dir + 'synergy/synergy_scores.tsv'
+        # inputs.processed_syn_file = input_dir + 'synergy/synergy_scores.tsv'
+        inputs.processed_syn_file = input_dir + 'synergy/synergy_synergy_loewe_std_percentile_99.tsv'
+
         inputs.drug_smiles_file = input_dir + 'drug/smiles.tsv'
         inputs.drug_graph_file = input_dir + 'drug/molecular_graph.pickle'
         inputs.drug_target_file = input_dir + 'drug/target.tsv'

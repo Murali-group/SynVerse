@@ -34,7 +34,7 @@ def data_process():
     # aggregate synergy score for replicated triplets and do some filtering.
     processed_syn_file = '/home/grads/tasnina/Projects/Plug and Play/inputs/synergy/synergy_scores.tsv'
     stat_file = '/home/grads/tasnina/Projects/Plug and Play/outputs/stat/synergy_stat.txt'
-    synergy_df = aggregate_filter_synergy_data(mapped_syn_filename, drug_name_to_pcomp_file, processed_syn_file, stat_file)  # preprocess
+    synergy_df = aggregate_synergy_data(mapped_syn_filename, drug_name_to_pcomp_file, processed_syn_file, stat_file)  # preprocess
     synergy_df = synergy_df[['drug_1_pid', 'drug_2_pid', 'cell_line_name', 'S_mean_mean', 'synergy_zip_mean']]
 
     print('Drugcomb: #triplets after aggregation and filtering: ', len(synergy_df))

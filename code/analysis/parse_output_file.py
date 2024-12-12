@@ -136,7 +136,7 @@ def iterate_output_files(folder_path):
 
 def main():
     # Example usage
-    base_folder = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05/'
+    base_folder = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/'
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line']
     outfile_detailed = base_folder + f'combined_output.xlsx'
 

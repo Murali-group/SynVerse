@@ -58,7 +58,9 @@ def run_SynVerse(inputs, params, **kwargs):
     split_dir = params.split_dir
     synergy_file = inputs.processed_syn_file
 
-    score_name = 'synergy_loewe_mean' #synergy score to use
+    # score_name = 'synergy_loewe_mean' #synergy score to use
+    score_name = 'S_mean_mean' #synergy score to use
+
 
 
     '''Read synergy triplets'''
@@ -208,8 +210,8 @@ def main(config_map, **kwargs):
         inputs = types.SimpleNamespace()
         params = types.SimpleNamespace()
 
-        # inputs.processed_syn_file = input_dir + 'synergy/synergy_scores.tsv'
-        inputs.processed_syn_file = input_dir + 'synergy/synergy_synergy_loewe_std_percentile_99.tsv'
+        inputs.processed_syn_file = input_dir + 'synergy/synergy_scores_S_mean_mean.tsv' #manually renamed previous synergy_scores.tsv (on which I had all the runs till Decemeber 11, 2024) to synergy_scores_S_mean_mean.tsv.
+        # inputs.processed_syn_file = input_dir + 'synergy/synergy_synergy_loewe_std_percentile_99.tsv'
 
         inputs.drug_smiles_file = input_dir + 'drug/smiles.tsv'
         inputs.drug_graph_file = input_dir + 'drug/molecular_graph.pickle'

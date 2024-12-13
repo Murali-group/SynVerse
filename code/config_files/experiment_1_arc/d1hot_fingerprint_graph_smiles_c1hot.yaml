@@ -64,7 +64,7 @@ input_settings:
 
 
   batch_size: 4096
-  epochs: 1000
+  epochs: 1500
 
 
   splits:
@@ -98,10 +98,8 @@ input_settings:
   abundance: 0.05
 
   max_feat: 1
-  mode: 'hp_tune'
-        #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
-        # 'train' =  training the model with both train+val dataset
-        # 'train_val' = train the model on training data and validate it on validation fold
-
+  hp_tune: False
+  train_mode:
+    use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
 output_settings:
   output_dir: '/home/tasnina/Projects/SynVerse/outputs/'

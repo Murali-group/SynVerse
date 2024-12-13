@@ -36,7 +36,7 @@ input_settings:
               'num_hid_layers': 2, 'optimizer': 'SGD', 'hid_1': 113, 'sgd_momentum': 0.21730082740135556}
 
   batch_size: 4096
-  epochs: 1500
+  epochs: 1000
 
 
   splits:
@@ -70,9 +70,10 @@ input_settings:
   abundance: 0.05
 
   max_feat: 1
-  hp_tune: False
-  train_mode:
-    use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
+  mode: 'hp_tune'
+        #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
+        # 'train' =  training the model with both train+val dataset
+        # 'train_val' = train the model on training data and validate it on validation fold
 
 output_settings:
   output_dir: '/home/tasnina/Projects/SynVerse/outputs/'

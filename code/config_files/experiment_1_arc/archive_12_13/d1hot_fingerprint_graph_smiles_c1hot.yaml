@@ -10,36 +10,27 @@ input_settings:
 
     - name: 'MACCS'
       use: [ true, false ]
-      compress: true
-
 
     - name: 'ECFP_4'
       use: [ true, false ]
-      compress: true
-
 
     - name: 'MFP' #morgan fingerprint
       use: [ true, false ]
-      compress: true
-
 
     - name: 'mol_graph'
       encoder: 'GCN'
-      use: [ false ]
+      use: [ true, false ]
 
     - name: 'smiles'
       encoder: 'Transformer'
-      use: [ false ]
+      use: [ true, false ]
 
     - name: 'd1hot'
       use: [ true, false ]
-      compress: true
-
 
   cell_line_features:
     - name: 'c1hot'
       use: [true]
-      compress: true
 
   models:
      decoder:
@@ -73,7 +64,7 @@ input_settings:
 
 
   batch_size: 4096
-  epochs: 1500
+  epochs: 1000
 
 
   splits:
@@ -107,9 +98,10 @@ input_settings:
   abundance: 0.05
 
   max_feat: 1
-  hp_tune: False
-  train_mode:
-    use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
+  mode: 'hp_tune'
+        #'hp_tune' = hyperparam tuning and training the model with both train+val dataset
+        # 'train' =  training the model with both train+val dataset
+        # 'train_val' = train the model on training data and validate it on validation fold
 
 output_settings:
   output_dir: '/home/tasnina/Projects/SynVerse/outputs/'

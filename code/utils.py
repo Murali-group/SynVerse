@@ -14,6 +14,23 @@ def load_yaml_file(filepath):
 
 
 
+def extract_best_hyperparam(hyperparam_file):
+    best_config = {}
+    best_epochs = None
+
+    with open(hyperparam_file, 'r') as f:
+        for line in f:
+            if line.startswith('best_config'):
+                # Extract the dictionary string and convert it back to a dictionary
+                best_config = eval(line.replace('best_config: ', '').strip())
+            elif line.startswith('best_epochs'):
+                # Extract the number and convert it to an integer
+                best_epochs = int(line.replace('best_epochs: ', '').strip())
+
+    print("Best Config:", best_config)
+    print("Best Epochs:", best_epochs)
+    return best_config, best_epochs
+
 #********************************** SYNERGY TRIPLETS ***********************************
 def feature_based_filtering(synergy_df, dfeat_dict, cfeat_dict, feature='must'):
     '''

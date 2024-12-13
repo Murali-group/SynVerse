@@ -181,6 +181,13 @@ class Runner(ABC):
         with open(bohb_result_file, 'wb') as fh:
             pickle.dump(res, fh)
 
+        #save best config
+        best_config_file = self.out_file.replace('.txt', '_best_hyperparam.txt')
+        with open(best_config_file, 'w') as f:
+            f.write('best_config: ' + str(best_config))
+            f.write('\nbest_epochs: ' + str(int(best_epochs)))
+        f.close()
+
         return best_config, best_epochs
 
 
@@ -216,7 +223,7 @@ class Runner(ABC):
             req_epochs = {}
 
             if save_output:
-                loss_file = self.out_file.replace('.txt', '_train_val_test_loss.txt')
+                loss_file = self.out_file.replace('.txt', '_val_true_loss.txt')
                 os.makedirs(os.path.dirname(loss_file), exist_ok=True)
                 file = open(loss_file, 'w')
                 file.write(f'Config: {config}\n\n')
@@ -242,7 +249,7 @@ class Runner(ABC):
                     file.write(f'val_loss: {val_loss[fold]}\n\n')
 
                     # save the best model trained only on training split
-                    model_file = self.out_file.replace('.txt', f'_train_split_model_{fold}.pth')
+                    model_file = self.out_file.replace('.txt', f'_val_true_model_{fold}.pth')
                     os.makedirs(os.path.dirname(model_file), exist_ok=True)
                     torch.save(best_model_state, model_file)
 

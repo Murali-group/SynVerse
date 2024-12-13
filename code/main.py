@@ -162,7 +162,7 @@ def run_SynVerse(inputs, params, **kwargs):
                 select_model_info = get_select_model_info(model_info, select_dfeat_dict['encoder'], select_cfeat_dict['encoder'])
 
                 hyperparam = combine_hyperparams(select_model_info)
-                best_n_epochs = params.epochs
+                given_epochs = params.epochs
 
                 out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type,score_name, split_feat_str=split_feat_str, run_no=run_no)
 
@@ -171,26 +171,16 @@ def run_SynVerse(inputs, params, **kwargs):
                 runner = Encode_MLP_runner(all_train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict, score_name,
                          out_file_prefix, params, select_model_info, device, **kwargs)
 
-                if params.mode == 'hp_tune':
+                if params.hp_tune:
                     # find best hyperparam setup
-                    hyperparam, best_n_epochs = runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
-                    # train the model with best hyperparam and both train and validation dataset
-                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs, validation=False, save_output=True)
-                    # evaluate model on test data
-                    runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True)
+                    best_hyperparam, best_n_epochs = runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
 
+                if params.train_mode['use_best_hyperparam']:
+                    #find the best hyperparam saved in a file for the given features and architecture
+                    hyperparam, _ = extract_best_hyperparam(out_file_prefix+'_best_hyperparam.txt')
 
-                    #also train the model only on training data, use validation for LR reducing
-                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs, validation=True, save_output=True)
-                    runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True, file_prefix='_train_val_test_')
-
-
-
-
-                if (params.mode== 'train_val_test'):
-                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, best_n_epochs,
-                                                                                      validation=True, save_output=True)
-                    test_loss, pred_df = runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True, file_prefix='_train_val_test_')
+                trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,validation=True,save_output=True) #when validation=True, use given epochs as you can always early stop using validation loss
+                runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True, file_prefix='_val_true_')
 
 
             del cur_dfeat_dict
@@ -231,7 +221,8 @@ def main(config_map, **kwargs):
         params.feature = config_map['input_settings']['feature']
         params.abundance = config_map['input_settings']['abundance']
         params.max_feat=config_map['input_settings']['max_feat']
-        params.mode=config_map['input_settings']['mode']
+        params.hp_tune=config_map['input_settings']['hp_tune']
+        params.train_mode = config_map['input_settings']['train_mode']
         params.batch_size = config_map['input_settings'].get('batch_size', 4096)
         input_settings = config_map.get('input_settings', {})
         params.wandb = types.SimpleNamespace(**input_settings.get('wandb', {}))

@@ -63,7 +63,7 @@ def save_config_in_sep_file(folder_path):
 
 def main():
     # Example usage
-    base_folder = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/'
+    base_folder = '/home/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/'
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line']
 
 

@@ -71,7 +71,7 @@ def read_loss_file_content(file_path):
         epochs = int(epochs_match.group(1)) if epochs_match else None
         train_loss = float(train_loss_match.group(1)) if train_loss_match else None
         test_loss = float(test_loss_match.group(1)) if test_loss_match else None
-        val_loss = float(test_loss_match.group(1)) if val_loss_match else None
+        val_loss = float(val_loss_match.group(1)) if val_loss_match else None
 
 
         loss_dict = {'test_loss': test_loss,

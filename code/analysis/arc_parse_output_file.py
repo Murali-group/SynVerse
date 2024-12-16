@@ -59,7 +59,7 @@ def read_loss_file_content(file_path):
         content = file.read()
 
         # Extract required information using regular expressions
-        best_config_match = re.search(r"Best config: (.+)", content)
+        best_config_match = re.search(r"Config: (.+)", content)
         epochs_match = re.search(r"Number of epochs: (\d+)", content)
         train_loss_match = re.search(r"train_loss: ([\d.]+)", content)
         test_loss_match = re.search(r"test_loss: ([\d.]+)", content)

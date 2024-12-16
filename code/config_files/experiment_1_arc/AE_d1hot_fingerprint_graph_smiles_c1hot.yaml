@@ -11,21 +11,27 @@ input_settings:
     - name: 'MACCS'
       use: [ true, false ]
       compress: true
+      norm: std
 
 
     - name: 'ECFP_4'
       use: [ true, false ]
       compress: true
+      norm: std
+
 
 
     - name: 'MFP' #morgan fingerprint
       use: [ true, false ]
       compress: true
+      norm: std
+
 
 
     - name: 'mol_graph'
       encoder: 'GCN'
       use: [ false ]
+
 
     - name: 'smiles'
       encoder: 'Transformer'
@@ -34,12 +40,15 @@ input_settings:
     - name: 'd1hot'
       use: [ true, false ]
       compress: true
+      norm: std
+
 
 
   cell_line_features:
     - name: 'c1hot'
       use: [true]
       compress: true
+      norm: std
 
   models:
      decoder:

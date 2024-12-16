@@ -19,6 +19,8 @@ def extract_and_save_best_config(loss_file_path):
         epochs = int(epochs_match.group(1)) if epochs_match else None
 
     best_config_file = loss_file_path.replace('_loss.txt', '_best_hyperparam.txt')
+
+    print(loss_file_path, '\n')
     with open(best_config_file, 'w') as f:
         f.write('best_config: ' + str(best_config))
         f.write('\nbest_epochs: ' + str(int(epochs)))
@@ -63,7 +65,7 @@ def save_config_in_sep_file(folder_path):
 
 def main():
     # Example usage
-    base_folder = '/home/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/'
+    base_folder = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/'
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line']
 
 

@@ -27,7 +27,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/debug.yaml",
+                       "config_files/experiment_1/debug_dtarget.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space. Applicable when you want to run just one set of features.")
@@ -136,9 +136,6 @@ def run_SynVerse(inputs, params, **kwargs):
             cur_dfeat_dict['value'], cur_cfeat_dict['value'] = get_index_sorted_feature_matrix(cur_dfeat_dict['value'], drug_2_idx,
                                                    cur_cfeat_dict['value'], cell_line_2_idx)
 
-            #Normalize data based on training data. Use the computed mean, std from training data to normalize test data.
-            cur_dfeat_dict['value'], cur_cfeat_dict['value'] = normalization_wrapper(cur_dfeat_dict['value'], cur_cfeat_dict['value'],
-                                                                        cur_dfeat_dict['norm'], cur_cfeat_dict['norm'], all_train_df)
 
             # Reduce dimension of data or compress data using autoenencoder
             train_drug_idx = list(set(all_train_df['source']).union(set(all_train_df['target'])))
@@ -151,6 +148,13 @@ def run_SynVerse(inputs, params, **kwargs):
                                                           train_cell_idx, hidden_dim_options=params.autoencoder_dims, epoch=500,
                                                           file_prefix=f'{params.input_dir}/cell-line/AE/{split_info_str}/',
                                                           device=device, force_run=force_split)
+
+            # Normalize data based on training data. Use the computed mean, std from training data to normalize test data.
+            cur_dfeat_dict['value'], cur_cfeat_dict['value'] = normalization_wrapper(cur_dfeat_dict['value'],
+                                                                                     cur_cfeat_dict['value'],
+                                                                                     cur_dfeat_dict['norm'],
+                                                                                     cur_cfeat_dict['norm'],
+                                                                                     all_train_df)
 
             for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:
                 print('drug and cell line features in use: ', select_drug_feat, select_cell_feat)

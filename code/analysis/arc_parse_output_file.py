@@ -110,7 +110,7 @@ def iterate_output_files(folder_path):
                 if file_or_dirname.endswith('_val_true_loss.txt'):
                     # Open and read the file content
                     loss_file_path = os.path.join(run_path, file_or_dirname)
-                    pred_file_path = loss_file_path.replace('_val_true_loss.txt', 'val_true_test_predicted_scores.tsv')
+                    pred_file_path = loss_file_path.replace('_val_true_loss.txt', '_val_true_test_predicted_scores.tsv')
                     run_info_dict = get_run_feat_info(loss_file_path, run_number, one_hot_version="-")
                     run_info_dict.update({'loss_file':loss_file_path, "pred_file": pred_file_path})
                     out_file_list.append(run_info_dict)

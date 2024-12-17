@@ -6,6 +6,10 @@ from sklearn.metrics import recall_score
 import matplotlib.pyplot as plt
 import numpy as np
 
+feature_super_sets = {'smiles_based': ['MACCS', 'ECFP_4', 'MFP', 'mol_graph', 'smiles'], 'target': ['target'], 'genex': ['genex','genex_lincs_1000']}
+
+
+
 def plot_outputs(file_path, split_type):
 
     # Load the dataset
@@ -15,8 +19,8 @@ def plot_outputs(file_path, split_type):
     metrics = {
         'Training Loss': 'train_loss',
         'Test Loss': 'test_loss',
-        'Precision_0': 'Precision_0',
-        'Recall_0': 'Recall_0'
+        # 'Precision_0': 'Precision_0',
+        # 'Recall_0': 'Recall_0'
     }
     # Generate plots for each metric
     for metric_name, metric_col in metrics.items():
@@ -135,6 +139,7 @@ def iterate_output_files(folder_path):
 
 
 def main():
+    force_run=False
     # Example usage
     base_folder = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/'
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line']
@@ -145,30 +150,32 @@ def main():
     splitwise_df_dict = {}
     for split_type in split_types:
         splitwise_summary_file = base_folder+f'output_{split_type}.tsv'
-        # plot_outputs(splitwise_summary_file)
 
-        spec_folder = f'{base_folder}/{split_type}/'
-        out_info_list = iterate_output_files(spec_folder)
-        data = []
-        for out_info in out_info_list:
-            all_info = out_info
-            loss_info = read_loss_file_content(out_info['loss_file'])
-            precision, recall = compute_cls_performance(out_info['pred_file'], thresholds = [0, 10, 30])
-            all_info.update(loss_info)
-            all_info.update(precision)
-            all_info.update(recall)
-            data.append(all_info)
-        df = pd.DataFrame(data)
-        df.drop(columns=['loss_file', 'pred_file'], axis=1, inplace=True)
-        splitwise_df_dict[split_type] = df
-        print(df)
-        df.to_csv(splitwise_summary_file, sep='\t', index=False)
+        if (not os.path.exists(splitwise_summary_file) or force_run):
+            # plot_outputs(splitwise_summary_file)
+            spec_folder = f'{base_folder}/{split_type}/'
+            out_info_list = iterate_output_files(spec_folder)
+            data = []
+            for out_info in out_info_list:
+                all_info = out_info
+                loss_info = read_loss_file_content(out_info['loss_file'])
+                precision, recall = compute_cls_performance(out_info['pred_file'], thresholds = [0, 10, 30])
+                all_info.update(loss_info)
+                all_info.update(precision)
+                all_info.update(recall)
+                data.append(all_info)
+            df = pd.DataFrame(data)
+            df.drop(columns=['loss_file', 'pred_file'], axis=1, inplace=True)
+            splitwise_df_dict[split_type] = df
+            print(df)
+            df.to_csv(splitwise_summary_file, sep='\t', index=False)
+
         plot_outputs(splitwise_summary_file, split_type)
 
 
-    with pd.ExcelWriter(outfile_detailed, mode="w") as writer:
-        for split_type in splitwise_df_dict:
-            splitwise_df_dict[split_type].to_excel(writer, sheet_name=split_type, index=False)
+    # with pd.ExcelWriter(outfile_detailed, mode="w") as writer:
+    #     for split_type in splitwise_df_dict:
+    #         splitwise_df_dict[split_type].to_excel(writer, sheet_name=split_type, index=False)
 
 
 

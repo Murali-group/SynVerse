@@ -22,6 +22,16 @@ class MLP(nn.Module):
             self.layers.append(nn.Dropout(in_dropout_rate if i == 0 else hid_dropout_rate))
 
         self.layers.append(nn.Linear(hidden_layers[-1], output_size))
+        # Initialize weights
+        # self._initialize_weights()
+
+    # def _initialize_weights(self):
+    #     for layer in self.layers:
+    #         if isinstance(layer, nn.Linear):
+    #             # He initialization for ReLU activation
+    #             nn.init.kaiming_uniform_(layer.weight, nonlinearity='relu')
+    #             if layer.bias is not None:
+    #                 nn.init.constant_(layer.bias, 0.0)
 
     def forward(self,x):
         for layer in self.layers:

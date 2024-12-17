@@ -57,7 +57,6 @@ class Runner(ABC):
 
         self.result_logger = hpres.json_result_logger(directory=out_file.replace('.txt',''), overwrite=True)
         self.log_file = self.out_file_prefix + '_training.log'
-        open(self.log_file,'w')
 
     @abstractmethod
     def init_model(self, config):
@@ -75,6 +74,9 @@ class Runner(ABC):
         min_budget = self.bohb_params['min_budget']
         max_budget = self.bohb_params['max_budget']
         n_iterations = self.bohb_params['n_iterations']
+
+        open(self.log_file,'w')
+
 
         if server_type == 'local':
             # get the used specified setting here about wandb and BOHB
@@ -307,6 +309,8 @@ class Runner(ABC):
                 loss = criterion(outputs.float(), targets_undir.reshape(-1, 1).float())
                 train_loss += (loss.detach().cpu().numpy())
                 loss.backward()
+
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
                 #check if gradients are being computed.
                 # for name, param in model.named_parameters():

@@ -27,7 +27,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/debug_dtarget.yaml",
+                       "config_files/experiment_1/debug_d1hot_cgenex.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space. Applicable when you want to run just one set of features.")
@@ -177,7 +177,7 @@ def run_SynVerse(inputs, params, **kwargs):
 
                 if params.hp_tune:
                     # find best hyperparam setup
-                    best_hyperparam, best_n_epochs = runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
+                    runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
 
                 if params.train_mode['use_best_hyperparam']:
                     #find the best hyperparam saved in a file for the given features and architecture

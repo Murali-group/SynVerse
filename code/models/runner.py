@@ -199,8 +199,9 @@ class Runner(ABC):
             train_loader = DataLoader(self.triplets_scores_dataset, batch_size=self.batch_size, shuffle=True)
             # train model using the whole training data (including validation dataset)
             best_model_state,_,train_loss, _ = self.train_model(model, optimizer, criterion, train_loader,
-                                                      best_n_epochs, self.check_freq,
-                                                      self.tolerance, self.is_wandb, self.device, early_stop=False)
+                                            best_n_epochs, self.check_freq,
+                                            self.tolerance, self.is_wandb, self.device, early_stop=False,
+                                            log_file=self.log_file.replace('training.log','training_final.log'))
 
             if save_output:
                 # save the best model
@@ -241,7 +242,8 @@ class Runner(ABC):
 
                 best_model_state, val_loss[fold], train_loss[fold], req_epochs[fold] = self.train_model(model, optimizer,
                                     criterion, train_loader, best_n_epochs, self.check_freq,self.tolerance,
-                                    self.is_wandb, self.device,early_stop=True,val_loader=val_loader, fold=fold)
+                                    self.is_wandb, self.device,early_stop=True,val_loader=val_loader, fold=fold,
+                                    log_file = self.log_file.replace('training.log', 'training_final.log'))
                 if save_output:
                     file.write(f'fold: {fold}\n')
                     file.write(f'Number of epochs: {req_epochs[fold]}\n')
@@ -265,9 +267,13 @@ class Runner(ABC):
         wandb.watch(model, log="all")
 
     def train_model(self, model, optimizer, criterion, train_loader, n_epochs, check_freq, tolerance, is_wandb, device,
-                    early_stop=True, val_loader=None, fold=-1):
-        os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
-        f = open(self.log_file, 'a')
+                    early_stop=True, val_loader=None, fold=-1, log_file=None):
+        if log_file is None:
+            log_file = self.log_file
+            os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
+        else:
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        f = open(log_file, 'a')
         f.write(f'Configuraion: {model.chosen_config}\n')
         f.write(f"drug_encoder_list: {self.drug_encoder_info}")
         f.write(f"cell_encoder_list: {self.cell_encoder_info}")

@@ -25,13 +25,13 @@ import logging
 
 class Runner(ABC):
     def __init__(self, train_val_triplets_df, train_idx, val_idx, dfeat_dict,
-                 cfeat_dict, score_name, out_file_prefix,
+                 cfeat_dict, out_file_prefix,
                  params, model_info, device, **kwargs):
 
         out_file = out_file_prefix + '.txt'
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
         self.split_type = kwargs.get('split_type')
-        self.score_name = score_name
+        self.score_name = kwargs.get('score_name')
         self.triplets_scores_dataset = self.get_triplets_score_dataset(train_val_triplets_df, score_name=self.score_name)
 
         self.drug_feat = dfeat_dict['value']
@@ -63,7 +63,7 @@ class Runner(ABC):
        pass
 
     @staticmethod
-    def get_triplets_score_dataset(triplets_df, score_name='S_mean_mean'):
+    def get_triplets_score_dataset(triplets_df, score_name):
         triplets = torch.tensor(triplets_df[['source', 'target', 'edge_type']].values)
         synergy_scores = torch.tensor(triplets_df[score_name].values)
         triplets_scores_dataset = TensorDataset(triplets, synergy_scores)

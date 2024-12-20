@@ -29,7 +29,7 @@ def setup_opts():
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
                        "config_files/experiment_1/debug_d1hot_cgenex.yaml",
                        help="Configuration file for this script.")
-    group.add_argument('--score_name', type=str, help="Name of the score to predict.")
+    group.add_argument('--score_name', type=str, default='synergy_loewe_mean', help="Name of the score to predict.")
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space. Applicable when you want to run just one set of features.")
     group.add_argument('--split', type=str,
@@ -176,7 +176,7 @@ def run_SynVerse(inputs, params, **kwargs):
 
                 # out_file_prefix = params.out_dir+'/test.txt'
                 kwargs['split_type'] = split_type
-                runner = Encode_MLP_runner(all_train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict, score_name,
+                runner = Encode_MLP_runner(all_train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
                          out_file_prefix, params, select_model_info, device, **kwargs)
 
                 if params.hp_tune:

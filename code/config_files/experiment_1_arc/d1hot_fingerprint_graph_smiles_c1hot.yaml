@@ -98,7 +98,7 @@ input_settings:
   abundance: 0.05
 
   max_feat: 1
-  hp_tune: False
+  hp_tune: True
   train_mode:
     use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
 output_settings:

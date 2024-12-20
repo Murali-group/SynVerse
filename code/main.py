@@ -71,7 +71,6 @@ def run_SynVerse(inputs, params, **kwargs):
     drug_pids = sorted(list(set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid']))))
     cell_line_names = sorted(synergy_df['cell_line_name'].unique())
 
-
    #********************************** GET FEATURES READY *******************************************************
     ''' Read parsed drug features and do user-chosen filtering and preprocessing.'''
     dfeat_dict, dfeat_names = prepare_drug_features(drug_features, drug_pids, params, inputs, device)
@@ -85,6 +84,10 @@ def run_SynVerse(inputs, params, **kwargs):
 
     '''keep the cell lines consisting of at least params.abundance% of the total #triplets in the final dataset.'''
     synergy_df = abundance_based_filtering(synergy_df, min_frac=params.abundance)
+
+    # print(f'min: {synergy_df[score_name].min()},max: {synergy_df[score_name].max()}, std: {synergy_df[score_name].std()}, avg: {synergy_df[score_name].mean()}' )
+    # plt.hist(synergy_df[score_name], bins=20, color='blue', edgecolor='black', alpha=0.7)
+    # plt.show()
     # synergy_df.to_csv('test_2.tsv', sep='\t', index=False)
     #******************************************* MODEL TRAINING ***********************************************
 

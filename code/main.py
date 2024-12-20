@@ -29,6 +29,7 @@ def setup_opts():
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
                        "config_files/experiment_1/debug_d1hot_cgenex.yaml",
                        help="Configuration file for this script.")
+    group.add_argument('--score_name', type=str, help="Name of the score to predict.")
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space. Applicable when you want to run just one set of features.")
     group.add_argument('--split', type=str,
@@ -56,12 +57,14 @@ def run_SynVerse(inputs, params, **kwargs):
     model_info = params.models
     splits = params.splits
     split_dir = params.split_dir
-    synergy_file = inputs.processed_syn_file
 
     # score_name = 'synergy_loewe_mean' #synergy score to use
-    score_name = 'S_mean_mean' #synergy score to use
-
-
+    # score_name = 'S_mean_mean' #synergy score to use
+    score_name=kwargs.get('score_name')
+    if score_name == 'S_mean_mean':
+        synergy_file = inputs.smean_processed_syn_file
+    elif score_name == 'synergy_loewe_mean':
+        synergy_file = inputs.loewe_processed_syn_file
 
     '''Read synergy triplets'''
     synergy_df = pd.read_csv(synergy_file, sep='\t', dtype={'drug_1_pid': str, 'drug_2_pid': str, 'cell_line_name': str})
@@ -76,12 +79,13 @@ def run_SynVerse(inputs, params, **kwargs):
     ''' Read parsed cell line features and do user-chosen filtering and preprocessing.'''
     cfeat_dict, cfeat_names = prepare_cell_line_features(cell_line_features, cell_line_names, inputs)
 
+
     '''Filter out the triplets based on the availability of drug and cell line features'''
     synergy_df = feature_based_filtering(synergy_df, dfeat_dict['value'], cfeat_dict['value'], params.feature)
 
     '''keep the cell lines consisting of at least params.abundance% of the total #triplets in the final dataset.'''
     synergy_df = abundance_based_filtering(synergy_df, min_frac=params.abundance)
-
+    # synergy_df.to_csv('test_2.tsv', sep='\t', index=False)
     #******************************************* MODEL TRAINING ***********************************************
 
     #***********************************************Figure out the feature combinations to train the model on ***
@@ -204,8 +208,9 @@ def main(config_map, **kwargs):
         inputs = types.SimpleNamespace()
         params = types.SimpleNamespace()
 
-        inputs.processed_syn_file = input_dir + 'synergy/synergy_scores_S_mean_mean.tsv' #manually renamed previous synergy_scores.tsv (on which I had all the runs till Decemeber 11, 2024) to synergy_scores_S_mean_mean.tsv.
-        # inputs.processed_syn_file = input_dir + 'synergy/synergy_synergy_loewe_std_percentile_99.tsv'
+        inputs.smean_processed_syn_file = input_dir + 'synergy/synergy_scores_S_mean_mean.tsv' #manually renamed previous synergy_scores.tsv (on which I had all the runs till Decemeber 11, 2024) to synergy_scores_S_mean_mean.tsv It is the same as new S_mean_synergy_zip_std_threshold_0.1.tsv.
+        inputs.loewe_processed_syn_file = input_dir + 'synergy/synergy_loewe_S_mean_std_threshold_0.1.tsv'
+        # inputs.processed_syn_file = input_dir + 'synergy/merged.tsv'
 
         inputs.drug_smiles_file = input_dir + 'drug/smiles.tsv'
         inputs.drug_graph_file = input_dir + 'drug/molecular_graph.pickle'

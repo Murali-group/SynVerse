@@ -85,10 +85,14 @@ def feature_based_filtering(synergy_df, dfeat_dict, cfeat_dict, feature='must'):
 
 def print_synergy_stat(synergy_df):
     drug_pids = set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid']))
+    drug_pairs = set(zip(synergy_df['drug_1_pid'], synergy_df['drug_2_pid']))
+
     cell_line_names = set(synergy_df['cell_line_name'])
-    print(f'\n#of triplets : {len(synergy_df)},\n#drugs {len(drug_pids)},'
-          f' \n#cell lines {len(cell_line_names)}')
+    print(f'#of triplets : {len(synergy_df)},\n #unique drug pairs {len(drug_pairs)}\n#unique drugs {len(drug_pids)},'
+          f' \n#unique cell lines {len(cell_line_names)}\n')
+
     print('minimum triplets in a cell line: ', list(synergy_df['cell_line_name'].value_counts())[-1])
+    return drug_pairs, drug_pids, cell_line_names
 
 
 def abundance_based_filtering(synergy_df, min_frac=0.01):

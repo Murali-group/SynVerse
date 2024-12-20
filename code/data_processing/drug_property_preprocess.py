@@ -113,13 +113,19 @@ def find_drugs_with_ueq_smiles(drug_name_to_pcomp):
 
 
 def extract_unambiguouse_drug_pid(drug_name_to_pcomp_file):
+    '''
+    If a drug name is associated with multiple pids, first we find out if all these pids lead to one/same SMILES.
+    If so, we take the first pid and SMILES. If not, we do not map this drug name to any PID at all because of inconsistency.
+
+    '''
     with open(drug_name_to_pcomp_file, 'rb') as file:
         drug_name_to_pcomp = pickle.load(file)
         mult_uneq_smiles = find_drugs_with_ueq_smiles(drug_name_to_pcomp)
         # Now take the first pid and first smiles for each drug
         drug_name_2_pid = {drug_name: str(drug_name_to_pcomp[drug_name][0].cid) for drug_name in
                            drug_name_to_pcomp if drug_name not in mult_uneq_smiles}
-    return drug_name_2_pid
+
+    return drug_name_2_pid, mult_uneq_smiles
 
 
 def extract_pid_smiles(drug_name_to_pcomp_file, drug_smiles_file, force_run=True):
@@ -303,43 +309,43 @@ def get_mfp_from_smiles(drug_smiles_df,mfp_file,m_dim=256, force_run=True ):
     return mfp_df
 
 
-def get_ecfp_from_smiles(drug_smiles_df, ecfp_file,e_dim=1024, e_rad=2, force_run=True ):
-    '''
-    param drug_smiles_df: Given dataframe with columns ['pid','smiles']
-    param drug_chemprop_file:   save extracted properties of drug as dataframes in the given directory.
-    '''
-    # ecfp_file = drug_chemprop_dir + 'ECFP_4.tsv'
-    # e_dim=1024
-    # e_rad = 2
-    if ( not(os.path.exists(ecfp_file))) or (force_run == True):
-        pid_to_smiles = zip(drug_smiles_df['pid'], drug_smiles_df['smiles'])
-        ecfp_4 = []
-        pids = []
-        for pid, smiles in pid_to_smiles:
-            if 'ECFP_4' in properties:
-                # extract ECFP_4 using RDKit
-                ecfp_4.append(get_ecfp_4(smiles,e_rad, e_dim))
-            # extract drug molecular fingerprints (DMF) using ChemmineR
-            # dmf.append(get_dmf(smiles))
-            pids.append(pid)
-
-        os.makedirs(os.path.dirname(ecfp_file), exist_ok=True)
-
-        # save ECFP_4
-        if 'ECFP_4' in properties:
-            ecfp_df = pd.DataFrame({'pid': pids,'ECFP4': ecfp_4}).set_index('pid')
-            # Explode the 'Morgan_FP' column
-            ecfp_df = ecfp_df['ECFP4'].apply(pd.Series)
-            # Rename the new columns
-            feature_columns = [f'ECFP4_{i}' for i in range(e_dim)]
-            ecfp_df.columns = feature_columns
-            ecfp_df.reset_index().to_csv(ecfp_file, sep='\t', index=False)
-
-
-    if 'ECFP_4' in properties:
-        ecfp_4_df = pd.read_csv(ecfp_file, sep='\t', index_col=None)
-    print('Extracted ecfp_4_df from SMILES')
-    return ecfp_4_df
+# def get_ecfp_from_smiles(drug_smiles_df, ecfp_file,e_dim=1024, e_rad=2, force_run=True ):
+#     '''
+#     param drug_smiles_df: Given dataframe with columns ['pid','smiles']
+#     param drug_chemprop_file:   save extracted properties of drug as dataframes in the given directory.
+#     '''
+#     # ecfp_file = drug_chemprop_dir + 'ECFP_4.tsv'
+#     # e_dim=1024
+#     # e_rad = 2
+#     if ( not(os.path.exists(ecfp_file))) or (force_run == True):
+#         pid_to_smiles = zip(drug_smiles_df['pid'], drug_smiles_df['smiles'])
+#         ecfp_4 = []
+#         pids = []
+#         for pid, smiles in pid_to_smiles:
+#             if 'ECFP_4' in properties:
+#                 # extract ECFP_4 using RDKit
+#                 ecfp_4.append(get_ecfp_4(smiles,e_rad, e_dim))
+#             # extract drug molecular fingerprints (DMF) using ChemmineR
+#             # dmf.append(get_dmf(smiles))
+#             pids.append(pid)
+#
+#         os.makedirs(os.path.dirname(ecfp_file), exist_ok=True)
+#
+#         # save ECFP_4
+#         if 'ECFP_4' in properties:
+#             ecfp_df = pd.DataFrame({'pid': pids,'ECFP4': ecfp_4}).set_index('pid')
+#             # Explode the 'Morgan_FP' column
+#             ecfp_df = ecfp_df['ECFP4'].apply(pd.Series)
+#             # Rename the new columns
+#             feature_columns = [f'ECFP4_{i}' for i in range(e_dim)]
+#             ecfp_df.columns = feature_columns
+#             ecfp_df.reset_index().to_csv(ecfp_file, sep='\t', index=False)
+#
+#
+#     if 'ECFP_4' in properties:
+#         ecfp_4_df = pd.read_csv(ecfp_file, sep='\t', index_col=None)
+#     print('Extracted ecfp_4_df from SMILES')
+#     return ecfp_4_df
 
 
 def get_chemprop_from_smiles(drug_smiles_df,properties, drug_chemprop_dir, force_run=True ):

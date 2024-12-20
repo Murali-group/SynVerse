@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import copy
+
 import pandas as pd
 
 from data_utils.helper_functions import *
@@ -70,7 +72,7 @@ def map_drugcomb_ids(raw_syn_filename, drug_filename, cell_line_filename, mapped
     synergy_df = pd.read_csv(raw_syn_filename, sep=',', usecols =['drug_row_id',
                 'drug_col_id', 'cell_line_id', 'S_mean', 'synergy_zip',
                 'synergy_loewe', 'synergy_hsa', 'synergy_bliss'], low_memory=False)
-    synergy_df.dropna(inplace=True)
+    synergy_df.dropna(subset = ['drug_col_id', 'drug_col_id', 'cell_line_id'], inplace=True)
 
     drug_id_to_name = dict(zip(drug_df['id'], drug_df['dname']))
     cell_line_id_to_name = dict(zip(cell_line_df['id'], cell_line_df['name']))
@@ -90,7 +92,7 @@ def map_drugcomb_ids(raw_syn_filename, drug_filename, cell_line_filename, mapped
 
 
 
-def aggregate_synergy_data(mapped_filename, drug_name_to_pcomp_file, processed_syn_file, force_run=True):
+def aggregate_synergy_data(mapped_filename, drug_name_to_pcomp_file, processed_syn_file, score_names, force_run=True):
     '''
     Function: Given the synergy file (syn_filename) from DrugComb, this function will process this file to
         1. keep only drug pairs, no single drug response
@@ -98,38 +100,58 @@ def aggregate_synergy_data(mapped_filename, drug_name_to_pcomp_file, processed_s
         3. compute the mean, median, and std of synergy score.
     Output: It saves the processed data in a file and also return as a dataframe.
     '''
-    if not (os.path.exists(processed_syn_file)) or force_run:
+    score_names_str = '_'.join(score_names)
+    score_spec_processed_syn_file = processed_syn_file.replace('.tsv', f'_{score_names_str}.tsv')
+    if not (os.path.exists(score_spec_processed_syn_file)) or force_run:
+        drug_name_2_pid, drug_with_multiple_different_smiles = extract_unambiguouse_drug_pid(drug_name_to_pcomp_file)
+        cols_to_read= ['drug_row','drug_col','cell_line_name']
+        cols_to_read.extend(score_names)
 
-        drug_name_2_pid = extract_unambiguouse_drug_pid(drug_name_to_pcomp_file)
+
         synergy_df = pd.read_csv(mapped_filename, sep=',', low_memory=False,
-                    dtype={'drug_row':str,'drug_col':str,'cell_line_name':str,
-                    'S_mean':float, 'synergy_loewe':float,
-                    'synergy_zip':float,'synergy_hsa':float,
-                    'synergy_bliss':float
-                    })
+                    dtype={'drug_row':str,'drug_col':str,'cell_line_name':str})[cols_to_read]
 
         drug_names = list(set(synergy_df['drug_row']).union(set(synergy_df['drug_col'])))
+        print('Initial downloaded dataset.')
         print_stat(synergy_df, drug_names)
+
+
 
         #keep the rows with a pairs of drugs present, NOT single drug respose.
         synergy_df = synergy_df.dropna(subset=['drug_row', 'drug_col'])
         drug_names = list(set(synergy_df['drug_row']).union(set(synergy_df['drug_col'])))
+        print(' After keeping the rows with a pairs of drugs present, NOT single drug respose.')
         print_stat(synergy_df, drug_names)
 
+        print('Drugs with multiple smiles: ', len(set(drug_names).intersection(set(drug_with_multiple_different_smiles))))
+        # map drug names to PID
         synergy_df['drug_1_pid'] = synergy_df['drug_row'].astype(str).apply(
             lambda x: drug_name_2_pid[x] if x in drug_name_2_pid else pd.NA)
         synergy_df['drug_2_pid'] = synergy_df['drug_col'].astype(str).apply(
             lambda x: drug_name_2_pid[x] if x in drug_name_2_pid else pd.NA)
+        synergy_df['cell_line_name'] = synergy_df['cell_line_name'].apply(lambda x: convert_cell_line_name(x))
+
 
         #removing drugs without pid
         synergy_df = synergy_df.dropna(subset=['drug_1_pid', 'drug_2_pid'])
-        drug_names = list(set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid'])))
+        drug_names = list(set(synergy_df['drug_row']).union(set(synergy_df['drug_col'])))
+        print('After removing drugs without pid')
         print_stat(synergy_df , drug_names)
+
+
+        # drop rows with nan score value.
+        synergy_df.dropna(inplace=True)
+        for score_name in score_names:
+            synergy_df[score_name] = synergy_df[score_name].astype(float)
+
+        drug_names = list(set(synergy_df['drug_row']).union(set(synergy_df['drug_col'])))
+        print(f'After removing rows with nan values of {score_names_str}')
+        print_stat(synergy_df, drug_names)
 
         #sort synergy_df such that drug_row>drug_col. This will help to identify repeated pairs present in the dataset.
         sort_paired_cols(synergy_df, 'drug_1_pid', 'drug_2_pid', inplace=True, relation='greater')
         #Group the same drug-pair-cell-line triplets and take the mean and std scores.
-        synergy_df = synergy_df.groupby(['drug_1_pid','drug_2_pid','cell_line_name'])[['S_mean','synergy_zip', 'synergy_loewe', 'synergy_bliss', 'synergy_hsa']].agg(['mean','median', 'std', 'count']).reset_index()
+        synergy_df = synergy_df.groupby(['drug_1_pid','drug_2_pid','cell_line_name'])[score_names].agg(['mean', 'median', 'std', 'count']).reset_index()
         #std=nan means only one sample was present, hence 0 standard deviation
         # synergy_df.columns = ['_'.join(col) if col[1]!='' else col[0] for col in synergy_df.columns.values]
         synergy_df.columns = ['_'.join(col).strip('_') if isinstance(col, tuple) else col for col in synergy_df.columns]
@@ -152,16 +174,18 @@ def aggregate_synergy_data(mapped_filename, drug_name_to_pcomp_file, processed_s
             else:
                 print(f"Discrepancy found in {std_col} when {count_col} is 1.")
                 print(mismatched_rows)
+            synergy_df.drop(count_col, axis=1, inplace=True)
 
 
         #******************
 
         print(synergy_df.columns)
-        synergy_df['S_mean_std'] = synergy_df['S_mean_std'].fillna(0)
-        synergy_df['synergy_zip_std'] = synergy_df['synergy_zip_std'].fillna(0)
-        synergy_df['synergy_loewe_std'] = synergy_df['synergy_loewe_std'].fillna(0)
-        synergy_df['synergy_hsa_std'] = synergy_df['synergy_hsa_std'].fillna(0)
-        synergy_df['synergy_bliss_std'] = synergy_df['synergy_bliss_std'].fillna(0)
+        for score_name in score_names:
+            synergy_df[f'{score_name}_std'] = synergy_df[f'{score_name}_std'].fillna(0)
+        # synergy_df['synergy_zip_std'] = synergy_df['synergy_zip_std'].fillna(0)
+        # synergy_df['synergy_loewe_std'] = synergy_df['synergy_loewe_std'].fillna(0)
+        # synergy_df['synergy_hsa_std'] = synergy_df['synergy_hsa_std'].fillna(0)
+        # synergy_df['synergy_bliss_std'] = synergy_df['synergy_bliss_std'].fillna(0)
 
 
         #Dealing with inconsistent replicates: We only take the pairs for whom standard deviation of synergy score < 0.1
@@ -169,20 +193,20 @@ def aggregate_synergy_data(mapped_filename, drug_name_to_pcomp_file, processed_s
         # print_stat(synergy_df, drug_names)
 
         #rename cell line names removing ‘ ’, ‘_’, ‘-’, lowercase
-        synergy_df['cell_line_name'] = synergy_df['cell_line_name'].apply(lambda x: convert_cell_line_name(x))
+        # synergy_df['cell_line_name'] = synergy_df['cell_line_name'].apply(lambda x: convert_cell_line_name(x))
 
         #************************************ SAVE to file **********************************************
         #save the processed synergy scores
-        os.makedirs(os.path.dirname(processed_syn_file), exist_ok=True)
-        synergy_df.to_csv(processed_syn_file, sep='\t')
+        os.makedirs(os.path.dirname(score_spec_processed_syn_file), exist_ok=True)
+        synergy_df.to_csv(score_spec_processed_syn_file, sep='\t', index=False)
 
     else:
-        synergy_df = pd.read_csv(processed_syn_file, sep='\t', dtype={'drug_1_pid':str,'drug_2_pid':str,'cell_line_name':str,
-                    'S_mean_mean':float, 'S_mean_median':float, 'S_mean_std':float,
-                    'synergy_loewe_mean':float, 'synergy_loewe_median':float, 'synergy_loewe_std':float,
-                    'synergy_zip_mean': float, 'synergy_zip_median': float,'synergy_zip_std': float,
-                    'synergy_hsa_mean': float, 'synergy_hsa_median': float,'synergy_hsa_std': float,
-                    'synergy_bliss_mean': float, 'synergy_bliss_median': float,'synergy_bliss_std': float})
+        synergy_df = pd.read_csv(score_spec_processed_syn_file, sep='\t', dtype={'drug_1_pid':str, 'drug_2_pid':str, 'cell_line_name':str})
+        for score_name in score_names:
+            synergy_df[ f'{score_name}_mean'] = synergy_df[ f'{score_name}_mean'].astype(float)
+            synergy_df[ f'{score_name}_median'] = synergy_df[ f'{score_name}_median'].astype(float)
+            synergy_df[ f'{score_name}_std'] = synergy_df[ f'{score_name}_std'].astype(float)
+
     drug_names = list(set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid'])))
     print('After Aggregation')
     print_stat(synergy_df, drug_names)
@@ -196,6 +220,7 @@ def print_stat(synergy_df, drug_names):
     print(f'Drugcomb: #drug-pair-cellline triplets: {triplets}')
     print('Drugcomb: #unique drugs with synergy labels: ', unique_drugs)
     print('Drugcomb: #unique cell lines with synergy labels: ', cell_lines)
+    print('\n\n')
     return unique_drugs, cell_lines, triplets
 
 def viz_synergy_data(synergy_df, out_file=None):
@@ -329,7 +354,7 @@ if __name__=='__main__':
         dcomb_cell_line_file = "/home/grads/tasnina/Projects/SynVerse/datasets/synergy/drugcomb_cell_line_data.csv"
         mapped_syn_filename = "/home/grads/tasnina/Projects/SynVerse/datasets/synergy/drugcomb_mapped_summary.csv"
         drug_name_to_pcomp_file = '/home/grads/tasnina/Projects/SynVerse/inputs/drug/drug_name_to_pubchem_compound.pickle'
-        processed_syn_file = '/home/grads/tasnina/Projects/SynVerse/inputs/synergy/synergy_scores.tsv'
+        processed_syn_file = '/home/grads/tasnina/Projects/SynVerse/inputs/synergy/scores.tsv'
         stat_dir = '/home/grads/tasnina/Projects/SynVerse/inputs/stat/'
         stat_file = f'{stat_dir}/synergy_stat.tsv'
 
@@ -337,8 +362,8 @@ if __name__=='__main__':
         # **************************************
         # download_synergy(dcomb_raw_syn_file, dcomb_drug_file, dcomb_cell_line_file)
         # map drugcomb drug_id->drug_name, cell_line_id->cell_line_name
-        mapped_syn_df = map_drugcomb_ids(dcomb_raw_syn_file, dcomb_drug_file, dcomb_cell_line_file,
-                                                mapped_syn_filename)
+        # mapped_syn_df = map_drugcomb_ids(dcomb_raw_syn_file, dcomb_drug_file, dcomb_cell_line_file,
+        #                                         mapped_syn_filename)
         #
         # # #  extract pubchempy compound for each drug and save that id alongside drug names
         # drug_name_to_pcomp_file = '/home/grads/tasnina/Projects/SynVerse/inputs/drug/drug_name_to_pubchem_compound.pickle'
@@ -351,54 +376,60 @@ if __name__=='__main__':
         # print('drugs with pubchem compounds: ', len(list(drug_name_to_pcomp.keys())))
 
         # aggregate synergy score for replicated triplets and do some filtering.
-        synergy_df = aggregate_synergy_data(mapped_syn_filename, drug_name_to_pcomp_file, processed_syn_file, force_run=True)  # preprocess
-        # synergy_df = synergy_df[['drug_1_pid', 'drug_2_pid', 'cell_line_name', 'S_mean_mean','S_mean_std', 'synergy_loewe_mean', 'synergy_loewe_std']]
-
-        for score_name in ['synergy_loewe', 'S_mean']:
-            for filter_option in ['percentile', 'threshold']:
-                plot_distribution_of_scores(synergy_df, f'{score_name}_std',stat_dir, filter_option)
-            plot_distribution_of_scores(synergy_df, f'{score_name}_mean',stat_dir)
-            plot_distribution_of_scores(synergy_df, f'{score_name}_median',stat_dir)
-
-
         summar_rows = []
-        #filter based on percentile
-        for percentile in [90, 95, 99]:
-            for score_name in ['synergy_loewe_std', 'S_mean_std']:
-                filtered_synergy_file = processed_syn_file.replace('_scores.tsv', f'_{score_name}_percentile_{percentile}.tsv')
-                # Calculate the threshold value for the specified percentile
-                threshold_value = np.percentile(synergy_df[score_name], percentile)
-                # Filter rows where the column value is less than or equal to the threshold
-                filtered_df = synergy_df[synergy_df[score_name] <= threshold_value]
-                filtered_df.to_csv(filtered_synergy_file, sep='\t')
+        synergy_dfs = []
+        for score_names in [['synergy_loewe', 'S_mean'], ['synergy_loewe'], ['S_mean'], ['S_mean', 'synergy_zip']]:
+            score_names_str = '_'.join(score_names)
+            print(f'score names: {score_names_str}')
+            synergy_df = aggregate_synergy_data(mapped_syn_filename, drug_name_to_pcomp_file, processed_syn_file, score_names= score_names, force_run=True)  # preprocess
+            # synergy_df = synergy_df[['drug_1_pid', 'drug_2_pid', 'cell_line_name', 'S_mean_mean','S_mean_std', 'synergy_loewe_mean', 'synergy_loewe_std']]
 
-                print(f'\n\nAfter filtering based on percentile {percentile} where threshold is {threshold_value} on {score_name} ')
-                drug_names = list(set(filtered_df['drug_1_pid']).union(set(filtered_df['drug_2_pid'])))
-                n_unique_drugs, n_cell_lines, n_triplets = print_stat(filtered_df, drug_names)
+            for score_name in score_names:
+                for filter_option in ['percentile', 'threshold']:
+                    plot_distribution_of_scores(synergy_df, f'{score_name}_std', stat_dir, filter_option)
+                plot_distribution_of_scores(synergy_df, f'{score_name}_mean', stat_dir)
+                plot_distribution_of_scores(synergy_df, f'{score_name}_median', stat_dir)
 
-                summar_rows.append({'score_name': score_name, 'percentile':percentile, 'threshold':threshold_value,
-                        'unique_drugs':n_unique_drugs, 'unique_cell_lines':n_cell_lines, '#triplets':n_triplets})
 
-        #filter based on threshold
-        for threshold in [0.1, 10, 15]:
-            for score_name in ['synergy_loewe_std', 'S_mean_std']:
-                filtered_synergy_file = processed_syn_file.replace('_scores.tsv', f'_{score_name}_threshold_{threshold}.tsv')
+            # #filter based on percentile
+            # for percentile in [90, 95, 99]:
+            #     filtered_synergy_file = processed_syn_file.replace('_scores.tsv', f'_{score_names_str}_std_percentile_{percentile}.tsv')
+            #     # Calculate the threshold value for the specified percentile
+            #     threshold_value = np.percentile(synergy_df[f'{score_names}_std'], percentile)
+            #     # Filter rows where the column value is less than or equal to the threshold
+            #     filtered_df = synergy_df[synergy_df[f'{score_names}_std'] <= threshold_value]
+            #     filtered_df.to_csv(filtered_synergy_file, sep='\t')
+            #
+            #     print(f'\n\nAfter filtering based on percentile {percentile} where threshold is {threshold_value} on {score_names}_std')
+            #     drug_names = list(set(filtered_df['drug_1_pid']).union(set(filtered_df['drug_2_pid'])))
+            #     n_unique_drugs, n_cell_lines, n_triplets = print_stat(filtered_df, drug_names)
+            #
+            #     summar_rows.append({'score_name': f'{score_names}_std', 'percentile':percentile, 'threshold':threshold_value,
+            #             'unique_drugs':n_unique_drugs, 'unique_cell_lines':n_cell_lines, '#triplets':n_triplets})
+
+            #filter based on threshold
+            for threshold in [0.1, 10, 15]:
+                filtered_synergy_file = processed_syn_file.replace('scores.tsv', f'{score_names_str}_std_threshold_{threshold}.tsv')
                 # Filter rows where the column value is greater than or equal to the threshold
-                filtered_df = synergy_df[synergy_df[score_name] <= threshold]
+                filtered_df=copy.deepcopy(synergy_df)
+                for score_name in score_names:
+                    filtered_df = filtered_df[filtered_df[f'{score_name}_std'] <= threshold]
                 filtered_df.to_csv(filtered_synergy_file, sep='\t')
 
                 #percentile for this threshold
-                percentile = find_percentile(synergy_df[score_name], threshold)
-
-                print(f'\n\nAfter filtering based on threshold {threshold} where percentile is {percentile} on {score_name} ')
+                for score_name in score_names:
+                    percentile = find_percentile(synergy_df[f'{score_name}_std'], threshold)
+                    print(f'\n\n threshold: {threshold}, percentile: {percentile}, score_name: {score_name}_std')
                 drug_names = list(set(filtered_df['drug_1_pid']).union(set(filtered_df['drug_2_pid'])))
                 n_unique_drugs, n_cell_lines, n_triplets = print_stat(filtered_df, drug_names)
-
-                summar_rows.append({'score_name': score_name, 'percentile': percentile, 'threshold': threshold,
+                summar_rows.append({'score_name': f'{score_names}_std', 'threshold': threshold,
                                     'unique_drugs': n_unique_drugs, 'unique_cell_lines': n_cell_lines,
                                     '#triplets': n_triplets})
 
+
+
         summary_df = pd.DataFrame(summar_rows)
         summary_df.to_csv(stat_file, sep='\t')
+
 
 

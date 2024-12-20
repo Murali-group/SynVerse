@@ -35,20 +35,14 @@ while [[ "$#" -gt 0 ]]; do
         --split) split="$2"; shift ;;             # Capture value for --split
         --start_run) start_run="$2"; shift ;;     # Capture value for --start_run
         --end_run) end_run="$2"; shift ;;         # Capture value for --end_run
+        --output) output="$2"; shift ;;           # Capture value for --output
         *) echo "Unknown parameter passed: $1"; exit 1 ;;  # Handle unknown arguments
     esac
     shift  # Move to the next argument
 done
 
-# Dynamically generate a log file name based on parameters
-log_file="log"
-[ -n "$config" ] && log_file+="_config-$(basename "$config" .yaml)"
-[ -n "$feat" ] && log_file+="_feat-$(basename "$feat" .txt)"
-[ -n "$split" ] && log_file+="_split-$split"
-[ -n "$start_run" ] && log_file+="_start-$start_run"
-[ -n "$end_run" ] && log_file+="_end-$end_run"
-log_file+=".log"
-
+# Set a default value for output if not provided
+output="${output:-default_output.log}"
 
 # Build the command dynamically
 command="CUDA_LAUNCH_BLOCKING=1 python -u main.py"
@@ -59,7 +53,7 @@ command="CUDA_LAUNCH_BLOCKING=1 python -u main.py"
 [ -n "$start_run" ] && command+=" --start_run \"$start_run\""
 [ -n "$end_run" ] && command+=" --end_run \"$end_run\""
 command+=" --run_id \"$SLURM_JOB_ID\""
-command+=" > \"$log_file\" 2>&1"
+[ -n "$output" ] && command+=" > \"$output\" 2>&1"
 
 # Execute the command
 eval $command

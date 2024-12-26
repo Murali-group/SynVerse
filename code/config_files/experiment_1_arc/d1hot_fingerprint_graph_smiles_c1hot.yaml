@@ -68,6 +68,10 @@ input_settings:
 
 
   splits:
+    - type: 'random'
+      test_frac: 0.2
+      val_frac: 0.25
+
     - type: 'leave_comb'
       test_frac: 0.2
       val_frac: 0.25

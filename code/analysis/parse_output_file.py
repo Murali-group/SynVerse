@@ -5,6 +5,31 @@ from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
+
+
+
+def feature_to_filter_map(drug_feat, cell_feat):
+    '''
+    We had a feature-based filtering when we preprocessed the data. Based on what
+    feature is being used we have three filters.Here, we map each feature to the filter
+    being used for it.
+    If the feature has a substring that match with a substring in the filters
+    after splitting each of based on '_', we map the feature to that filter. However,
+    here feature value may contain feature name, preprocess and encoder info,  e.g.,
+    smiles_Transformer, smiles_kpgt both will be mapped to filter D_ECFP_4_MACCS_MFP_d1hot_mol_graph_smiles_C_c1hot.
+    '''
+    feature_filters = ['D_d1hot_target_C_c1hot', 'D_d1hot_C_c1hot_genex_genex_lincs_1000',
+                       'D_ECFP_4_MACCS_MFP_d1hot_mol_graph_smiles_C_c1hot']
+
+    substr_dfeat = drug_feat.split('_')
+    substr_cfeat = cell_feat.split('_')
+
+    for feature_filter in feature_filters:
+        substr_filter = feature_filter.split('_')
+        #both drug and cell feature has to be present
+        if set(substr_dfeat).intersection(set(substr_filter)) and (set(substr_cfeat).intersection(set(substr_filter))):
+            return feature_filter
 
 def plot_outputs(file_path, split_type):
 
@@ -81,11 +106,13 @@ def read_loss_file_content(file_path):
             'best_config': best_config}
     return loss_dict
 
-def get_run_feat_info(file_path, run_number, feature_filter=""):
+def get_run_feat_info(file_path, run_number, feature_filter=None):
     clean_file_name = file_path.split('/')[-1].replace("_val_true_loss.txt", "")
     features = re.sub(r'run_[0-4]', '', clean_file_name)  # Remove 'run_x' pattern
     drug_features = features.split('_C_')[0].replace('D_', '')
     cell_features = features.split('_C_')[1]
+    if feature_filter is None:
+        feature_filter = feature_to_filter_map(drug_features, cell_features)
     run_info = {
         'run_no': run_number,
         'drug_features': drug_features,
@@ -111,10 +138,8 @@ def iterate_output_files(folder_path):
                     # Open and read the file content
                     loss_file_path = os.path.join(run_path, file_or_dirname)
                     pred_file_path = loss_file_path.replace('_val_true_loss.txt', '_val_true_test_predicted_scores.tsv')
-                    #find the feature-based filter it was run on,
-
-
-                    run_info_dict = get_run_feat_info(loss_file_path, run_number, feature_filter="-")
+                    #find the feature-based filter it was run on
+                    run_info_dict = get_run_feat_info(loss_file_path, run_number)
                     run_info_dict.update({'loss_file':loss_file_path, "pred_file": pred_file_path})
                     out_file_list.append(run_info_dict)
 
@@ -136,8 +161,9 @@ def iterate_output_files(folder_path):
 
 
 
-def main(base_folder):
+def main():
     # Example usage
+    base_folder=sys.argv[1]
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line']
     outfile_detailed = base_folder + f'combined_output.xlsx'
 
@@ -172,4 +198,4 @@ def main(base_folder):
             splitwise_df_dict[split_type].to_excel(writer, sheet_name=split_type, index=False)
 
 
-main(base_folder = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/')
+main()

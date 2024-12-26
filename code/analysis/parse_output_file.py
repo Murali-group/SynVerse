@@ -22,13 +22,21 @@ def feature_to_filter_map(drug_feat, cell_feat):
     feature_filters = ['D_d1hot_target_C_c1hot', 'D_d1hot_C_c1hot_genex_genex_lincs_1000',
                        'D_ECFP_4_MACCS_MFP_d1hot_mol_graph_smiles_C_c1hot']
 
+    # TODO fix it later
+    # currently I have run d1hot with AE and c1hot with AE only for SMILES based split.
+    if drug_feat in ['d1hot_std_comp_True', 'd1hot_comp_True'] and cell_feat in ['c1hot_std_comp_True',
+                                                                                 'c1hot_comp_True']:
+        return 'D_ECFP_4_MACCS_MFP_d1hot_mol_graph_smiles_C_c1hot'
+
     substr_dfeat = drug_feat.split('_')
     substr_cfeat = cell_feat.split('_')
+
 
     for feature_filter in feature_filters:
         substr_filter = feature_filter.split('_')
         #both drug and cell feature has to be present
         if set(substr_dfeat).intersection(set(substr_filter)) and (set(substr_cfeat).intersection(set(substr_filter))):
+
             return feature_filter
 
 def plot_outputs(file_path, split_type):

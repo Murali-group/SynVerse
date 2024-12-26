@@ -6,21 +6,17 @@ from sklearn.metrics import recall_score
 import matplotlib.pyplot as plt
 import numpy as np
 
-feature_super_sets = {'smiles_based': ['MACCS', 'ECFP_4', 'MFP', 'mol_graph', 'smiles'], 'target': ['target'], 'genex': ['genex','genex_lincs_1000']}
-
-
-
 def plot_outputs(file_path, split_type):
 
     # Load the dataset
     df = pd.read_csv(file_path, sep='\t')
     # Grouping columns and metrics
-    group_columns = ['drug_features', 'cell_features', 'one_hot_version']
+    group_columns = ['drug_features', 'cell_features', 'feature_filter']
     metrics = {
         'Training Loss': 'train_loss',
         'Test Loss': 'test_loss',
-        # 'Precision_0': 'Precision_0',
-        # 'Recall_0': 'Recall_0'
+        'Precision_0': 'Precision_0',
+        'Recall_0': 'Recall_0'
     }
     # Generate plots for each metric
     for metric_name, metric_col in metrics.items():
@@ -63,31 +59,30 @@ def read_loss_file_content(file_path):
         content = file.read()
 
         # Extract required information using regular expressions
-        best_config_match = re.search(r"Best config: (.+)", content)
+        best_config_match = re.search(r"Config: (.+)", content)
         epochs_match = re.search(r"Number of epochs: (\d+)", content)
         train_loss_match = re.search(r"train_loss: ([\d.]+)", content)
         test_loss_match = re.search(r"test_loss: ([\d.]+)", content)
+        val_loss_match = re.search(r"val_loss: ([\d.]+)", content)
+
 
         # Get values if matches are found, else set to None
         best_config = eval(best_config_match.group(1)) if best_config_match else None
         epochs = int(epochs_match.group(1)) if epochs_match else None
         train_loss = float(train_loss_match.group(1)) if train_loss_match else None
         test_loss = float(test_loss_match.group(1)) if test_loss_match else None
+        val_loss = float(val_loss_match.group(1)) if val_loss_match else None
 
-        # clean_file_name = file_path.split('/')[-1].replace("_loss.txt", "")
-        # features = re.sub(r'run_[0-4]', '', clean_file_name)  # Remove 'run_x' pattern
-        #
-        # drug_features = features.split('_C_')[0].replace('D_', '')
-        # cell_features = features.split('_C_')[1]
-        # Append data as a row in the list
+
         loss_dict = {'test_loss': test_loss,
+            'val_loss': val_loss,
             'train_loss': train_loss,
             'num_epochs': epochs,
             'best_config': best_config}
     return loss_dict
 
-def get_run_feat_info(file_path, run_number, one_hot_version=""):
-    clean_file_name = file_path.split('/')[-1].replace("_loss.txt", "")
+def get_run_feat_info(file_path, run_number, feature_filter=""):
+    clean_file_name = file_path.split('/')[-1].replace("_val_true_loss.txt", "")
     features = re.sub(r'run_[0-4]', '', clean_file_name)  # Remove 'run_x' pattern
     drug_features = features.split('_C_')[0].replace('D_', '')
     cell_features = features.split('_C_')[1]
@@ -95,7 +90,7 @@ def get_run_feat_info(file_path, run_number, one_hot_version=""):
         'run_no': run_number,
         'drug_features': drug_features,
         'cell_features': cell_features,
-        'one_hot_version': one_hot_version,
+        'feature_filter': feature_filter,
     }
     return run_info
 
@@ -112,11 +107,14 @@ def iterate_output_files(folder_path):
             for file_or_dirname in os.listdir(run_path):
                 #************* REGRESSION LOSS *********************************
                 # Consider files ending with '_loss.txt' to get train and test loss
-                if file_or_dirname.endswith('_loss.txt'):
+                if file_or_dirname.endswith('_val_true_loss.txt'):
                     # Open and read the file content
                     loss_file_path = os.path.join(run_path, file_or_dirname)
-                    pred_file_path = loss_file_path.replace('_loss.txt', '_test_predicted_scores.tsv')
-                    run_info_dict = get_run_feat_info(loss_file_path, run_number, one_hot_version="-")
+                    pred_file_path = loss_file_path.replace('_val_true_loss.txt', '_val_true_test_predicted_scores.tsv')
+                    #find the feature-based filter it was run on,
+
+
+                    run_info_dict = get_run_feat_info(loss_file_path, run_number, feature_filter="-")
                     run_info_dict.update({'loss_file':loss_file_path, "pred_file": pred_file_path})
                     out_file_list.append(run_info_dict)
 
@@ -126,11 +124,11 @@ def iterate_output_files(folder_path):
                     for sub_dir in sub_dirs:
                         one_hot_files = os.listdir(os.path.join(run_path, file_or_dirname, sub_dir))
                         for one_hot_file in one_hot_files:
-                            if one_hot_file.endswith('_loss.txt'):
+                            if one_hot_file.endswith('_val_true_loss.txt'):
                                 # Open and read the file content
                                 loss_file_path= os.path.join(run_path, file_or_dirname, sub_dir, one_hot_file)
-                                pred_file_path = loss_file_path.replace('_loss.txt', '_test_predicted_scores.tsv')
-                                run_info_dict = get_run_feat_info(loss_file_path, run_number, one_hot_version=sub_dir)
+                                pred_file_path = loss_file_path.replace('_val_true_loss.txt', '_val_true_test_predicted_scores.tsv')
+                                run_info_dict = get_run_feat_info(loss_file_path, run_number, feature_filter=sub_dir)
                                 run_info_dict.update({'loss_file': loss_file_path, "pred_file": pred_file_path})
                                 out_file_list.append(run_info_dict)
     # Create a DataFrame from the collected data
@@ -138,10 +136,8 @@ def iterate_output_files(folder_path):
 
 
 
-def main():
-    force_run=False
+def main(base_folder):
     # Example usage
-    base_folder = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/'
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line']
     outfile_detailed = base_folder + f'combined_output.xlsx'
 
@@ -150,34 +146,30 @@ def main():
     splitwise_df_dict = {}
     for split_type in split_types:
         splitwise_summary_file = base_folder+f'output_{split_type}.tsv'
+        # plot_outputs(splitwise_summary_file)
 
-        if (not os.path.exists(splitwise_summary_file) or force_run):
-            # plot_outputs(splitwise_summary_file)
-            spec_folder = f'{base_folder}/{split_type}/'
-            out_info_list = iterate_output_files(spec_folder)
-            data = []
-            for out_info in out_info_list:
-                all_info = out_info
-                loss_info = read_loss_file_content(out_info['loss_file'])
-                precision, recall = compute_cls_performance(out_info['pred_file'], thresholds = [0, 10, 30])
-                all_info.update(loss_info)
-                all_info.update(precision)
-                all_info.update(recall)
-                data.append(all_info)
-            df = pd.DataFrame(data)
-            df.drop(columns=['loss_file', 'pred_file'], axis=1, inplace=True)
-            splitwise_df_dict[split_type] = df
-            print(df)
-            df.to_csv(splitwise_summary_file, sep='\t', index=False)
-
-        plot_outputs(splitwise_summary_file, split_type)
+        spec_folder = f'{base_folder}/{split_type}/'
+        out_info_list = iterate_output_files(spec_folder)
+        data = []
+        for out_info in out_info_list:
+            all_info = out_info
+            loss_info = read_loss_file_content(out_info['loss_file'])
+            # precision, recall = compute_cls_performance(out_info['pred_file'], thresholds = [0, 10, 30])
+            all_info.update(loss_info)
+            # all_info.update(precision)
+            # all_info.update(recall)
+            data.append(all_info)
+        df = pd.DataFrame(data)
+        df.drop(columns=['loss_file', 'pred_file'], axis=1, inplace=True)
+        splitwise_df_dict[split_type] = df
+        print(df)
+        df.to_csv(splitwise_summary_file, sep='\t', index=False)
+        # plot_outputs(splitwise_summary_file, split_type)
 
 
-    # with pd.ExcelWriter(outfile_detailed, mode="w") as writer:
-    #     for split_type in splitwise_df_dict:
-    #         splitwise_df_dict[split_type].to_excel(writer, sheet_name=split_type, index=False)
+    with pd.ExcelWriter(outfile_detailed, mode="w") as writer:
+        for split_type in splitwise_df_dict:
+            splitwise_df_dict[split_type].to_excel(writer, sheet_name=split_type, index=False)
 
 
-
-
-main()
+main(base_folder = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/')

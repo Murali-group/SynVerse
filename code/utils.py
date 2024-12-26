@@ -423,6 +423,7 @@ def mol_graph_to_GCN_data(mol_graph_dict):
         mol_feat_dim = mol_feat.shape[1]
         c_size = mol_feat.shape[0]
         adj_list = mol_graph_dict[pid][1]
+
         edges = adjacency_list_to_edges(adj_list)
         GCNData = DATA.Data(x=torch.Tensor(mol_feat),
                     edge_index=torch.LongTensor(edges).transpose(1, 0)

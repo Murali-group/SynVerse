@@ -157,7 +157,7 @@ def extract_pid_smiles(drug_name_to_pcomp_file, drug_smiles_file, force_run=True
 def get_graph_from_smiles(drug_smiles_df, drug_graph_file, force_run=True):
     '''
     Given a dataframe with columns ['pid','smiles'], this function returns a dictionary with key=pid and
-    value = (adjacency matrix, feature). Here, adjacency matrix and feature coming from a
+    value = (feature, adjacency matrix). Here, adjacency matrix and feature coming from a
     graph with atoms as nodes. We use rdkit and deepchem to extract graph and atom feature from
     SMILES respectively.
     '''

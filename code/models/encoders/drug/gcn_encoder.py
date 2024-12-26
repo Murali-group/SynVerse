@@ -24,7 +24,7 @@ class GCN_Encoder(nn.Module):
 
         self.gnn_layers = nn.ModuleList()
         for i in range(len(gnn_layer_dims)):
-            self.gnn_layers.append(GCNConv(input_size if i==0 else gnn_layer_dims[i - 1], gnn_layer_dims[i]))
+            self.gnn_layers.append(GCNConv(input_size if i==0 else gnn_layer_dims[i - 1], gnn_layer_dims[i], add_self_loops=True))
 
         #add feed forward layers to apply on graph embedding after max pooling
         n_ff_hid_layers = config['ff_num_layers']

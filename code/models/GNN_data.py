@@ -18,7 +18,6 @@ class GNN_data(InMemoryDataset):
 
         #root is required for save preprocessed data, default is '/tmp'
         super(GNN_data, self).__init__(root, transform, pre_transform)
-        # benchmark dataset, default = 'davis'
         self.dataset = dataset
         # if os.path.isfile(self.processed_paths[0]):
         #     print('Pre-processed data found: {}, loading ...'.format(self.processed_paths[0]))
@@ -49,16 +48,13 @@ class GNN_data(InMemoryDataset):
         if not os.path.exists(self.processed_dir):
             os.makedirs(self.processed_dir)
 
-    def get_cell_feature(self, cellId, cell_features):
-        for row in islice(cell_features, 0, None):
-            if cellId in row[0]:
-                return row[1:]
-        return False
+    # def get_cell_feature(self, cellId, cell_features):
+    #     for row in islice(cell_features, 0, None):
+    #         if cellId in row[0]:
+    #             return row[1:]
+    #     return False
 
-    # Customize the process method to fit the task of drug-target affinity prediction
-    # Inputs:
-    # XD - list of SMILES, XT: list of encoded target (categorical or one-hot),
-    # Y: list of labels (i.e. affinity)
+
     # Return: PyTorch-Geometric format processed data
     def process(self, data_list):
         if self.pre_filter is not None:

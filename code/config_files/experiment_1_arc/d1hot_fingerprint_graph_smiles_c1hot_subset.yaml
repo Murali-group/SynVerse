@@ -19,7 +19,7 @@ input_settings:
 
     - name: 'mol_graph'
       encoder: 'GCN'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'smiles'
       encoder: 'Transformer'

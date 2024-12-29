@@ -11,6 +11,8 @@ import sys
 
 def feature_to_filter_map(drug_feat, cell_feat):
     '''
+    Based on the features used in a model, map the features to feature_based filter being used in data preprocessing.
+
     We had a feature-based filtering when we preprocessed the data. Based on what
     feature is being used we have three filters.Here, we map each feature to the filter
     being used for it.
@@ -172,7 +174,7 @@ def iterate_output_files(folder_path):
 def main():
     # Example usage
     base_folder=sys.argv[1]
-    split_types = ['leave_comb', 'leave_drug', 'leave_cell_line']
+    split_types = ['random','leave_comb', 'leave_drug', 'leave_cell_line']
     outfile_detailed = base_folder + f'combined_output.xlsx'
 
     #extract output for features other than where both drug and cell lines have one-hot encoding

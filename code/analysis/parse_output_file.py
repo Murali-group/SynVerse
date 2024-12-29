@@ -185,6 +185,8 @@ def main():
         # plot_outputs(splitwise_summary_file)
 
         spec_folder = f'{base_folder}/{split_type}/'
+        if not os.path.exists(spec_folder):
+            continue
         out_info_list = iterate_output_files(spec_folder)
         data = []
         for out_info in out_info_list:

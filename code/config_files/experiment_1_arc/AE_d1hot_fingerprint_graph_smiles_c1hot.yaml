@@ -38,7 +38,7 @@ input_settings:
       use: [ false ]
 
     - name: 'd1hot'
-      use: [ true, false ]
+      use: [ false ]
       compress: true
       norm: std
 

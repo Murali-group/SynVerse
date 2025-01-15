@@ -3,10 +3,79 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+def compute_node_strength(df, score_name):
+    nodes = set(df['source'].unique()).union(set(df['target'].unique()))
+    positive_degree = {}
+    negative_degree = {}
+
+    for node in nodes:
+        df_node = df[(df['source'] == node) | (df['target'] == node)]
+        positive_degree[node] = df_node[df_node[score_name] > 0][score_name].sum()
+        negative_degree[node] = df_node[df_node[score_name] < 0][score_name].sum()
+    return positive_degree, negative_degree
+
+
+def plot_difference_in_degree_distribution(dict1, dict2):
+    if dict1.keys() != dict2.keys():
+        raise ValueError("The dictionaries do not have the same keys!")
+
+        # Compute the differences
+    differences = {key: dict1[key] - dict2[key] for key in dict1.keys()}
+
+    # Extract the differences as a list
+    diff_values = list(differences.values())
+
+    # Plot the distribution
+    plt.figure(figsize=(8, 5))
+    sns.histplot(diff_values,  bins=50, color='blue')
+    plt.title('Distribution of differences between node degrees')
+    plt.xlabel('Difference')
+    plt.ylabel('Frequency')
+    plt.grid(True)
+    plt.show()
+
+def wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, plot_file_prefix=None):
+    # for each node compute its positive and negative weighted degree separately i.e., postive strength and negative strength resepectively.
+    # Now for each node compute the difference between its positive strength in original vs randmoized network.
+
+    edge_types = set(rewired_all_train_df['edge_type'].unique())
+
+    for edge_type in edge_types:
+        df1 = rewired_all_train_df[rewired_all_train_df['edge_type'] == edge_type]
+        df2 = all_train_df[all_train_df['edge_type'] == edge_type]
+        positive_degree_1, negative_degree_1 = compute_node_strength(df1, score_name)
+        positive_degree_2, negative_degree_2 = compute_node_strength(df2, score_name)
+
+        pos_diff = list({key: positive_degree_1[key] - positive_degree_2[key] for key in positive_degree_1.keys()}.values())
+        neg_diff = list({key: negative_degree_1[key] - negative_degree_2[key] for key in negative_degree_1.keys()}.values())
+        plt.figure(figsize=(4, 6))
+
+        sns.histplot(pos_diff, bins=50, color='blue', label='Positive Degree')
+        sns.histplot(neg_diff, bins=50, color='yellow', label='Negative Degree')
+
+        plt.xlabel('Difference in Weighted Degree')
+        plt.ylabel('Number of Nodes')
+        plt.title(f'{edge_type}')
+        plt.legend(loc='upper right')
+        plt.savefig(f'{plot_file_prefix}_{edge_type}', bbox_inches='tight')
+        plt.show()
+        plt.close()
+
+        #
+        # plot_difference_in_degree_distribution(positive_degree_1, positive_degree_2)
+        # plot_difference_in_degree_distribution(negative_degree_1, negative_degree_2)
+
+
+
+
+
 def plot_dist(values, prefix='', out_dir=None):
     plt.clf()
     max = int(np.max(values))
     min = int(np.min(values))
+
+    mean = round(np.mean(values), 2)
+    std = round (np.std(values), 2)
 
     if min<0:
         bin_edges = list(np.arange(0, min, -15))
@@ -28,16 +97,17 @@ def plot_dist(values, prefix='', out_dir=None):
     #            [f'{int(bin_edges[i])}' for i in range(len(bin_edges) - 1)],
     #            rotation=45)
     plt.xticks(bin_edges[:-1], [f'{int(bins[i])}' for i in range(len(bins) - 1)],
-               rotation=90)
+               rotation=90, fontsize='small')
 
     # Add labels and title
-    plt.xlabel('Values')
-    plt.ylabel('Fraction')
-    plt.title(prefix + ' distribution')
+    plt.xlabel('Score')
+    plt.ylabel('Fraction of triplets')
+    plt.title(prefix + f' Mean = {mean} and Standard Deviation = {std}')
 
-    filename = out_dir + f'{prefix}_score_distribution.pdf'
-    plt.tight_layout()
-    plt.savefig(filename)
+    if out_dir is not None:
+        filename = out_dir + f'{prefix}_score_distribution.pdf'
+        plt.tight_layout()
+        plt.savefig(filename)
     # Show plot
     plt.show()
 

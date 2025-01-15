@@ -8,9 +8,13 @@ from adjustText import adjust_text
 import matplotlib.cm as cm
 from matplotlib.colors import ListedColormap
 from matplotlib.colors import TwoSlopeNorm
+from plots.plot_utils import *
+from scipy.stats import mannwhitneyu
+from statsmodels.stats.multitest import multipletests
 
 feature_filters = ['D_ECFP_4_MACCS_MFP_d1hot_mol_graph_smiles_C_c1hot',
                   'D_d1hot_target_C_c1hot', 'D_d1hot_C_c1hot_genex_genex_lincs_1000']
+
 #rename the long model names containing features, preprocessing and encoder name to suitable name for plot.
 model_name_mapping = {'d1hot_std_comp_True + c1hot_std_comp_True': 'One hot (AE)',
 'MACCS + c1hot': 'MACCS', 'MACCS_std_comp_True + c1hot_std_comp_True': 'MACCS (AE)',
@@ -115,7 +119,6 @@ def compute_difference_with_1hot(df):
         suffixes=('', '_baseline'),
         how='inner'
     )
-
     # Calculate differences for the required columns
     for column in ['test_loss', 'val_loss', 'train_loss']:
         merged_df[f'{column}_diff'] = merged_df[f'{column}_baseline']-merged_df[column]
@@ -123,42 +126,99 @@ def compute_difference_with_1hot(df):
     return merged_df
 
 
-def confidence_interval(std_dev, n, confidence_level=0.95):
-    import scipy.stats as stats
-
-    z_value = stats.norm.ppf(1 - (1 - confidence_level) / 2)
-    se = std_dev / np.sqrt(n)
-
-    return z_value * se
 
 
-def compute_avg_performance(df, n_runs=5):
-    # compute average and standard deviation of 'test_loss', 'val_loss', 'train_loss' along with
-    # average of difference with 1hot.
 
-    # Group by and compute required metrics
-    result = df.groupby(['drug_features', 'cell_features', 'feature_filter']).agg(
+# def compute_avg_performance(df, n_runs=5):
+#     # compute average and standard deviation of 'test_loss', 'val_loss', 'train_loss' along with
+#     # average of difference with 1hot.
+#
+#     # Group by and compute required metrics
+#     result = df.groupby(['drug_features', 'cell_features', 'feature_filter']).agg(
+#         test_loss_mean=('test_loss', 'mean'),
+#         test_loss_std=('test_loss', 'std'),
+#         val_loss_mean=('val_loss', 'mean'),
+#         val_loss_std=('val_loss', 'std'),
+#         train_loss_mean=('train_loss', 'mean'),
+#         train_loss_std=('train_loss', 'std'),
+#         test_loss_diff_mean=('test_loss_diff', 'mean'),
+#         val_loss_diff_mean=('val_loss_diff', 'mean'),
+#         train_loss_diff_mean=('train_loss_diff', 'mean'),
+#     ).reset_index()
+#     #compute confidence interval for each model
+#     result['test_loss_CI'] = result['test_loss_std'].astype(float).apply(lambda x: confidence_interval(x,n_runs, confidence_level=0.95))
+#     result['val_loss_CI'] = result['val_loss_std'].astype(float).apply(lambda x: confidence_interval(x,n_runs, confidence_level=0.95))
+#     result['train_loss_CI'] = result['train_loss_std'].astype(float).apply(lambda x: confidence_interval(x,n_runs, confidence_level=0.95))
+#     return result
+
+# def compute_diff_significance(df_1hot_diff):
+#     # Define a function to compute the Mann-Whitney U test for a group
+#     def compute_mannwhitney(group):
+#         stat, p_value = mannwhitneyu(group['test_loss'], group['test_loss_baseline'], alternative='greater')
+#         return pd.Series({'stat': stat, 'p_value': p_value})
+#
+#     # Group by the relevant columns and apply the test
+#     results = (
+#         df_1hot_diff
+#         .groupby(['drug_features', 'celll_features', 'feature_filter'])
+#         .apply(compute_mannwhitney)
+#         .reset_index()
+#     )
+#
+#     # Apply multiple testing correction (e.g., Benjamini-Hochberg)
+#     adjusted_results = multipletests(results['p_value'], method='fdr_bh')  # fdr_bh for Benjamini-Hochberg
+#     results['adjusted_p_value'] = adjusted_results[1]  # Adjusted p-values
+#     results['is_significant'] = results['adjusted_p_value'] < 0.05  # Threshold for significance
+
+def compute_average_and_significance(df, n_runs=5):
+    # Define a function to compute the Mann-Whitney U test for a group
+    def compute_mannwhitney(group):
+        stat, p_value = mannwhitneyu(group['test_loss'], group['test_loss_baseline'], alternative='less')
+        return pd.Series({'stat': stat, 'p_value': p_value})
+
+    # Group by and compute aggregation metrics
+    aggregated_results = df.groupby(['drug_features', 'cell_features', 'feature_filter']).agg(
         test_loss_mean=('test_loss', 'mean'),
+        test_loss_max=('test_loss', 'max'),
         test_loss_std=('test_loss', 'std'),
         val_loss_mean=('val_loss', 'mean'),
+        val_loss_max=('val_loss', 'max'),
         val_loss_std=('val_loss', 'std'),
         train_loss_mean=('train_loss', 'mean'),
+        train_loss_max=('train_loss', 'max'),
         train_loss_std=('train_loss', 'std'),
         test_loss_diff_mean=('test_loss_diff', 'mean'),
         val_loss_diff_mean=('val_loss_diff', 'mean'),
         train_loss_diff_mean=('train_loss_diff', 'mean'),
     ).reset_index()
 
-    #compute confidence interval for each model
-    result['test_loss_CI'] = result['test_loss_std'].astype(float).apply(lambda x: confidence_interval(x,n_runs, confidence_level=0.95))
-    result['val_loss_CI'] = result['val_loss_std'].astype(float).apply(lambda x: confidence_interval(x,n_runs, confidence_level=0.95))
-    result['train_loss_CI'] = result['train_loss_std'].astype(float).apply(lambda x: confidence_interval(x,n_runs, confidence_level=0.95))
+    # Compute confidence intervals for test, val, and train losses
+    for loss_type in ['test_loss', 'val_loss', 'train_loss']:
+        aggregated_results[f'{loss_type}_CI'] = aggregated_results[f'{loss_type}_std'].apply(
+            lambda x: confidence_interval(x, n_runs, confidence_level=0.95)
+        )
 
-    return result
+    # Compute significance of the test_loss compared to test_loss_baseline
+    significance_results = (
+        df.groupby(['drug_features', 'cell_features', 'feature_filter'])
+        .apply(compute_mannwhitney)
+        .reset_index()
+    )
 
+    # Apply multiple testing correction
+    adjusted_results = multipletests(significance_results['p_value'], method='fdr_bh')
+    significance_results['adjusted_p_value'] = adjusted_results[1]
+    significance_results['is_significant'] = significance_results['adjusted_p_value'] < 0.05
 
+    # Merge aggregated metrics and significance results
+    final_results = pd.merge(
+        aggregated_results,
+        significance_results,
+        on=['drug_features', 'cell_features', 'feature_filter']
+    )
 
-def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std', out_file_prefix=None):
+    return final_results
+def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std', color_on = 'is_significant', out_file_prefix=None):
     """
     Plot a barplot with horizontally grouped subplots for each feature_filter with dynamic widths.
     The colorbar is positioned to the right of all subplots.
@@ -172,26 +232,19 @@ def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std',
     # Define columns of interest
     mean_col = f'{metric}_mean'
     err_col = f'{metric}_{yerr}'
-
     diff_mean_col = f'{metric}_diff_mean'
 
-    # Create x-tick labels combining 'drug_features' and 'cell_features'
-    df_1hot_diff_avg['Model'] = df_1hot_diff_avg['drug_features'] + " + " + df_1hot_diff_avg['cell_features']
-    df_1hot_diff_avg['Model'] = df_1hot_diff_avg['Model'].astype(str).apply(lambda x: model_name_mapping.get(x, x))
+    if color_on != 'is_significant':
+        color_on = diff_mean_col
 
-
-
-    # Sort DataFrame according to the order of models in model_name_mapping
-    df_1hot_diff_avg['Model'] = pd.Categorical(df_1hot_diff_avg['Model'], categories=model_name_mapping.values(), ordered=True)
-    df_1hot_diff_avg = df_1hot_diff_avg.sort_values('Model')
-
-
-
-
-    # Create a diverging color palette based on the diff_mean_col with 0 as the center
-    abs_max_diff = max(abs(df_1hot_diff_avg[diff_mean_col].min()), abs(df_1hot_diff_avg[diff_mean_col].max()))
-    norm = TwoSlopeNorm(vmin=-abs_max_diff, vcenter=0, vmax=abs_max_diff)
-    cmap = sns.diverging_palette(220, 15, s=85, l=65, as_cmap=True).reversed()  # Colorblind-friendly palette
+    if color_on != 'is_significant':
+        # Create a diverging color palette based on the diff_mean_col with 0 as the center
+        abs_max_diff = max(abs(df_1hot_diff_avg[diff_mean_col].min()), abs(df_1hot_diff_avg[diff_mean_col].max()))
+        norm = TwoSlopeNorm(vmin=-abs_max_diff, vcenter=0, vmax=abs_max_diff)
+        cmap = sns.diverging_palette(220, 15, s=85, l=65, as_cmap=True).reversed()  # Colorblind-friendly palette
+    else:
+        colors = ['#ff8080', '#b3d7ff']
+        cmap = ListedColormap(colors)
 
     # Get unique feature filters
     assert len(set(df_1hot_diff_avg['feature_filter'].unique()).difference(set(feature_filters)))==0, print('mismatch')
@@ -221,8 +274,16 @@ def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std',
     for ax, feature_filter in zip(axes, feature_filters):
         subset = df_1hot_diff_avg[df_1hot_diff_avg['feature_filter'] == feature_filter]
 
-        # Normalize colors for the subset
-        colors = cmap(norm(subset[diff_mean_col]))
+        if len(subset)==0:
+            continue
+
+        if color_on != 'is_significant':
+            # Normalize colors for the subset
+            colors = cmap(norm(subset[diff_mean_col]))
+        else:
+            colors = ['#ff8080', '#b3d7ff']
+            cmap = ListedColormap(colors)
+            colors = [cmap(value) for value in subset['is_significant']]
 
         # Plot bars
         bars = ax.bar(
@@ -256,23 +317,27 @@ def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std',
         # Set y-axis label (Mean Squared Error) on the left side of each subplot
         # ax.set_ylabel("Mean Squared Error (MSE)", fontsize=12)
 
-    fig.text(0.08, 0.5, y_label, va='center', rotation='vertical', fontsize=14)
+    fig.text(0.08, 0.5, y_label, va='center', rotation='vertical', fontsize=16)
+    fig.text(0.5, -0.22, 'Models', ha='center', fontsize=16)
 
-    # # Create colorbar outside the subplots grid
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array(df_1hot_diff_avg[diff_mean_col])
 
-    # Add a vertical colorbar to the right of the subplots
-    cbar = fig.colorbar(sm, ax=axes, orientation='vertical', fraction=0.05, pad=0.04)
-    cbar.set_label(f'Difference with one hot', fontsize=14)
+    if color_on !='is_significant':
+        # # Create colorbar outside the subplots grid
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array(df_1hot_diff_avg[diff_mean_col])
+
+        # Add a vertical colorbar to the right of the subplots
+        cbar = fig.colorbar(sm, ax=axes, orientation='vertical', fraction=0.05, pad=0.04)
+        cbar.set_label(f'Difference with baseline', fontsize=14)
 
     # # Adjust layout to ensure that the colorbar does not overlap the plots
     plt.subplots_adjust(right=0.85, wspace=0.15)  # Adjust right margin to create space for colorbar
     # fig.suptitle(f'{title}_{yerr}', fontsize=16, y=0.98)
     # Save the figure with tight bounding box (to avoid clipping)
     os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
-    plt.savefig(f"{out_file_prefix}_{metric}_plot.pdf", bbox_inches='tight')
-    print(f'saved file: {out_file_prefix}_{metric}_plot.pdf')
+    plot_file = f"{out_file_prefix}_{metric}_{color_on}_plot.pdf"
+    plt.savefig(plot_file, bbox_inches='tight')
+    print(f'saved file: {plot_file}')
     # Show the plot
     plt.show()
 
@@ -290,21 +355,45 @@ def wrapper_plot_compare_with_1hot(df_MSE, title, out_file_prefix):
     #compute the difference between the model's result and corresponding 1 hot encoding
     #plot MSE
     for measure in data_dict:
+        file_name_suitable_measure = measure.split(' ')[-1].replace('(','').replace(')','')
+
         df_1hot_diff = compute_difference_with_1hot(data_dict[measure])
-        df_1hot_diff_avg = compute_avg_performance(df_1hot_diff)
+        df_1hot_diff_avg = compute_average_and_significance(df_1hot_diff)
         #remove a few feature combo if present
         df_1hot_diff_avg = df_1hot_diff_avg[~((df_1hot_diff_avg['drug_features']=='d1hot_comp_True')|(df_1hot_diff_avg['cell_features']=='c1hot_comp_True'))]
-        file_name_suitable = measure.split(' ')[-1].replace('(','').replace(')','')
-        plot_diff(df_1hot_diff_avg, measure, title, metric ='test_loss', out_file_prefix=f'{out_file_prefix}_{file_name_suitable}')
+
+        # Create x-tick labels combining 'drug_features' and 'cell_features'
+        df_1hot_diff_avg['Model'] = df_1hot_diff_avg['drug_features'] + " + " + df_1hot_diff_avg['cell_features']
+        df_1hot_diff_avg['Model'] = df_1hot_diff_avg['Model'].astype(str).apply(lambda x: model_name_mapping.get(x, x))
+        # Sort DataFrame according to the order of models in model_name_mapping
+        df_1hot_diff_avg['Model'] = pd.Categorical(df_1hot_diff_avg['Model'], categories=model_name_mapping.values(),ordered=True)
+        df_1hot_diff_avg = df_1hot_diff_avg.sort_values('Model')
+        # remove model 'One hot (AE)'
+        df_1hot_diff_avg = df_1hot_diff_avg[df_1hot_diff_avg['Model'] != 'One hot (AE)']
+        df_1hot_diff_avg.to_csv(f'{out_file_prefix}_{file_name_suitable_measure}_aggreagred_performance.tsv', sep='\t')
+
+        plot_diff(df_1hot_diff_avg, measure, title, metric ='test_loss', yerr='std', color_on = 'diff_mean', out_file_prefix=f'{out_file_prefix}_{file_name_suitable_measure}')
+        plot_diff(df_1hot_diff_avg, measure, title, metric ='test_loss', yerr='std', color_on = 'is_significant', out_file_prefix=f'{out_file_prefix}_{file_name_suitable_measure}')
+
+
     print(title)
+
+
+
 def main():
-    result_dir = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean_before_dec_28/'
-    split_types = ['leave_comb', 'leave_drug','leave_cell_line']
+    # result_dir = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean'
+    result_dir = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_synergy_loewe_mean'
+    score_name = result_dir.split('/')[-1].replace('k_0.05_','')
+
+    split_types = ['random', 'leave_comb', 'leave_drug','leave_cell_line']
     for split_type in split_types:
         file_name = f'output_{split_type}.tsv'
         file_path = os.path.join(result_dir, file_name)
+        if not os.path.exists(file_path):
+            print(f'file {file_name} does not exist. Continuing to next file.')
+            continue
         result_df = pd.read_csv(file_path, sep='\t', index_col=None)
-        wrapper_plot_compare_with_1hot(result_df, title=split_type, out_file_prefix = f'{result_dir}{split_type}')
+        wrapper_plot_compare_with_1hot(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
 
     # barplot_model_comparison_with_deepsynergy("/home/grads/tasnina/Projects/SynVerse/inputs/existing_model_performance.tsv")
     # scatter_plot_model_comparison_with_deepsynergy("/home/grads/tasnina/Projects/SynVerse/inputs/existing_model_performance.tsv")

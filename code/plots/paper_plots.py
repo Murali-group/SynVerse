@@ -8,7 +8,7 @@ from adjustText import adjust_text
 import matplotlib.cm as cm
 from matplotlib.colors import ListedColormap
 from matplotlib.colors import TwoSlopeNorm
-from plots.plot_utils import *
+from plot_utils import *
 from scipy.stats import mannwhitneyu
 from statsmodels.stats.multitest import multipletests
 
@@ -129,46 +129,6 @@ def compute_difference_with_1hot(df):
 
 
 
-# def compute_avg_performance(df, n_runs=5):
-#     # compute average and standard deviation of 'test_loss', 'val_loss', 'train_loss' along with
-#     # average of difference with 1hot.
-#
-#     # Group by and compute required metrics
-#     result = df.groupby(['drug_features', 'cell_features', 'feature_filter']).agg(
-#         test_loss_mean=('test_loss', 'mean'),
-#         test_loss_std=('test_loss', 'std'),
-#         val_loss_mean=('val_loss', 'mean'),
-#         val_loss_std=('val_loss', 'std'),
-#         train_loss_mean=('train_loss', 'mean'),
-#         train_loss_std=('train_loss', 'std'),
-#         test_loss_diff_mean=('test_loss_diff', 'mean'),
-#         val_loss_diff_mean=('val_loss_diff', 'mean'),
-#         train_loss_diff_mean=('train_loss_diff', 'mean'),
-#     ).reset_index()
-#     #compute confidence interval for each model
-#     result['test_loss_CI'] = result['test_loss_std'].astype(float).apply(lambda x: confidence_interval(x,n_runs, confidence_level=0.95))
-#     result['val_loss_CI'] = result['val_loss_std'].astype(float).apply(lambda x: confidence_interval(x,n_runs, confidence_level=0.95))
-#     result['train_loss_CI'] = result['train_loss_std'].astype(float).apply(lambda x: confidence_interval(x,n_runs, confidence_level=0.95))
-#     return result
-
-# def compute_diff_significance(df_1hot_diff):
-#     # Define a function to compute the Mann-Whitney U test for a group
-#     def compute_mannwhitney(group):
-#         stat, p_value = mannwhitneyu(group['test_loss'], group['test_loss_baseline'], alternative='greater')
-#         return pd.Series({'stat': stat, 'p_value': p_value})
-#
-#     # Group by the relevant columns and apply the test
-#     results = (
-#         df_1hot_diff
-#         .groupby(['drug_features', 'celll_features', 'feature_filter'])
-#         .apply(compute_mannwhitney)
-#         .reset_index()
-#     )
-#
-#     # Apply multiple testing correction (e.g., Benjamini-Hochberg)
-#     adjusted_results = multipletests(results['p_value'], method='fdr_bh')  # fdr_bh for Benjamini-Hochberg
-#     results['adjusted_p_value'] = adjusted_results[1]  # Adjusted p-values
-#     results['is_significant'] = results['adjusted_p_value'] < 0.05  # Threshold for significance
 
 def compute_average_and_significance(df, n_runs=5):
     # Define a function to compute the Mann-Whitney U test for a group
@@ -177,7 +137,7 @@ def compute_average_and_significance(df, n_runs=5):
         return pd.Series({'stat': stat, 'p_value': p_value})
 
     # Group by and compute aggregation metrics
-    aggregated_results = df.groupby(['drug_features', 'cell_features', 'feature_filter']).agg(
+    aggregated_results = df.groupby(['drug_features', 'cell_features', 'feature_filter', 'Model']).agg(
         test_loss_mean=('test_loss', 'mean'),
         test_loss_max=('test_loss', 'max'),
         test_loss_std=('test_loss', 'std'),
@@ -200,7 +160,7 @@ def compute_average_and_significance(df, n_runs=5):
 
     # Compute significance of the test_loss compared to test_loss_baseline
     significance_results = (
-        df.groupby(['drug_features', 'cell_features', 'feature_filter'])
+        df.groupby(['drug_features', 'cell_features', 'feature_filter', 'Model'])
         .apply(compute_mannwhitney)
         .reset_index()
     )
@@ -214,7 +174,7 @@ def compute_average_and_significance(df, n_runs=5):
     final_results = pd.merge(
         aggregated_results,
         significance_results,
-        on=['drug_features', 'cell_features', 'feature_filter']
+        on=['drug_features', 'cell_features', 'feature_filter','Model']
     )
 
     return final_results
@@ -261,11 +221,15 @@ def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std',
     if len(feature_filters) == 1:  # Ensure axes is always iterable
         axes = [axes]
 
-    # # Calculate global y-axis limits
+    # # Calculate global y-axis limits. Make ylims divisible by 5
     # y_min = min(df_1hot_diff_avg[mean_col] - df_1hot_diff_avg[err_col])
-    # y_max = max(df_1hot_diff_avg[mean_col] + df_1hot_diff_avg[err_col])
-    #
-    # # Optional: Adjust limits slightly for better aesthetics
+    y_max = max(df_1hot_diff_avg[mean_col] + df_1hot_diff_avg[err_col])
+
+    # y_min = y_min-(y_min%5)-5
+    y_min=0
+    y_max = y_max-(y_max%5)+5
+
+    # Optional: Adjust limits slightly for better aesthetics
     # padding = 0.01 * (y_max - y_min)
     # y_min -= padding
     # y_max += padding
@@ -296,13 +260,13 @@ def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std',
             edgecolor='black'
         )
         # Calculate global y-axis limits
-        y_min = min(subset[mean_col] - subset[err_col])
-        y_max = max(subset[mean_col] + subset[err_col])
-
-        # Optional: Adjust limits slightly for better aesthetics
-        padding = 0.01 * (y_max - y_min)
-        y_min -= padding
-        y_max += padding
+        # y_min = min(subset[mean_col] - subset[err_col])
+        # y_max = max(subset[mean_col] + subset[err_col])
+        #
+        # # Optional: Adjust limits slightly for better aesthetics
+        # padding = 0.01 * (y_max - y_min)
+        # y_min -= padding
+        # y_max += padding
 
         ax.set_ylim(y_min, y_max)
 
@@ -343,6 +307,81 @@ def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std',
 
 
 
+def set_model_names(df):
+    # Create x-tick labels combining 'drug_features' and 'cell_features'
+    df['Model'] = df['drug_features'] + " + " + df['cell_features']
+    df['Model'] = df['Model'].astype(str).apply(lambda x: model_name_mapping.get(x, x))
+
+    # remove model 'One hot (AE)'
+    df = df[df['Model'] != 'One hot (AE)']
+
+    # remove a few feature combo if present. Following remove model where auto-encoder used on one-hot without standardization.
+    df = df[~((df['drug_features'] == 'd1hot_comp_True') | (
+            df['cell_features'] == 'c1hot_comp_True'))]
+
+    return df
+
+def pair_plot(df_all, metric, out_file_prefix):
+
+    models = df_all['Model'].unique()
+
+
+    # Create a grid of 4x4 subplots
+    fig, axes = plt.subplots(4, 4, figsize=(8, 8))  # Adjust figure size as needed
+    axes = axes.flatten()  # Flatten to easily iterate through axes
+
+    max_loss = max(df_all['test_loss'].max(), df_all['test_loss_baseline'].max())
+    min_val = 5
+
+    for (i,model) in enumerate(models):
+        df = df_all[df_all['Model'] == model]
+        ax = axes[i]
+        # Create the pair plot
+        # colors = ['red' if x > y else 'blue' for x, y in zip( df['test_loss'], df['test_loss_baseline'])]
+
+        sns.scatterplot(
+            x='test_loss',
+            y='test_loss_baseline',
+            data=df,
+            s=50,
+            # c=colors,
+            alpha=0.7,
+            ax=ax
+        )
+
+        # Add a diagonal line to represent equal test losses
+        # max_loss = max(df['test_loss'].max(), df['test_loss_baseline'].max())
+        # min_val=5
+        ax.set_xlim(min_val, max_loss)
+        ax.set_ylim(min_val, max_loss)
+
+        ax.plot([min_val, max_loss], [min_val, max_loss], linestyle='--',alpha=0.7, linewidth=0.7, color='grey' )
+
+        # Customize the plot
+        ax.set_xlabel('')
+        ax.set_ylabel('')
+
+        ax.set_title(model, fontsize=10)
+
+    # Add common x and y axis labels
+    fig.text(0.5, 0.04, f'Model\'s {metric}', ha='center', fontsize=14)
+    fig.text(0.04, 0.5, f'Baseline\'s {metric}', va='center', rotation='vertical', fontsize=14)
+
+    # Turn off empty subplots if there are any
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    # Show and save the plot
+    plt.tight_layout(rect=[0.05, 0.05, 1, 0.97])  # Adjust space for labels and title
+
+    # plt.tight_layout()
+    out_file = f'{out_file_prefix}_pairplot.pdf'
+    plt.savefig(out_file, bbox_inches='tight')
+    print(f'saving file at {out_file}')
+    plt.show()
+
+
+
 def wrapper_plot_compare_with_1hot(df_MSE, title, out_file_prefix):
 
     #compute RMSE from MSE:
@@ -350,28 +389,35 @@ def wrapper_plot_compare_with_1hot(df_MSE, title, out_file_prefix):
     for  metric in ['test_loss', 'train_loss','val_loss']:
         df_RMSE[metric] = np.sqrt(df_MSE[metric])
 
-    data_dict = {'Mean Squared Error (MSE)': df_MSE, 'Root Mean Squared Error (RMSE)': df_RMSE}
+    data_dict = {'Root Mean Squared Error (RMSE)': df_RMSE, 'Mean Squared Error (MSE)': df_MSE}
 
     #compute the difference between the model's result and corresponding 1 hot encoding
     #plot MSE
     for measure in data_dict:
-        file_name_suitable_measure = measure.split(' ')[-1].replace('(','').replace(')','')
+        file_name_suitable_measure = measure.split(' ')[-1].replace('(','').replace(')','')#metrci name, MSE or RMSE
 
         df_1hot_diff = compute_difference_with_1hot(data_dict[measure])
-        df_1hot_diff_avg = compute_average_and_significance(df_1hot_diff)
-        #remove a few feature combo if present
-        df_1hot_diff_avg = df_1hot_diff_avg[~((df_1hot_diff_avg['drug_features']=='d1hot_comp_True')|(df_1hot_diff_avg['cell_features']=='c1hot_comp_True'))]
+        df_1hot_diff = set_model_names(df_1hot_diff) #give model name from features.
 
-        # Create x-tick labels combining 'drug_features' and 'cell_features'
-        df_1hot_diff_avg['Model'] = df_1hot_diff_avg['drug_features'] + " + " + df_1hot_diff_avg['cell_features']
-        df_1hot_diff_avg['Model'] = df_1hot_diff_avg['Model'].astype(str).apply(lambda x: model_name_mapping.get(x, x))
-        # Sort DataFrame according to the order of models in model_name_mapping
-        df_1hot_diff_avg['Model'] = pd.Categorical(df_1hot_diff_avg['Model'], categories=model_name_mapping.values(),ordered=True)
+        #draw a pairplot to show difference between
+        df_1hot_diff_avg = compute_average_and_significance(df_1hot_diff)
+
+        # Sort and save DataFrame according to the order of models in model_name_mapping
+        df_1hot_diff['Model'] = pd.Categorical(df_1hot_diff['Model'], categories=model_name_mapping.values(),ordered=True)
+        df_1hot_diff = df_1hot_diff.sort_values('Model')
+        df_1hot_diff.to_csv(f'{out_file_prefix}_{file_name_suitable_measure}_performance_compared_to_baseline.tsv', sep='\t')
+
+
+        #sort model names
+        df_1hot_diff_avg['Model'] = pd.Categorical(df_1hot_diff_avg['Model'], categories=model_name_mapping.values(), ordered=True)
         df_1hot_diff_avg = df_1hot_diff_avg.sort_values('Model')
-        # remove model 'One hot (AE)'
-        df_1hot_diff_avg = df_1hot_diff_avg[df_1hot_diff_avg['Model'] != 'One hot (AE)']
         df_1hot_diff_avg.to_csv(f'{out_file_prefix}_{file_name_suitable_measure}_aggreagred_performance.tsv', sep='\t')
 
+
+        #pair plot for comparing each modelw ith baseline across each individual run
+        pair_plot(df_1hot_diff, file_name_suitable_measure, out_file_prefix=f'{out_file_prefix}_{file_name_suitable_measure}')
+
+        #bar plot for showing average MSE/RMSE of each model, showing performance improvement over baseline with color.
         plot_diff(df_1hot_diff_avg, measure, title, metric ='test_loss', yerr='std', color_on = 'diff_mean', out_file_prefix=f'{out_file_prefix}_{file_name_suitable_measure}')
         plot_diff(df_1hot_diff_avg, measure, title, metric ='test_loss', yerr='std', color_on = 'is_significant', out_file_prefix=f'{out_file_prefix}_{file_name_suitable_measure}')
 
@@ -379,21 +425,90 @@ def wrapper_plot_compare_with_1hot(df_MSE, title, out_file_prefix):
     print(title)
 
 
+def wrapper_plot_compare_rewired(result_df, rewired_result_df, out_file_prefix):
+
+        df = pd.concat([result_df, rewired_result_df], axis=0)
+        df = set_model_names(df)
+        df['test_loss_RMSE'] = np.sqrt(df['test_loss'])
+
+
+        #keeps models  which I ran on rewired network
+        rewired_model_names = df[df['rewired']==True]['Model'].unique()
+        df = df[df['Model'].isin(rewired_model_names)]
+
+        #sort model names
+        df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(),ordered=True)
+        df = df.sort_values('Model')
+
+        #modify model name to look good on plot
+        df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
+
+        def box_lot(y, metric):
+            #plot test MSE loss
+            plt.figure(figsize=(6, 4))
+            sns.boxplot(data=df, x='Model', y=y, hue='rewired', dodge=True,  width=0.5,   palette="Set2", linewidth=0.4)
+            # Add labels and title
+            plt.xlabel("Models", fontsize=12)
+            if metric == 'MSE':
+                plt.ylabel("Mean Squared Error (MSE)", fontsize=12)
+            if metric == 'RMSE':
+                plt.ylabel("Root Mean Squared Error (RMSE)", fontsize=12)
+            # plt.title("Test Loss Distribution by Model and Rewired Status", fontsize=14)
+            # Add legend
+            plt.ylim(0, 20)
+            # Add grid lines along the y-axis
+            plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
+            plt.xticks(fontsize=10)
+
+
+            # Add vertical lines between models
+            # unique_models = df['Model'].unique()
+            # for i in range(1, len(unique_models)):
+            #     plt.axvline(i - 0.5, color='gray', linestyle='--', linewidth=0.8, alpha=0.7)
+
+
+            plt.legend(title="Rewired", loc="lower right")
+            plt.savefig(f'{out_file_prefix}_rewired_{metric}.pdf', bbox_inches='tight')
+            # Show the plot
+            plt.tight_layout()
+            plt.show()
+        # box_lot('test_loss', 'MSE')
+        df_1 = df.groupby(['Model','rewired']).agg({'test_loss_RMSE': 'mean'})
+        print(df_1)
+        box_lot('test_loss_RMSE', 'RMSE')
+
+
+
 
 def main():
-    # result_dir = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean'
-    result_dir = '/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_synergy_loewe_mean'
-    score_name = result_dir.split('/')[-1].replace('k_0.05_','')
+    score_names = ['S_mean_mean', 'synergy_loewe_mean']
+    split_types = ['leave_comb', 'leave_drug', 'leave_cell_line', 'random']
 
-    split_types = ['random', 'leave_comb', 'leave_drug','leave_cell_line']
-    for split_type in split_types:
-        file_name = f'output_{split_type}.tsv'
-        file_path = os.path.join(result_dir, file_name)
-        if not os.path.exists(file_path):
-            print(f'file {file_name} does not exist. Continuing to next file.')
-            continue
-        result_df = pd.read_csv(file_path, sep='\t', index_col=None)
-        wrapper_plot_compare_with_1hot(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
+    for score_name in score_names:
+        result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_{score_name}'
+        for split_type in split_types:
+            # plot for comparing models with each other. Also compare with one hot based model i.e., basleine
+            result_file = f'output_{split_type}.tsv'
+            result_file_path = os.path.join(result_dir, result_file)
+            if not os.path.exists(result_file_path):
+                print(f'file {result_file} does not exist. Continuing to next file.')
+                continue
+            result_df = pd.read_csv(result_file_path, sep='\t', index_col=None)
+            wrapper_plot_compare_with_1hot(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
+
+            # plot for comparing models trained on original vs. rewired networks
+            rewired_net_result_file = f'output_{split_type}_rewired.tsv'
+            rewired_result_file_path = os.path.join(result_dir, rewired_net_result_file)
+            if not os.path.exists(rewired_result_file_path):
+                print(f'file {rewired_result_file_path} does not exist. Continuing to next file.')
+                continue
+            rewired_result_df = pd.read_csv(rewired_result_file_path, sep='\t', index_col=None)
+            wrapper_plot_compare_rewired(result_df, rewired_result_df, out_file_prefix= f'{result_dir}/{score_name}_{split_type}')
+
+
+
+
+
 
     # barplot_model_comparison_with_deepsynergy("/home/grads/tasnina/Projects/SynVerse/inputs/existing_model_performance.tsv")
     # scatter_plot_model_comparison_with_deepsynergy("/home/grads/tasnina/Projects/SynVerse/inputs/existing_model_performance.tsv")

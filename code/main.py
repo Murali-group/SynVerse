@@ -2,8 +2,9 @@ import copy
 import os.path
 import pandas as pd
 from evaluation.split import *
+from graph_utils import *
 from utils import *
-from plot_utils import *
+from plots.plot_utils import *
 import types
 import argparse
 from models.encoder_mlp_runner import *
@@ -27,7 +28,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/debug_smiles.yaml",
+                       "config_files/experiment_1/rewired_smiles.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
     group.add_argument('--feat', type=str,
@@ -87,6 +88,8 @@ def run_SynVerse(inputs, params, **kwargs):
     '''keep the cell lines consisting of at least params.abundance% of the total #triplets in the final dataset.'''
     synergy_df = abundance_based_filtering(synergy_df, min_frac=params.abundance)
 
+    plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{params.abundance}_{score_name}')
+
     # print(f'min: {synergy_df[score_name].min()},max: {synergy_df[score_name].max()}, std: {synergy_df[score_name].std()}, avg: {synergy_df[score_name].mean()}' )
     # plt.hist(synergy_df[score_name], bins=20, color='blue', edgecolor='black', alpha=0.7)
     # plt.show()
@@ -103,7 +106,7 @@ def run_SynVerse(inputs, params, **kwargs):
     start_run = kwargs.get('start_run')
     end_run = kwargs.get('end_run')
 
-
+    data_distribution_dict = {'run':[], 'split': [], 'train_mean':[], 'train_std':[], 'test_mean':[], 'test_std':[]}
     ''' prepare split'''
     for run_no in range(start_run, end_run):
         for split in splits:
@@ -134,13 +137,22 @@ def run_SynVerse(inputs, params, **kwargs):
             test_df, all_train_df, train_idx, val_idx, drug_2_idx, cell_line_2_idx = wrapper_test_train_val(copy.deepcopy(synergy_df), split_type, test_frac, val_frac, split_file_path, seed=run_no, force_run=force_split)
 
             # #plot synergy score distribution for train and test set
-            # plot_dist(all_train_df[score_name], 'train', out_dir=split_prefix)
-            # plot_dist(test_df[score_name], 'test', out_dir=split_prefix)
+            if score_name=='synergy_loewe_mean':
+                plot_double_dist(all_train_df['synergy_loewe_mean'], all_train_df['S_mean_mean'], labels = ['Loewe', 'S_mean'], prefix=f'train', out_dir=split_file_path)
+                plot_double_dist(test_df['synergy_loewe_mean'], test_df['S_mean_mean'], labels = ['Loewe', 'S_mean'], prefix= f'test', out_dir=split_file_path)
+
+            plot_dist(all_train_df[score_name], f'train_{score_name}', out_dir=split_file_path)
+            plot_dist(test_df[score_name], f'test_{score_name}', out_dir=split_file_path)
+            data_distribution_dict['run'].append(run_no)
+            data_distribution_dict['split'].append(split)
+            data_distribution_dict['train_mean'].append(np.mean(all_train_df[score_name]))
+            data_distribution_dict['train_std'].append(np.std(all_train_df[score_name]))
+            data_distribution_dict['test_mean'].append(np.mean(test_df[score_name]))
+            data_distribution_dict['test_std'].append(np.std(test_df[score_name]))
 
             #convert feature dataframes into numpy arrays while in the array row i corresponds to the drug with numerical idx i
             cur_dfeat_dict = copy.deepcopy(dfeat_dict)
             cur_cfeat_dict = copy.deepcopy(cfeat_dict)
-            #TODO make sure that tokenized smiles is an array.
             cur_dfeat_dict['value'], cur_cfeat_dict['value'] = get_index_sorted_feature_matrix(cur_dfeat_dict['value'], drug_2_idx,
                                                    cur_cfeat_dict['value'], cell_line_2_idx)
 
@@ -164,6 +176,8 @@ def run_SynVerse(inputs, params, **kwargs):
                                                                                      cur_cfeat_dict['norm'],
                                                                                      all_train_df)
 
+            all_train_df = all_train_df[['source', 'target','edge_type', score_name]]
+
             for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:
                 print('drug and cell line features in use: ', select_drug_feat, select_cell_feat)
 
@@ -175,28 +189,60 @@ def run_SynVerse(inputs, params, **kwargs):
 
                 hyperparam = combine_hyperparams(select_model_info)
                 given_epochs = params.epochs
-
-                out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type,score_name, split_feat_str=split_feat_str, run_no=run_no)
-
-                # out_file_prefix = params.out_dir+'/test.txt'
                 kwargs['split_type'] = split_type
-                runner = Encode_MLP_runner(all_train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
-                         out_file_prefix, params, select_model_info, device, **kwargs)
+                out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type,
+                                                     score_name, split_feat_str=split_feat_str, run_no=run_no)
 
-                if params.hp_tune:
-                    # find best hyperparam setup
-                    runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
+                if params.rewire:
+                    # rewire the training dataset keeping the node degree intact. Modified all_train_df, train_idx, val_idx
+                    rewire_method = 'SA'  # Use Simulaed annealing as randomization method
+                    for rand_net in range(10): #run model on 10 randmized network
+                        print(f'Running model on {rand_net}th randomized network')
+                        rewired_all_train_df, train_idx, val_idx = get_rewired_train_val(all_train_df, score_name, rewire_method,
+                                                            split_type, val_frac, out_dir=f'{split_file_path}{rand_net}',
+                                                            force_run=force_split)
+                        wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix = f'{split_file_path}/{rand_net}'  )
 
-                if params.train_mode['use_best_hyperparam']:
-                    #find the best hyperparam saved in a file for the given features and architecture
-                    hyperparam, _ = extract_best_hyperparam(out_file_prefix+'_best_hyperparam.txt')
+                        out_file_prefix_rand = f'{out_file_prefix}_rewired_{rand_net}'
+                        # out_file_prefix = params.out_dir+'/test.txt'
+                        runner = Encode_MLP_runner(rewired_all_train_df, train_idx, val_idx, select_dfeat_dict,
+                                                   select_cfeat_dict,
+                                                   out_file_prefix_rand, params, select_model_info, device, **kwargs)
 
-                trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,validation=True,save_output=True) #when validation=True, use given epochs as you can always early stop using validation loss
-                runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True, file_prefix='_val_true_')
+                        if params.train_mode['use_best_hyperparam']:
+                            # find the best hyperparam saved in a file for the given features and architecture
+                            hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')  # incase rewire is true, we want to find the best param for the main model without rewiring.
+
+                        trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,
+                                                                                          validation=True,
+                                                                                          save_output=True)  # when validation=True, use given epochs as you can always early stop using validation loss
+                        runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True,
+                                              file_prefix='_val_true_')
+
+
+                else:
+
+                    # out_file_prefix = params.out_dir+'/test.txt'
+                    runner = Encode_MLP_runner(all_train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
+                             out_file_prefix, params, select_model_info, device, **kwargs)
+
+                    if params.hp_tune:
+                        # find best hyperparam setup
+                        runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
+
+                    if params.train_mode['use_best_hyperparam']:
+                        #find the best hyperparam saved in a file for the given features and architecture
+                        hyperparam, _ = extract_best_hyperparam(out_file_prefix+'_best_hyperparam.txt') #incase rewire is true, we want to find the best param for the main model without rewiring.
+
+                    trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,validation=True,save_output=True) #when validation=True, use given epochs as you can always early stop using validation loss
+                    runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True, file_prefix='_val_true_')
 
 
             del cur_dfeat_dict
             del cur_cfeat_dict
+    data_distribution_df = pd.DataFrame(data_distribution_dict)
+    data_distribution_df.to_csv(f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{params.abundance}_{score_name}.tsv', sep='\t', index=False)
+
 def main(config_map, **kwargs):
 
     if 'snakemake' in globals():
@@ -236,6 +282,7 @@ def main(config_map, **kwargs):
         params.max_feat=config_map['input_settings']['max_feat']
         params.hp_tune=config_map['input_settings']['hp_tune']
         params.train_mode = config_map['input_settings']['train_mode']
+        params.rewire = config_map['input_settings'].get('rewire', False)
         params.batch_size = config_map['input_settings'].get('batch_size', 4096)
         input_settings = config_map.get('input_settings', {})
         params.wandb = types.SimpleNamespace(**input_settings.get('wandb', {}))

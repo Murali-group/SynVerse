@@ -272,6 +272,7 @@ def strength_preserving_rand_sa(A, rewiring_iter = 10,
     else:
         B = R.copy()
 
+
     u, v = np.triu(B, k = 1).nonzero() #upper triangle indices
     wts = np.triu(B, k = 1)[(u, v)] #upper triangle values
     m = len(wts)
@@ -330,7 +331,6 @@ def strength_preserving_rand_sa(A, rewiring_iter = 10,
     B = B + B.T
 
     return B, energymin
-
 
 def dataframe_to_numpy(df, score_name):
     """
@@ -405,7 +405,7 @@ def rewire(df, score_name, method='SA'):
         A, node_2_idx = dataframe_to_numpy(df_edge, score_name)
 
         if method == 'SA': #simmulated annealing
-            B, _ = strength_preserving_rand_sa (A)
+            B, _ = strength_preserving_rand_sa(A)
         elif method =='RS': #rubinov and sporns
             B = strength_preserving_rand_rs(A)
 
@@ -414,12 +414,45 @@ def rewire(df, score_name, method='SA'):
         rewired_df = pd.concat([rewired_df, rewired_df_edge], axis=0)
     return rewired_df
 
+def rewire_signed(df, score_name, method='SA'):
+    '''keeping the node degree intact, rewire the edges. We are shuffling pairs of edges. However, as we have to consider the score
+    of the new edges, we  pair up two synergistic
+    edges or two nonsynergistic edges when we shuffle. '''
+    print(df.head(5))
+    edge_types = set(df['edge_type'].unique())
+
+    rewired_df = pd.DataFrame()
+
+    for edge_type in edge_types:
+        df_edge_pos = df[(df['edge_type'] == edge_type)&(df[score_name]>=0)][['source', 'target', score_name]]
+        df_edge_neg =  df[(df['edge_type'] == edge_type)&(df[score_name]<0)][['source', 'target', score_name]]
+        def randomize(df_edge):
+            A, node_2_idx = dataframe_to_numpy(df_edge, score_name)
+
+            if method == 'SA': #simmulated annealing
+                B, _ = strength_preserving_rand_sa(A)
+            elif method =='RS': #rubinov and sporns
+                B = strength_preserving_rand_rs(A)
+
+            rewired_df_edge = numpy_to_dataframe(B, node_2_idx, score_name)
+            rewired_df_edge['edge_type'] = edge_type
+            return rewired_df_edge
+
+        rewired_df_pos= randomize(df_edge_pos)
+        rewired_df_neg = randomize(df_edge_neg)
+        rewired_df = pd.concat([rewired_df, rewired_df_pos, rewired_df_neg], axis=0)
+
+
+    rewired_df = rewired_df.sample(frac=1)
+    return rewired_df
+
+
 
 
 def get_rewired_train_val (all_train_df, score_name, method, split_type, val_frac, out_dir, force_run):
     rewired_train_file = out_dir + f'all_train_rewired_{method}.tsv'
     if (not os.path.exists(rewired_train_file)) | force_run:
-        rewired_train_df = rewire(all_train_df, score_name, method=method)
+        rewired_train_df = rewire_signed(all_train_df, score_name, method=method)
         rewired_train_df.to_csv(rewired_train_file, sep='\t', index=False)
     else:
         rewired_train_df = pd.read_csv(rewired_train_file, sep='\t', index_col=None)
@@ -427,6 +460,13 @@ def get_rewired_train_val (all_train_df, score_name, method, split_type, val_fra
     split_type_map = {'random': 'random', 'leave_comb': 'edge', 'leave_drug': 'node', 'leave_cell_line': 'edge_type'}
     train_idx, val_idx = split_train_test(rewired_train_df, split_type_map[split_type], val_frac)
 
+    orig_triplets = set(zip(all_train_df['source'], all_train_df['target'], all_train_df['edge_type']))
+    rewired_triplet = set(zip(rewired_train_df['source'], rewired_train_df['target'], rewired_train_df['edge_type']))
+
+    common_triplets = orig_triplets.intersection(rewired_triplet)
+    total_triplets = orig_triplets.union(rewired_triplet)
+
+    print(f'frac common triplets: {len(common_triplets)/len(total_triplets)}, total : {len(total_triplets)}')
     return rewired_train_df, {0:train_idx}, {0:val_idx}
 
 

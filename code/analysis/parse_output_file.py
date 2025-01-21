@@ -120,7 +120,8 @@ def get_run_feat_info(file_path, run_number, feature_filter=None):
     clean_file_name = file_path.split('/')[-1].replace("_val_true_loss.txt", "")
     features = re.sub(r'run_[0-4]', '', clean_file_name)  # Remove 'run_x' pattern
     drug_features = features.split('_C_')[0].replace('D_', '')
-    cell_features = features.split('_C_')[1]
+    cell_features = features.split('_C_')[1].split('_rewired_')[0]
+    rewired = True if len(features.split('_rewired_'))>1 else False
     if feature_filter is None:
         feature_filter = feature_to_filter_map(drug_features, cell_features)
     run_info = {
@@ -128,6 +129,7 @@ def get_run_feat_info(file_path, run_number, feature_filter=None):
         'drug_features': drug_features,
         'cell_features': cell_features,
         'feature_filter': feature_filter,
+        'rewired': rewired
     }
     return run_info
 
@@ -173,7 +175,8 @@ def iterate_output_files(folder_path):
 
 def main():
     # Example usage
-    base_folder=sys.argv[1]
+    # base_folder=sys.argv[1]
+    base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/"
     split_types = ['random','leave_comb', 'leave_drug', 'leave_cell_line']
     outfile_detailed = base_folder + f'combined_output.xlsx'
 
@@ -181,7 +184,7 @@ def main():
     #save outputs for each runs across all splits and features
     splitwise_df_dict = {}
     for split_type in split_types:
-        splitwise_summary_file = base_folder+f'output_{split_type}.tsv'
+        splitwise_summary_file = base_folder+f'output_{split_type}'
         # plot_outputs(splitwise_summary_file)
 
         spec_folder = f'{base_folder}/{split_type}/'
@@ -200,8 +203,15 @@ def main():
         df = pd.DataFrame(data)
         df.drop(columns=['loss_file', 'pred_file'], axis=1, inplace=True)
         splitwise_df_dict[split_type] = df
-        print(df)
-        df.to_csv(splitwise_summary_file, sep='\t', index=False)
+        print(df.head(5))
+
+        #seperate performance of models trained on original and rewired training  networks
+        df_orig = df[df['rewired'] == False]
+        df_rewired = df[df['rewired'] == True]
+        df_orig.to_csv(f'{splitwise_summary_file}.tsv', sep='\t', index=False)
+
+        if not df_rewired.empty:
+            df_rewired.to_csv(f'{splitwise_summary_file}_rewired.tsv', sep='\t', index=False)
         # plot_outputs(splitwise_summary_file, split_type)
 
 
@@ -210,4 +220,4 @@ def main():
             splitwise_df_dict[split_type].to_excel(writer, sheet_name=split_type, index=False)
 
 
-main()
+main() #expect a terminal argument, the base output folder, .e.g., /home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean

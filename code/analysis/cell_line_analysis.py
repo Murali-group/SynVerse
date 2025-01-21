@@ -41,7 +41,6 @@ def plot_cell_line_wise_score(prediction_file_of_interest, idx_2_cell):
 def main():
     run_no=2
 
-
     split_dir = f"/home/grads/tasnina/Projects/SynVerse/inputs/splits/D_d1hot_C_c1hot_genex_genex_lincs_1000/k_0.05_S_mean_mean/leave_cell_line_0.2_0.25/run_{run_no}/"
     test_file = split_dir + 'test.tsv'
     train_val_file = split_dir+'all_train.tsv'

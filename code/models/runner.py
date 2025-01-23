@@ -55,7 +55,6 @@ class Runner(ABC):
         self.tolerance = 45 #previously ran with 15, 30
         self.batch_size = int(params.batch_size)
 
-        self.result_logger = hpres.json_result_logger(directory=out_file.replace('.txt',''), overwrite=True)
         self.log_file = self.out_file_prefix + '_training.log'
 
     @abstractmethod
@@ -71,6 +70,7 @@ class Runner(ABC):
 
 
     def find_best_hyperparam(self, server_type, **kwargs):
+        self.result_logger = hpres.json_result_logger(directory=self.out_file.replace('.txt',''), overwrite=True)
         min_budget = self.bohb_params['min_budget']
         max_budget = self.bohb_params['max_budget']
         n_iterations = self.bohb_params['n_iterations']

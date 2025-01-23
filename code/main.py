@@ -203,7 +203,7 @@ def run_SynVerse(inputs, params, **kwargs):
                                                             force_run=force_split)
                         wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix = f'{split_file_path}/{rand_net}_{rewire_method}'  )
 
-                        out_file_prefix_rand = f'{out_file_prefix}_rewired_{rand_net}'
+                        out_file_prefix_rand = f'{out_file_prefix}_rewired_{rand_net}_{rewire_method}'
                         # out_file_prefix = params.out_dir+'/test.txt'
                         runner = Encode_MLP_runner(rewired_all_train_df, train_idx, val_idx, select_dfeat_dict,
                                                    select_cfeat_dict,

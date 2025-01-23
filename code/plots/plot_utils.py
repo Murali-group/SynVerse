@@ -81,6 +81,7 @@ def wrapper_violin_plot_difference_in_degree_distribution(rewired_all_train_df, 
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
+    os.makedirs(os.path.dirname(plot_file_prefix), exist_ok=True)
     plt.savefig(f'{plot_file_prefix}_difference_in_degree_dist_with_rewired_plot.pdf', bbox_inches='tight')
 
     plt.show()
@@ -142,6 +143,7 @@ def joint_plot(rewired, orig, score_name, idx_2_cell_line, min=None, max=None, p
 
     #
     # # Save the final figure
+    os.makedirs(os.path.dirname(plot_file_prefix), exist_ok=True)
     plt.savefig(f'{plot_file_prefix}_difference_in_dist_with_rewired_plot.pdf', bbox_inches='tight')
     plt.show()
     plt.close()
@@ -160,7 +162,6 @@ def wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_tra
     orig_pos = all_train_df[all_train_df[score_name] >= 0]
     orig_neg = all_train_df[all_train_df[score_name] < 0]
 
-    os.makedirs(os.path.dirname(plot_file_prefix), exist_ok=True)
     joint_plot(rewired_pos, orig_pos, score_name, idx_2_cell_line, min=0, plot_file_prefix = plot_file_prefix+'_pos_')
     joint_plot(rewired_neg, orig_neg, score_name, idx_2_cell_line, max=0, plot_file_prefix = plot_file_prefix+'_neg_')
 
@@ -208,6 +209,7 @@ def plot_dist(values, prefix='', out_dir=None):
     if out_dir is not None:
         filename = out_dir + f'{prefix}_score_distribution.pdf'
         plt.tight_layout()
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         plt.savefig(filename)
     # Show plot
     # plt.show()
@@ -238,6 +240,7 @@ def plot_double_dist(values_1, values_2, labels, prefix='', out_dir=None):
     if out_dir is not None:
         filename = out_dir + f'{prefix}_dual_score_distribution.pdf'
         plt.tight_layout()
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         plt.savefig(filename)
     # Show plot
     plt.show()
@@ -252,6 +255,7 @@ def plot_double_dist(values_1, values_2, labels, prefix='', out_dir=None):
     if out_dir is not None:
         filename = out_dir + f'{prefix}_dual_score_distribution_boxplot.pdf'
         plt.tight_layout()
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         plt.savefig(filename)
     # plt.title('Comparison of Skewness')
     plt.show()

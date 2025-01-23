@@ -195,13 +195,13 @@ def run_SynVerse(inputs, params, **kwargs):
 
                 if params.rewire:
                     # rewire the training dataset keeping the node degree intact. Modified all_train_df, train_idx, val_idx
-                    rewire_method = 'SA'  # Use Simulaed annealing as randomization method
+                    rewire_method = 'SM'  # SA => Simulaed annealing, SM=> Sneppen-Amslov, RS: Rubinov as randomization method
                     for rand_net in range(10): #run model on 10 randmized network
                         print(f'Running model on {rand_net}th randomized network')
                         rewired_all_train_df, train_idx, val_idx = get_rewired_train_val(all_train_df, score_name, rewire_method,
                                                             split_type, val_frac, out_dir=f'{split_file_path}{rand_net}',
                                                             force_run=force_split)
-                        wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix = f'{split_file_path}/{rand_net}'  )
+                        wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix = f'{split_file_path}/{rand_net}_{rewire_method}'  )
 
                         out_file_prefix_rand = f'{out_file_prefix}_rewired_{rand_net}'
                         # out_file_prefix = params.out_dir+'/test.txt'

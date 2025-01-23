@@ -332,6 +332,38 @@ def strength_preserving_rand_sa(A, rewiring_iter = 10,
 
     return B, energymin
 
+def degree_preserving_rand_sm(A, rewiring_iter = 10,
+                                frac = 0.5,
+                                R = None, connected = None,
+                                seed = None):
+
+    try:
+        A = np.asarray(A)
+    except TypeError as err:
+        msg = ('A must be array_like. Received: {}.'.format(type(A)))
+        raise TypeError(msg) from err
+
+    if frac > 1 or frac <= 0:
+        msg = ('frac must be between 0 and 1. '
+               'Received: {}.'.format(frac))
+        raise ValueError(msg)
+
+
+    #Maslov & Sneppen rewiring
+    if R is None:
+        #ensuring connectedness if the original network is connected
+        if connected is None:
+            connected = False if bct.number_of_components(A) > 1 else True
+        if connected:
+            B = bct.randmio_und_connected(A, rewiring_iter, seed=seed)[0]
+        else:
+            B = bct.randmio_und(A, rewiring_iter, seed=seed)[0]
+    else:
+        B = R.copy()
+
+    return B
+
+
 def dataframe_to_numpy(df, score_name):
     """
     Converts a pandas DataFrame to a numpy adjacency matrix.
@@ -433,6 +465,8 @@ def rewire_signed(df, score_name, method='SA'):
                 B, _ = strength_preserving_rand_sa(A)
             elif method =='RS': #rubinov and sporns
                 B = strength_preserving_rand_rs(A)
+            elif method =='SM': #snepen-maslov method
+                B = degree_preserving_rand_sm(A)
 
             rewired_df_edge = numpy_to_dataframe(B, node_2_idx, score_name)
             rewired_df_edge['edge_type'] = edge_type

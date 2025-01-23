@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -158,6 +160,7 @@ def wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_tra
     orig_pos = all_train_df[all_train_df[score_name] >= 0]
     orig_neg = all_train_df[all_train_df[score_name] < 0]
 
+    os.makedirs(os.path.dirname(plot_file_prefix), exist_ok=True)
     joint_plot(rewired_pos, orig_pos, score_name, idx_2_cell_line, min=0, plot_file_prefix = plot_file_prefix+'_pos_')
     joint_plot(rewired_neg, orig_neg, score_name, idx_2_cell_line, max=0, plot_file_prefix = plot_file_prefix+'_neg_')
 

@@ -205,14 +205,14 @@ def run_SynVerse(inputs, params, **kwargs):
                     rewire_method = params.rewire_method  # SA => Simulaed annealing, SM=> Sneppen-Amslov, RS: Rubinov as randomization method
                     for rand_net in range(10): #run model on 10 randmized network
                         print(f'Running model on {rand_net}th randomized network')
-                        rewired_all_train_df, train_idx, val_idx = get_rewired_train_val(all_train_df, score_name, rewire_method,
+                        rewired_all_train_df, rewired_train_idx, rewired_val_idx = get_rewired_train_val(all_train_df, score_name, rewire_method,
                                                             split_type, val_frac, out_dir=f'{split_file_path}{rand_net}',
                                                             force_run=force_split)
                         wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix = f'{split_file_path}/{rand_net}_{rewire_method}'  )
 
                         out_file_prefix_rand = f'{out_file_prefix}_rewired_{rand_net}_{rewire_method}'
                         # out_file_prefix = params.out_dir+'/test.txt'
-                        runner = Encode_MLP_runner(rewired_all_train_df, train_idx, val_idx, select_dfeat_dict,
+                        runner = Encode_MLP_runner(rewired_all_train_df, rewired_train_idx, rewired_val_idx, select_dfeat_dict,
                                                    select_cfeat_dict,
                                                    out_file_prefix_rand, params, select_model_info, device, **kwargs)
 
@@ -226,7 +226,7 @@ def run_SynVerse(inputs, params, **kwargs):
                         runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True,
                                               file_prefix='_val_true_')
 
-                if params.shuffle:
+                elif params.shuffle:
                     # shuffle the features in training dataset keeping the test intact
                     for shuffle_no in range(10): #run model on 10 randmized network
 

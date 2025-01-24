@@ -1,10 +1,10 @@
-dataset_dir: "/home/tasnina/Projects/SynVerse/datasets/"
+dataset_dir: "/home/grads/tasnina/Projects/SynVerse/datasets/"
 
 # Input Settings: initialize base input folder names,
 # dataset collections, and models to run over
 input_settings:
   # Base input directory
-  input_dir: "/home/tasnina/Projects/SynVerse/inputs/"
+  input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
 
   drug_features:
     - name: 'd1hot'
@@ -65,8 +65,7 @@ input_settings:
   hp_tune: False
   train_mode:
     use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
-  rewire: True #if True, rewire the training data such that the node degree is preserved.
-  rewire_method: "SM"
-
+  rewire: False #if True, rewire the training data such that the node degree is preserved.
+  shuffle: True
 output_settings:
-  output_dir: '/home/tasnina/Projects/SynVerse/outputs/'
+  output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs/'

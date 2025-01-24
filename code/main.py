@@ -28,7 +28,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/rewired_smiles.yaml",
+                       "config_files/experiment_1/shuffle_smiles.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
     group.add_argument('--feat', type=str,
@@ -38,6 +38,7 @@ def setup_opts():
     group.add_argument('--start_run', type=int, help='From which run should the model start from. This is to help when'
                     'some model has been trained for first 2 runs but the terminated by arc. Then next time we need to start from run 2, hence start_run should be 2', default=0)
     group.add_argument('--end_run', type=int, help='How many runs you want. end_run=5 means we will get runs starting at start_run and ending at (end_run-1)', default=5)
+
     group.add_argument('--n_workers', type=int, help='Number of workers to run in parallel.', default=2)
     group.add_argument('--worker', help='Flag to turn this into a worker process', action='store_true')
     group.add_argument('--run_id', type=str, default = 'synverse',
@@ -178,6 +179,12 @@ def run_SynVerse(inputs, params, **kwargs):
 
             all_train_df = all_train_df[['source', 'target','edge_type', score_name]]
 
+            # #randomize input features
+            # if params.shuffle:
+            #     cur_dfeat_dict['value'] = shuffle_features(cur_dfeat_dict['value'])
+            #     cur_cfeat_dict['value'] = shuffle_features(cur_cfeat_dict['value'])
+
+
             for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:
                 print('drug and cell line features in use: ', select_drug_feat, select_cell_feat)
 
@@ -195,7 +202,7 @@ def run_SynVerse(inputs, params, **kwargs):
 
                 if params.rewire:
                     # rewire the training dataset keeping the node degree intact. Modified all_train_df, train_idx, val_idx
-                    rewire_method = 'SM'  # SA => Simulaed annealing, SM=> Sneppen-Amslov, RS: Rubinov as randomization method
+                    rewire_method = params.rewire_method  # SA => Simulaed annealing, SM=> Sneppen-Amslov, RS: Rubinov as randomization method
                     for rand_net in range(10): #run model on 10 randmized network
                         print(f'Running model on {rand_net}th randomized network')
                         rewired_all_train_df, train_idx, val_idx = get_rewired_train_val(all_train_df, score_name, rewire_method,
@@ -216,6 +223,36 @@ def run_SynVerse(inputs, params, **kwargs):
                         trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,
                                                                                           validation=True,
                                                                                           save_output=True)  # when validation=True, use given epochs as you can always early stop using validation loss
+                        runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True,
+                                              file_prefix='_val_true_')
+
+                if params.shuffle:
+                    # shuffle the features in training dataset keeping the test intact
+                    for shuffle_no in range(10): #run model on 10 randmized network
+
+                        shuffled_dfeat_dict = copy.deepcopy(select_dfeat_dict)
+                        shuffled_cfeat_dict = copy.deepcopy(select_cfeat_dict)
+
+
+                        shuffled_dfeat_dict['value'] = shuffle_features(shuffled_dfeat_dict['value'])
+                        shuffled_cfeat_dict['value'] = shuffle_features(shuffled_cfeat_dict['value'])
+
+                        out_file_prefix_shuffle = f'{out_file_prefix}_shuffled_{shuffle_no}'
+                        runner = Encode_MLP_runner(all_train_df, train_idx, val_idx, shuffled_dfeat_dict,
+                                                   shuffled_cfeat_dict,
+                                                   out_file_prefix_shuffle, params, select_model_info, device, **kwargs)
+
+                        if params.train_mode['use_best_hyperparam']:
+                            # find the best hyperparam saved in a file for the given features and architecture
+                            hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')  # incase rewire is true, we want to find the best param for the main model without rewiring.
+
+                        trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,
+                                                                                          validation=True,
+                                                                                          save_output=True)  # when validation=True, use given epochs as you can always early stop using validation loss
+                        #TODO: decide if I want to use original feature for test purpose.if yes, then uncomment the following:
+                        # runner.drug_feat = select_dfeat_dict['value']
+                        # runner.cell_line_feat = select_cfeat_dict['value']
+
                         runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True,
                                               file_prefix='_val_true_')
 
@@ -283,6 +320,8 @@ def main(config_map, **kwargs):
         params.hp_tune=config_map['input_settings']['hp_tune']
         params.train_mode = config_map['input_settings']['train_mode']
         params.rewire = config_map['input_settings'].get('rewire', False)
+        params.rewire_method = config_map['input_settings'].get('rewire_method', None)
+        params.shuffle = config_map['input_settings'].get('shuffle', False) #shuffle/randomize features
         params.batch_size = config_map['input_settings'].get('batch_size', 4096)
         input_settings = config_map.get('input_settings', {})
         params.wandb = types.SimpleNamespace(**input_settings.get('wandb', {}))

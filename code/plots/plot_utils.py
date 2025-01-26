@@ -169,8 +169,6 @@ def wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_tra
 
 
 
-
-
 def plot_dist(values, prefix='', out_dir=None):
     plt.clf()
     max = int(np.max(values))
@@ -216,6 +214,16 @@ def plot_dist(values, prefix='', out_dir=None):
 
 
 def plot_double_dist(values_1, values_2, labels, prefix='', out_dir=None):
+
+    '''
+    Plot distribution of scores in values_1 and values_2 as violin plots
+    :param values_1:
+    :param values_2:
+    :param labels:
+    :param prefix:
+    :param out_dir:
+    :return:
+    '''
     # max = int(np.max(np.concatenate((values_1, values_2))))
     # min = int(np.min(np.concatenate((values_1, values_2))))
 
@@ -247,9 +255,9 @@ def plot_double_dist(values_1, values_2, labels, prefix='', out_dir=None):
 
 
     #box_plot
-    plt.figure(figsize=(2,4))
+    plt.figure(figsize=(4,6))
     sns.violinplot(data=[values_1, values_2])
-    plt.xticks([0, 1], labels, rotation=90)
+    plt.xticks([0, 1], labels)
     plt.ylabel('Scores')
     plt.title(prefix)
     if out_dir is not None:
@@ -330,3 +338,4 @@ def plot_nodewise_train_test_score_dist(train_df, test_df, score_name, out_dir=N
     # plt.show()
 
     return stats_df
+

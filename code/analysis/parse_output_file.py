@@ -120,8 +120,19 @@ def get_run_feat_info(file_path, run_number, feature_filter=None):
     clean_file_name = file_path.split('/')[-1].replace("_val_true_loss.txt", "")
     features = re.sub(r'run_[0-4]', '', clean_file_name)  # Remove 'run_x' pattern
     drug_features = features.split('_C_')[0].replace('D_', '')
-    cell_features = features.split('_C_')[1].split('_rewired_')[0]
+    cell_features = features.split('_C_')[1].split('_rewired_')[0].split('_shuffled_')[0]
     rewired = True if len(features.split('_rewired_'))>1 else False
+    if rewired:
+        rewire_method = features.split('_rewired_')[-1].split('_')[1]
+    else:
+        rewire_method='Original'
+
+    shuffled = True if len(features.split('_shuffled_'))>1 else False
+    if shuffled:
+        shuffle_method = 'Shuffled'
+    else:
+        shuffle_method='Original'
+
     if feature_filter is None:
         feature_filter = feature_to_filter_map(drug_features, cell_features)
     run_info = {
@@ -129,7 +140,10 @@ def get_run_feat_info(file_path, run_number, feature_filter=None):
         'drug_features': drug_features,
         'cell_features': cell_features,
         'feature_filter': feature_filter,
-        'rewired': rewired
+        'rewired': rewired,
+        'rewire_method': rewire_method,
+        'shuffled': shuffled,
+        'shuffle_method': shuffle_method
     }
     return run_info
 
@@ -176,7 +190,9 @@ def iterate_output_files(folder_path):
 def main():
     # Example usage
     # base_folder=sys.argv[1]
-    base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/"
+    # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/"
+    base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_S_mean_mean/"
+
     split_types = ['random','leave_comb', 'leave_drug', 'leave_cell_line']
     outfile_detailed = base_folder + f'combined_output.xlsx'
 
@@ -206,12 +222,16 @@ def main():
         print(df.head(5))
 
         #seperate performance of models trained on original and rewired training  networks
-        df_orig = df[df['rewired'] == False]
+        df_orig = df[(df['rewired'] == False) & (df['shuffled'] == False) ]
         df_rewired = df[df['rewired'] == True]
+        df_shuffled = df[df['shuffled'] == True]
+
         df_orig.to_csv(f'{splitwise_summary_file}.tsv', sep='\t', index=False)
 
         if not df_rewired.empty:
             df_rewired.to_csv(f'{splitwise_summary_file}_rewired.tsv', sep='\t', index=False)
+        if not df_shuffled.empty:
+            df_shuffled.to_csv(f'{splitwise_summary_file}_shuffled.tsv', sep='\t', index=False)
         # plot_outputs(splitwise_summary_file, split_type)
 
 

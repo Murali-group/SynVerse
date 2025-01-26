@@ -28,7 +28,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/shuffle_smiles.yaml",
+                       "config_files/experiment_1/sample_norm_cgenex.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
     group.add_argument('--feat', type=str,
@@ -56,9 +56,11 @@ def run_SynVerse(inputs, params, **kwargs):
     print('SYNVERSE STARTING')
     drug_features = params.drug_features
     cell_line_features = params.cell_line_features
+    abundance=params.abundance
     model_info = params.models
     splits = params.splits
     split_dir = params.split_dir
+    out_dir = params.out_dir
 
     # score_name = 'synergy_loewe_mean' #synergy score to use
     # score_name = 'S_mean_mean' #synergy score to use
@@ -86,14 +88,20 @@ def run_SynVerse(inputs, params, **kwargs):
     '''Filter out the triplets based on the availability of drug and cell line features'''
     synergy_df = feature_based_filtering(synergy_df, dfeat_dict['value'], cfeat_dict['value'], params.feature)
 
-    '''keep the cell lines consisting of at least params.abundance% of the total #triplets in the final dataset.'''
-    synergy_df = abundance_based_filtering(synergy_df, min_frac=params.abundance)
+    '''keep the cell lines consisting of at least abundance% of the total #triplets in the final dataset.'''
+    synergy_df = abundance_based_filtering(synergy_df, min_frac=abundance)
 
-    plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{params.abundance}_{score_name}')
+    plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{abundance}_{score_name}')
 
-    # print(f'min: {synergy_df[score_name].min()},max: {synergy_df[score_name].max()}, std: {synergy_df[score_name].std()}, avg: {synergy_df[score_name].mean()}' )
-    # plt.hist(synergy_df[score_name], bins=20, color='blue', edgecolor='black', alpha=0.7)
-    # plt.show()
+
+    if params.sample_norm: #sample the triplets from synergy_df such that they follow a normal distribution.
+        retain_ratio=0.99 #how much sample to retain
+        synergy_df = filter_normal_conforming_data(synergy_df, score_name,retain_ratio=retain_ratio)
+        split_dir = os.path.join(split_dir, f'sample_norm_{retain_ratio}')
+        out_dir = os.path.join(out_dir, f'sample_norm_{retain_ratio}')
+
+
+
     #******************************************* MODEL TRAINING ***********************************************
 
     #***********************************************Figure out the feature combinations to train the model on ***
@@ -126,7 +134,8 @@ def run_SynVerse(inputs, params, **kwargs):
                     continue
 
             split_feat_str = get_feat_prefix(dfeat_dict, cfeat_dict)
-            split_info_str = f"/{split_feat_str}/k_{params.abundance}_{score_name}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/"
+            split_info_str = f"/{split_feat_str}/k_{abundance}_{score_name}/{split_type}_{test_frac}_{val_frac}/run_{run_no}/"
+
 
             print('SPLIT STR: ', split_info_str)
             split_file_path = split_dir + split_info_str
@@ -197,7 +206,7 @@ def run_SynVerse(inputs, params, **kwargs):
                 hyperparam = combine_hyperparams(select_model_info)
                 given_epochs = params.epochs
                 kwargs['split_type'] = split_type
-                out_file_prefix = create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type,
+                out_file_prefix = create_file_prefix(out_dir,abundance, select_dfeat_dict, select_cfeat_dict, split_type,
                                                      score_name, split_feat_str=split_feat_str, run_no=run_no)
 
                 if params.rewire:
@@ -211,7 +220,6 @@ def run_SynVerse(inputs, params, **kwargs):
                         wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix = f'{split_file_path}/{rand_net}_{rewire_method}'  )
 
                         out_file_prefix_rand = f'{out_file_prefix}_rewired_{rand_net}_{rewire_method}'
-                        # out_file_prefix = params.out_dir+'/test.txt'
                         runner = Encode_MLP_runner(rewired_all_train_df, rewired_train_idx, rewired_val_idx, select_dfeat_dict,
                                                    select_cfeat_dict,
                                                    out_file_prefix_rand, params, select_model_info, device, **kwargs)
@@ -244,7 +252,7 @@ def run_SynVerse(inputs, params, **kwargs):
 
                         if params.train_mode['use_best_hyperparam']:
                             # find the best hyperparam saved in a file for the given features and architecture
-                            hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')  # incase rewire is true, we want to find the best param for the main model without rewiring.
+                            hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')
 
                         trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,
                                                                                           validation=True,
@@ -257,9 +265,10 @@ def run_SynVerse(inputs, params, **kwargs):
                                               file_prefix='_val_true_')
 
 
+
+
                 else:
 
-                    # out_file_prefix = params.out_dir+'/test.txt'
                     runner = Encode_MLP_runner(all_train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
                              out_file_prefix, params, select_model_info, device, **kwargs)
 
@@ -268,8 +277,11 @@ def run_SynVerse(inputs, params, **kwargs):
                         runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
 
                     if params.train_mode['use_best_hyperparam']:
-                        #find the best hyperparam saved in a file for the given features and architecture
-                        hyperparam, _ = extract_best_hyperparam(out_file_prefix+'_best_hyperparam.txt') #incase rewire is true, we want to find the best param for the main model without rewiring.
+                        if params.sample_norm: #find the best param tuned  on 'not-sampled' data
+                            hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace(f'sample_norm_{retain_ratio}/','') + '_best_hyperparam.txt')
+                        else:
+                            #find the best hyperparam saved in a file for the given features and architecture
+                            hyperparam, _ = extract_best_hyperparam(out_file_prefix+'_best_hyperparam.txt')
 
                     trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,validation=True,save_output=True) #when validation=True, use given epochs as you can always early stop using validation loss
                     runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True, file_prefix='_val_true_')
@@ -278,7 +290,7 @@ def run_SynVerse(inputs, params, **kwargs):
             del cur_dfeat_dict
             del cur_cfeat_dict
     data_distribution_df = pd.DataFrame(data_distribution_dict)
-    data_distribution_df.to_csv(f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{params.abundance}_{score_name}.tsv', sep='\t', index=False)
+    data_distribution_df.to_csv(f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{abundance}_{score_name}.tsv', sep='\t', index=False)
 
 def main(config_map, **kwargs):
 
@@ -322,6 +334,7 @@ def main(config_map, **kwargs):
         params.rewire = config_map['input_settings'].get('rewire', False)
         params.rewire_method = config_map['input_settings'].get('rewire_method', None)
         params.shuffle = config_map['input_settings'].get('shuffle', False) #shuffle/randomize features
+        params.sample_norm = config_map['input_settings'].get('sample_norm', False) #shuffle/randomize features
         params.batch_size = config_map['input_settings'].get('batch_size', 4096)
         input_settings = config_map.get('input_settings', {})
         params.wandb = types.SimpleNamespace(**input_settings.get('wandb', {}))

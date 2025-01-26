@@ -14,6 +14,38 @@ def load_yaml_file(filepath):
     return data
 
 
+def filter_normal_conforming_data(df, column, retain_ratio=0.8):
+    """
+    Filters rows of a pandas DataFrame to retain a specified percentage of rows where
+    the values in the given column conform best to a normal distribution.
+
+    Parameters:
+    - df (pd.DataFrame): The input DataFrame to filter.
+    - column (str): The column to use for normal distribution filtering.
+    - retain_ratio (float): The percentage of rows to retain (default is 0.8).
+    - plot (bool): Whether to plot the filtered data and fitted normal distribution (default is False).
+
+    Returns:
+    - filtered_df (pd.DataFrame): The filtered DataFrame containing the retained rows.
+    """
+    # Step 1: Fit a normal distribution to the column
+    values = df[column].to_numpy()
+    mean, std = np.mean(values), np.std(values)
+
+    # Step 2: Calculate z-scores
+    z_scores = np.abs((values - mean) / std)
+
+    # Step 3: Sort the DataFrame based on z-scores
+    df['z_score'] = z_scores  # Add z-scores to the DataFrame for sorting
+    sorted_df = df.sort_values(by='z_score')
+
+    # Step 4: Retain the top percentage of rows
+    num_to_keep = int(retain_ratio * len(df))
+    filtered_df = sorted_df.head(num_to_keep).drop(columns=['z_score'])  # Drop z-score after filtering
+
+
+    return filtered_df
+
 def shuffle_features(feat_dict):
     '''
     Shuffles the features in the feature dictionary. If the values are numpy arrays, rows are shuffled.
@@ -145,15 +177,6 @@ def abundance_based_filtering(synergy_df, min_frac=0.01):
         if new_fraction >= min_frac:
             filtered_df = pd.concat([filtered_df, synergy_df[synergy_df['cell_line_name'] == cell_line]])
 
-    # for cell_line, count in cell_line_counts.items():
-    #     # Calculate the potential new total rows if this cell line is added
-    #     new_fraction = count/len(synergy_df)
-    #
-    #     # If adding this cell line meets the threshold, add it to filtered_df
-    #     if new_fraction >= min_frac:
-    #         filtered_df = pd.concat([filtered_df, synergy_df[synergy_df['cell_line_name'] == cell_line]])
-    #     else:
-    #         break
 
     print('After abundance based filtering: ')
     print('frac triplets retrieved: ', len(filtered_df)/len(synergy_df))
@@ -323,8 +346,8 @@ def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=
     feat_model_prefix = (dfeat_str + cfeat_str).strip('_')
     return feat_model_prefix
 
-def create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type,score_name, split_feat_str='', run_no=None):
-    dir_prefix = f"{params.out_dir}/k_{params.abundance}_{score_name}/{split_type}/"
+def create_file_prefix(out_dir, abundance, select_dfeat_dict, select_cfeat_dict, split_type,score_name, split_feat_str='', run_no=None):
+    dir_prefix = f"{out_dir}/k_{abundance}_{score_name}/{split_type}/"
     if run_no is not None:
         dir_prefix=dir_prefix+'/run_'+str(run_no)+'/'
     feat_model_prefix = get_feat_prefix(select_dfeat_dict, select_cfeat_dict, mention_norm=True, mention_encoder=True, mention_preprocess=True,

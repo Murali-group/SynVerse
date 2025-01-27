@@ -95,7 +95,7 @@ def run_SynVerse(inputs, params, **kwargs):
 
 
     if params.sample_norm: #sample the triplets from synergy_df such that they follow a normal distribution.
-        retain_ratio=0.99 #how much sample to retain
+        retain_ratio = params.retain_ratio #how much sample to retain
         synergy_df = filter_normal_conforming_data(synergy_df, score_name,retain_ratio=retain_ratio)
         split_dir = os.path.join(split_dir, f'sample_norm_{retain_ratio}')
         out_dir = os.path.join(out_dir, f'sample_norm_{retain_ratio}')
@@ -334,7 +334,9 @@ def main(config_map, **kwargs):
         params.rewire = config_map['input_settings'].get('rewire', False)
         params.rewire_method = config_map['input_settings'].get('rewire_method', None)
         params.shuffle = config_map['input_settings'].get('shuffle', False) #shuffle/randomize features
-        params.sample_norm = config_map['input_settings'].get('sample_norm', False) #shuffle/randomize features
+        params.sample_norm = config_map['input_settings'].get('sample_norm', False) #sample triplets to maintain a normal distribution
+        params.retain_ratio = config_map['input_settings'].get('retain_ratio', 0.99) #sample triplets to maintain a normal distribution
+
         params.batch_size = config_map['input_settings'].get('batch_size', 4096)
         input_settings = config_map.get('input_settings', {})
         params.wandb = types.SimpleNamespace(**input_settings.get('wandb', {}))

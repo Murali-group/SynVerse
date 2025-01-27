@@ -7,6 +7,62 @@ import seaborn as sns
 from scipy.stats import skew
 
 
+feature_filters = ['D_ECFP_4_MACCS_MFP_d1hot_mol_graph_smiles_C_c1hot',
+                  'D_d1hot_target_C_c1hot', 'D_d1hot_C_c1hot_genex_genex_lincs_1000']
+
+#rename the long model names containing features, preprocessing and encoder name to suitable name for plot.
+model_name_mapping = {'d1hot + c1hot': 'One hot','d1hot_std_comp_True + c1hot_std_comp_True': 'One hot (AE)',
+'MACCS + c1hot': 'MACCS', 'MACCS_std_comp_True + c1hot_std_comp_True': 'MACCS (AE)',
+'MFP + c1hot': 'MFP', 'MFP_std_comp_True + c1hot_std_comp_True': 'MFP (AE)',
+'ECFP_4 + c1hot': 'ECFP', 'ECFP_4_std_comp_True + c1hot_std_comp_True': 'ECFP (AE)',
+'mol_graph_GCN + c1hot': 'Mol Graph (GCN)',
+'smiles_Transformer + c1hot': 'SMILES (Transformer)',
+'smiles_SPMM + c1hot': 'SMILES (SPMM)',
+'smiles_kpgt + c1hot': 'SMILES (KPGT)',
+'smiles_mole + c1hot': 'SMILES (MolE)',
+'target + c1hot': 'Target', 'target_rwr + c1hot': 'Target (RWR)',
+'target_std_comp_True + c1hot_std_comp_True': 'Target (AE)',
+'d1hot + genex_std': 'Genex',
+'d1hot + genex_lincs_1000_std': 'LINCS_1000'}
+
+def set_model_names(df):
+    # Create x-tick labels combining 'drug_features' and 'cell_features'
+    df['Model'] = df['drug_features'] + " + " + df['cell_features']
+    df['Model'] = df['Model'].astype(str).apply(lambda x: model_name_mapping.get(x, x))
+
+    # remove model 'One hot (AE)'
+    df = df[df['Model'] != 'One hot (AE)']
+
+    # remove a few feature combo if present. Following remove model where auto-encoder used on one-hot without standardization.
+    df = df[~((df['drug_features'] == 'd1hot_comp_True') | (
+            df['cell_features'] == 'c1hot_comp_True'))]
+
+    return df
+
+def box_plot(data, x, y, hue, ylabel, rotate=0, palette="Set2", out_file_prefix=None):
+    # plot test MSE loss
+    plt.figure(figsize=(6, 4))
+    sns.boxplot(data=data, x=x, y=y, hue=hue, dodge=True, width=0.5, palette=palette, linewidth=0.4)
+    # Add labels and title
+
+    plt.ylabel(ylabel, fontsize=12)
+    # plt.title("Test Loss Distribution by Model and Rewired Status", fontsize=14)
+    # Add legend
+    # plt.ylim(0, 20)
+    # Add grid lines along the y-axis
+    plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
+    plt.xticks(fontsize=10, rotation=rotate)
+
+
+    plt.legend(loc="upper left")
+    plt.tight_layout()
+    if out_file_prefix is not None:
+        plt.savefig(f'{out_file_prefix}_rewired_{ylabel}.pdf', bbox_inches='tight')
+    # Show the plot
+    plt.show()
+
+
+
 def confidence_interval(std_dev, n, confidence_level=0.95):
     import scipy.stats as stats
 

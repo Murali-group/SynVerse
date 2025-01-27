@@ -118,6 +118,8 @@ input_settings:
     use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
 
   sample_norm: True
-  
+  retain_ratio: 0.95
+
+
 output_settings:
   output_dir: '/home/tasnina/Projects/SynVerse/outputs/'

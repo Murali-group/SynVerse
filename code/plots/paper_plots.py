@@ -12,23 +12,6 @@ from plot_utils import *
 from scipy.stats import mannwhitneyu
 from statsmodels.stats.multitest import multipletests
 
-feature_filters = ['D_ECFP_4_MACCS_MFP_d1hot_mol_graph_smiles_C_c1hot',
-                  'D_d1hot_target_C_c1hot', 'D_d1hot_C_c1hot_genex_genex_lincs_1000']
-
-#rename the long model names containing features, preprocessing and encoder name to suitable name for plot.
-model_name_mapping = {'d1hot_std_comp_True + c1hot_std_comp_True': 'One hot (AE)',
-'MACCS + c1hot': 'MACCS', 'MACCS_std_comp_True + c1hot_std_comp_True': 'MACCS (AE)',
-'MFP + c1hot': 'MFP', 'MFP_std_comp_True + c1hot_std_comp_True': 'MFP (AE)',
-'ECFP_4 + c1hot': 'ECFP', 'ECFP_4_std_comp_True + c1hot_std_comp_True': 'ECFP (AE)',
-'mol_graph_GCN + c1hot': 'Mol Graph (GCN)',
-'smiles_Transformer + c1hot': 'SMILES (Transformer)',
-'smiles_SPMM + c1hot': 'SMILES (SPMM)',
-'smiles_kpgt + c1hot': 'SMILES (KPGT)',
-'smiles_mole + c1hot': 'SMILES (MolE)',
-'target + c1hot': 'Target', 'target_rwr + c1hot': 'Target (RWR)',
-'target_std_comp_True + c1hot_std_comp_True': 'Target (AE)',
-'d1hot + genex_std': 'Genex',
-'d1hot + genex_lincs_1000_std': 'LINCS_1000'}
 
 def scatter_plot_model_comparison_with_deepsynergy(filename):
     df = pd.read_csv(filename, sep='\t')[['Model name', 'Own', 'DeepSynergy']]
@@ -145,6 +128,7 @@ def compute_average_with_1hot_diff(df):
     ).reset_index()
     return aggregated_results
 
+
 def compute_average(df):
     aggregated_results = df.groupby(['drug_features', 'cell_features', 'feature_filter','Model']).agg(
         test_loss_mean=('test_loss', 'mean'),
@@ -158,7 +142,6 @@ def compute_average(df):
         train_loss_std=('train_loss', 'std')
     ).reset_index()
     return aggregated_results
-
 
 def compute_average_and_significance(df, n_runs=5):
     # Define a function to compute the Mann-Whitney U test for a group
@@ -398,6 +381,9 @@ def plot_performance(df_avg, y_label, title, metric='test_loss', yerr ='std', ou
     fig.text(0.08, 0.5, y_label, va='center', rotation='vertical', fontsize=16)
     fig.text(0.5, -0.22, 'Models', ha='center', fontsize=16)
 
+    fig.text(0.5, 0.95, title, ha='center', fontsize=16)
+
+
 
     # # Adjust layout to ensure that the colorbar does not overlap the plots
     plt.subplots_adjust(right=0.85, wspace=0.15)  # Adjust right margin to create space for colorbar
@@ -412,19 +398,7 @@ def plot_performance(df_avg, y_label, title, metric='test_loss', yerr ='std', ou
 
 
 
-def set_model_names(df):
-    # Create x-tick labels combining 'drug_features' and 'cell_features'
-    df['Model'] = df['drug_features'] + " + " + df['cell_features']
-    df['Model'] = df['Model'].astype(str).apply(lambda x: model_name_mapping.get(x, x))
 
-    # remove model 'One hot (AE)'
-    df = df[df['Model'] != 'One hot (AE)']
-
-    # remove a few feature combo if present. Following remove model where auto-encoder used on one-hot without standardization.
-    df = df[~((df['drug_features'] == 'd1hot_comp_True') | (
-            df['cell_features'] == 'c1hot_comp_True'))]
-
-    return df
 
 def pair_plot(df_all, metric, out_file_prefix):
 
@@ -539,7 +513,9 @@ def wrapper_plot_model_performance(df_MSE, title, out_file_prefix):
     for  metric in ['test_loss', 'train_loss','val_loss']:
         df_RMSE[metric] = np.sqrt(df_MSE[metric])
 
-    data_dict = {'Root Mean Squared Error (RMSE)': df_RMSE, 'Mean Squared Error (MSE)': df_MSE}
+    # data_dict = {'Root Mean Squared Error (RMSE)': df_RMSE, 'Mean Squared Error (MSE)': df_MSE}
+    data_dict = {'Root Mean Squared Error (RMSE)': df_RMSE}
+
 
     #compute the difference between the model's result and corresponding 1 hot encoding
     #plot MSE
@@ -586,39 +562,40 @@ def wrapper_plot_compare_rewired(result_df, rewired_result_df, out_file_prefix):
         #modify model name to look good on plot
         df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
 
-        def box_lot(y, metric):
-            #plot test MSE loss
-            plt.figure(figsize=(6, 4))
-            sns.boxplot(data=df, x='Model', y=y, hue='rewire_method', dodge=True,  width=0.5,   palette="Set2", linewidth=0.4)
-            # Add labels and title
-            plt.xlabel("Models", fontsize=12)
-            if metric == 'MSE':
-                plt.ylabel("Mean Squared Error (MSE)", fontsize=12)
-            if metric == 'RMSE':
-                plt.ylabel("Root Mean Squared Error (RMSE)", fontsize=12)
-            # plt.title("Test Loss Distribution by Model and Rewired Status", fontsize=14)
-            # Add legend
-            # plt.ylim(0, 20)
-            # Add grid lines along the y-axis
-            plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
-            plt.xticks(fontsize=10)
+        # def box_plot(y, metric):
+        #     # plot test MSE loss
+        #     plt.figure(figsize=(6, 4))
+        #     sns.boxplot(data=data, x='Model', y=y, hue='rewire_method', dodge=True, width=0.5, palette="Set2",
+        #                 linewidth=0.4)
+        #     # Add labels and title
+        #     plt.xlabel("Models", fontsize=12)
+        #     if metric == 'MSE':
+        #         plt.ylabel("Mean Squared Error (MSE)", fontsize=12)
+        #     if metric == 'RMSE':
+        #         plt.ylabel("Root Mean Squared Error (RMSE)", fontsize=12)
+        #     # plt.title("Test Loss Distribution by Model and Rewired Status", fontsize=14)
+        #     # Add legend
+        #     # plt.ylim(0, 20)
+        #     # Add grid lines along the y-axis
+        #     plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
+        #     plt.xticks(fontsize=10)
+        #
+        #     # Add vertical lines between models
+        #     # unique_models = df['Model'].unique()
+        #     # for i in range(1, len(unique_models)):
+        #     #     plt.axvline(i - 0.5, color='gray', linestyle='--', linewidth=0.8, alpha=0.7)
+        #
+        #     plt.legend(loc="upper left")
+        #     plt.savefig(f'{out_file_prefix}_rewired_{metric}.pdf', bbox_inches='tight')
+        #     # Show the plot
+        #     plt.tight_layout()
+        #     plt.show()
+        # box_plot('test_loss_RMSE', 'RMSE')
 
-
-            # Add vertical lines between models
-            # unique_models = df['Model'].unique()
-            # for i in range(1, len(unique_models)):
-            #     plt.axvline(i - 0.5, color='gray', linestyle='--', linewidth=0.8, alpha=0.7)
-
-
-            plt.legend(loc="upper left")
-            plt.savefig(f'{out_file_prefix}_rewired_{metric}.pdf', bbox_inches='tight')
-            # Show the plot
-            plt.tight_layout()
-            plt.show()
         # box_lot('test_loss', 'MSE')
-        df_1 = df.groupby(['Model','rewire_method']).agg({'test_loss_RMSE': 'mean'})
-        print(df_1)
-        box_lot('test_loss_RMSE', 'RMSE')
+        # df_1 = df.groupby(['Model','rewire_method']).agg({'test_loss_RMSE': 'mean'})
+        # print(df_1)
+        box_plot(df, x='Model', y='test_loss_RMSE', hue='rewire_method', ylabel='RMSE', palette="Set2", out_file_prefix=out_file_prefix)
 
 
 def wrapper_plot_compare_shuffled(result_df, shuffled_result_df, out_file_prefix):
@@ -637,35 +614,32 @@ def wrapper_plot_compare_shuffled(result_df, shuffled_result_df, out_file_prefix
     # modify model name to look good on plot
     df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
 
-    def box_lot(y, metric):
-        # plot test MSE loss
-        plt.figure(figsize=(6, 4))
-        sns.boxplot(data=df, x='Model', y=y, hue='shuffle_method', dodge=True, width=0.5, palette="Set2", linewidth=0.4)
-        # Add labels and title
-        plt.xlabel("Models", fontsize=12)
-        if metric == 'MSE':
-            plt.ylabel("Mean Squared Error (MSE)", fontsize=12)
-        if metric == 'RMSE':
-            plt.ylabel("Root Mean Squared Error (RMSE)", fontsize=12)
-        # Add legend
-        # plt.ylim(0, 20)
-        # Add grid lines along the y-axis
-        plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
-        plt.xticks(fontsize=10)
-
-        plt.legend(loc="upper left")
-        plt.savefig(f'{out_file_prefix}_shuffled_{metric}.pdf', bbox_inches='tight')
-        # Show the plot
-        plt.tight_layout()
-        plt.show()
+    # def box_plot(y, metric):
+    #     # plot test MSE loss
+    #     plt.figure(figsize=(6, 4))
+    #     sns.boxplot(data=df, x='Model', y=y, hue='shuffle_method', dodge=True, width=0.5, palette="Set2", linewidth=0.4)
+    #     # Add labels and title
+    #     plt.xlabel("Models", fontsize=12)
+    #     if metric == 'MSE':
+    #         plt.ylabel("Mean Squared Error (MSE)", fontsize=12)
+    #     if metric == 'RMSE':
+    #         plt.ylabel("Root Mean Squared Error (RMSE)", fontsize=12)
+    #     # Add legend
+    #     # plt.ylim(0, 20)
+    #     # Add grid lines along the y-axis
+    #     plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
+    #     plt.xticks(fontsize=10)
+    #
+    #     plt.legend(loc="upper left")
+    #     plt.savefig(f'{out_file_prefix}_shuffled_{metric}.pdf', bbox_inches='tight')
+    #     # Show the plot
+    #     plt.tight_layout()
+    #     plt.show()
 
     # box_lot('test_loss', 'MSE')
-    df_1 = df.groupby(['Model', 'shuffle_method']).agg({'test_loss_RMSE': 'mean'})
-
-    print(df_1)
-    box_lot('test_loss_RMSE', 'RMSE')
-
-
+    # box_plot('test_loss_RMSE', 'RMSE')
+    box_plot(df, x='Model', y='test_loss_RMSE', hue='shuffle_method', ylabel='RMSE', palette="Set2",
+             out_file_prefix=out_file_prefix)
 
 
 def main():
@@ -673,8 +647,8 @@ def main():
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line', 'random']
 
     for score_name in score_names:
-        # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_{score_name}'
-        result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_{score_name}'
+        result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_{score_name}'
+        # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_{score_name}'
 
         for split_type in split_types:
             # plot for comparing models with each other. Also compare with one hot based model i.e., basleine
@@ -685,8 +659,8 @@ def main():
                 continue
             result_df = pd.read_csv(result_file_path, sep='\t', index_col=None)
             #todo uncomment later
-            wrapper_plot_compare_with_1hot(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
-            wrapper_plot_model_performance(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
+            # wrapper_plot_compare_with_1hot(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
+            # wrapper_plot_model_performance(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
 
 
             # plot for comparing models trained on original vs. rewired networks

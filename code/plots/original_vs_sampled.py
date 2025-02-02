@@ -15,7 +15,7 @@ def main():
     out_dir = "/home/grads/tasnina/Projects/SynVerse/outputs"
     score_names = ['S_mean_mean', 'synergy_loewe_mean']
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line', 'random']
-    retain_ratios = [0.99]
+    retain_ratios = [0.99, 0.95]
     for score_name in score_names:
         orig_result_dir = f'{out_dir}/k_0.05_{score_name}'
         for split_type in split_types:
@@ -57,8 +57,9 @@ def main():
             # modify model name to look good on plot
             df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
 
+            out_file_prefix = out_dir + '/'+ score_name + '_' + split_type + '_subsampled'
             box_plot(df, x='Model', y='test_loss_RMSE', hue='sampled', ylabel='RMSE', rotate=90, palette="Set2",
-                     out_file_prefix=None)
+                     out_file_prefix=out_file_prefix, title=split_type)
 
 
 main()

@@ -13,11 +13,11 @@ input_settings:
   cell_line_features:
     - name: 'genex_lincs_1000'
       norm: 'std'
-      use: [true]
+      use: [true, false]
 
     - name: 'genex'
       norm: 'std'
-      use: [false]
+      use: [true, false]
 
     - name: 'c1hot'
       use: [ false ]
@@ -46,6 +46,15 @@ input_settings:
     - type: 'leave_comb'
       test_frac: 0.2
       val_frac: 0.25
+
+    - type: 'leave_drug'
+      test_frac: 0.2
+      val_frac: 0.25
+
+    - type: 'leave_cell_line'
+      test_frac: 0.2
+      val_frac: 0.25
+
 
 
 

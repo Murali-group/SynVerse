@@ -191,7 +191,10 @@ def main():
     # Example usage
     # base_folder=sys.argv[1]
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/"
-    base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_S_mean_mean/"
+    # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_S_mean_mean/"
+    # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.95/k_0.05_S_mean_mean/"
+    base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_synergy_loewe_mean/"
+
 
     split_types = ['random','leave_comb', 'leave_drug', 'leave_cell_line']
     outfile_detailed = base_folder + f'combined_output.xlsx'

@@ -9,7 +9,7 @@ input_settings:
   drug_features:
 
     - name: 'MACCS'
-      use: [ false ]
+      use: [ true ]
 
     - name: 'ECFP_4'
       use: [  false ]
@@ -19,11 +19,11 @@ input_settings:
 
     - name: 'mol_graph'
       encoder: 'GCN'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'smiles'
       encoder: 'Transformer'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'd1hot'
       use: [ false ]

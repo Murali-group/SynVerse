@@ -12,10 +12,10 @@ input_settings:
       use: [ false ]
 
     - name: 'ECFP_4'
-      use: [  false ]
+      use: [ false ]
 
     - name: 'MFP' #morgan fingerprint
-      use: [ false ]
+      use: [  false ]
 
     - name: 'mol_graph'
       encoder: 'GCN'
@@ -71,6 +71,14 @@ input_settings:
 
   splits:
     - type: 'leave_comb'
+      test_frac: 0.2
+      val_frac: 0.25
+
+    - type: 'leave_drug'
+      test_frac: 0.2
+      val_frac: 0.25
+
+    - type: 'leave_cell_line'
       test_frac: 0.2
       val_frac: 0.25
 

@@ -11,7 +11,6 @@ input_settings:
       use: [false]
 
     - name: 'target'
-      preprocess: 'rwr'
       use: [true]
 
 
@@ -42,6 +41,15 @@ input_settings:
     - type: 'leave_comb'
       test_frac: 0.2
       val_frac: 0.25
+
+    - type: 'leave_drug'
+      test_frac: 0.2
+      val_frac: 0.25
+
+    - type: 'leave_cell_line'
+      test_frac: 0.2
+      val_frac: 0.25
+
 
 
   wandb:

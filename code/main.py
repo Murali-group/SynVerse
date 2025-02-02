@@ -28,7 +28,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/sample_norm_cgenex.yaml",
+                       "config_files/experiment_1/shuffle_smiles.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
     group.add_argument('--feat', type=str,
@@ -99,6 +99,15 @@ def run_SynVerse(inputs, params, **kwargs):
         synergy_df = filter_normal_conforming_data(synergy_df, score_name,retain_ratio=retain_ratio)
         split_dir = os.path.join(split_dir, f'sample_norm_{retain_ratio}')
         out_dir = os.path.join(out_dir, f'sample_norm_{retain_ratio}')
+
+    # if params.sample_heavy_tail: #sample the triplets from synergy_df such that they are heavy tailed
+    #     retain_ratio = params.retain_ratio #how much sample to retain
+    #     retained_triplets = int(len(synergy_df)*retain_ratio)
+    #     score_th = sorted(list(synergy_df[score_name]), reverse=True)[retained_triplets]
+    #     #keep only the triplets whose socre>threshold
+    #     synergy_df = synergy_df[synergy_df[score_name]>score_th]
+    #     split_dir = os.path.join(split_dir, f'sample_heavy_tail_{retain_ratio}')
+    #     out_dir = os.path.join(out_dir, f'sample_heavy_tail_{retain_ratio}')
 
 
 
@@ -257,9 +266,6 @@ def run_SynVerse(inputs, params, **kwargs):
                         trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,
                                                                                           validation=True,
                                                                                           save_output=True)  # when validation=True, use given epochs as you can always early stop using validation loss
-                        #TODO: decide if I want to use original feature for test purpose.if yes, then uncomment the following:
-                        # runner.drug_feat = select_dfeat_dict['value']
-                        # runner.cell_line_feat = select_cfeat_dict['value']
 
                         runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True,
                                               file_prefix='_val_true_')

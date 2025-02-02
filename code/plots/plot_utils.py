@@ -39,7 +39,7 @@ def set_model_names(df):
 
     return df
 
-def box_plot(data, x, y, hue, ylabel, rotate=0, palette="Set2", out_file_prefix=None):
+def box_plot(data, x, y, hue, ylabel, rotate=0, palette="Set2", out_file_prefix=None, title=''):
     # plot test MSE loss
     plt.figure(figsize=(6, 4))
     sns.boxplot(data=data, x=x, y=y, hue=hue, dodge=True, width=0.5, palette=palette, linewidth=0.4)
@@ -55,9 +55,10 @@ def box_plot(data, x, y, hue, ylabel, rotate=0, palette="Set2", out_file_prefix=
 
 
     plt.legend(loc="upper left")
+    plt.title(title)
     plt.tight_layout()
     if out_file_prefix is not None:
-        plt.savefig(f'{out_file_prefix}_rewired_{ylabel}.pdf', bbox_inches='tight')
+        plt.savefig(f'{out_file_prefix}_{ylabel}.pdf', bbox_inches='tight')
     # Show the plot
     plt.show()
 

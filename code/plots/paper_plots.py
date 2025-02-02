@@ -659,8 +659,8 @@ def main():
                 continue
             result_df = pd.read_csv(result_file_path, sep='\t', index_col=None)
             #todo uncomment later
-            # wrapper_plot_compare_with_1hot(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
-            # wrapper_plot_model_performance(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
+            wrapper_plot_compare_with_1hot(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
+            wrapper_plot_model_performance(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
 
 
             # plot for comparing models trained on original vs. rewired networks
@@ -670,7 +670,7 @@ def main():
                 print(f'file {rewired_result_file_path} does not exist. Continuing to next file.')
                 continue
             rewired_result_df = pd.read_csv(rewired_result_file_path, sep='\t', index_col=None)
-            wrapper_plot_compare_rewired(result_df, rewired_result_df, out_file_prefix= f'{result_dir}/{score_name}_{split_type}')
+            wrapper_plot_compare_rewired(result_df, rewired_result_df, out_file_prefix= f'{result_dir}/{score_name}_{split_type}_rewired')
 
             # plot for comparing models trained on original vs. shuffled features
             shuffled_result_file = f'output_{split_type}_shuffled.tsv'
@@ -680,7 +680,7 @@ def main():
                 continue
             shuffled_result_df = pd.read_csv(shuffled_result_file_path, sep='\t', index_col=None)
             wrapper_plot_compare_shuffled(result_df, shuffled_result_df,
-                                         out_file_prefix=f'{result_dir}/{score_name}_{split_type}')
+                                         out_file_prefix=f'{result_dir}/{score_name}_{split_type}_shuffled')
 
     # barplot_model_comparison_with_deepsynergy("/home/grads/tasnina/Projects/SynVerse/inputs/existing_model_performance.tsv")
     # scatter_plot_model_comparison_with_deepsynergy("/home/grads/tasnina/Projects/SynVerse/inputs/existing_model_performance.tsv")

@@ -1,10 +1,10 @@
-dataset_dir: "/home/grads/tasnina/Projects/SynVerse/datasets/"
+dataset_dir: "/home/tasnina/Projects/SynVerse/datasets/"
 
 # Input Settings: initialize base input folder names,
 # dataset collections, and models to run over
 input_settings:
   # Base input directory
-  input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
+  input_dir: "/home/tasnina/Projects/SynVerse/inputs/"
 
   drug_features:
 
@@ -94,11 +94,11 @@ input_settings:
     entity_name: 'ntasnina'
     timezone: 'US/Eastern'
     timezone_format: '%Y-%m-%d_%H-%M-%S'
+
   bohb:
-    min_budget: 1
-    max_budget: 3
-    n_iterations: 1
-    run_id : 'synverse'
+    min_budget: 27
+    max_budget: 729
+    n_iterations: 3
     server_type: 'local' #or cluster
 
   feature: 'must'

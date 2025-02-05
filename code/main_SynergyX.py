@@ -28,7 +28,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/MARSY.yaml",
+                       "config_files/experiment_1/SynergyX.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
     group.add_argument('--feat', type=str,
@@ -60,28 +60,28 @@ def run_SynVerse(inputs, params, **kwargs):
     split_dir = params.split_dir
     out_dir = params.out_dir
 
-
-
-    split_dir = os.path.join(split_dir, 'MARSY_data')
-    out_dir = os.path.join(out_dir, 'MARSY_data')
+    split_dir = os.path.join(split_dir, 'SynergyX_data')
+    out_dir = os.path.join(out_dir, 'SynergyX_data')
 
     # score_name = 'synergy_loewe_mean' #synergy score to use
     # score_name = 'S_mean_mean' #synergy score to use
     score_name=kwargs.get('score_name')
-    if score_name == 'S_mean_mean':
-        synergy_file = inputs.smean_processed_syn_file
-    elif score_name == 'synergy_loewe_mean':
-        synergy_file = inputs.loewe_processed_syn_file
+
+    synergy_file = inputs.smean_processed_syn_file
+
 
     '''Read synergy triplets'''
-    synergy_df = pd.read_csv(synergy_file, dtype={'drug_1_pid': str, 'drug_2_pid': str, 'cell_line_name': str})
+    #TODO wirte code for reading npy file formatted as [drugA_canonical_smi, drugB_canonical_smi, cell_ID, label]
+    # synergy_df = pd.read_csv(synergy_file, sep='\t', dtype={'drug_1_pid': str, 'drug_2_pid': str, 'cell_line_name': str})
+    data = np.load(synergy_file, allow_pickle=True)
+    # synergy_df = pd.DataFrame(data, columns=['drug_1_pid', 'drug_2_pid', 'cell_line_name', 'S_mean_mean']).
+    #               astype({'drug_1_pid':'string', 'drug_2_pid':'string', 'cell_line_name':'string', 'S_mean_mean':float}))
+
+    synergy_df = pd.DataFrame(data, columns=['drug_1_pid', 'drug_2_pid', 'cell_line_name', 'S_mean_mean'])
     drug_pids = sorted(list(set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid']))))
     cell_line_names = sorted(synergy_df['cell_line_name'].unique())
 
-    #CHECK MARSY File. For some reason there are two columns for each of drug1 and drug2.
-    assert list(synergy_df['drug_1_pid'])==list(synergy_df['drug_1_pid_1'])
-    assert list(synergy_df['drug_2_pid'])==list(synergy_df['drug_2_pid_1'])
-
+    print_synergy_stat(synergy_df)
 
     # synergy_df.to_csv(f'test_{score_name}.tsv', sep='\t', index=False)
 
@@ -93,7 +93,7 @@ def run_SynVerse(inputs, params, **kwargs):
     cfeat_dict, cfeat_names = prepare_cell_line_features(cell_line_features, cell_line_names, inputs)
 
 
-    plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{abundance}_{score_name}')
+    # plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{abundance}_{score_name}')
 
 
     #******************************************* MODEL TRAINING ***********************************************
@@ -204,7 +204,7 @@ def run_SynVerse(inputs, params, **kwargs):
                     runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
 
                 if params.train_mode['use_best_hyperparam']:
-                    # hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace('/MARSY_data','') + '_best_hyperparam.txt')
+                    # hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace('/SynergyX_data','') + '_best_hyperparam.txt')
                     hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')
 
 
@@ -232,8 +232,8 @@ def main(config_map, **kwargs):
         inputs = types.SimpleNamespace()
         params = types.SimpleNamespace()
 
-        inputs.smean_processed_syn_file = input_dir + 'synergy/MARSY.csv' #manually renamed previous synergy_scores.tsv (on which I had all the runs till Decemeber 11, 2024) to synergy_scores_S_mean_mean.tsv It is the same as new S_mean_synergy_zip_std_threshold_0.1.tsv.
-        inputs.loewe_processed_syn_file = input_dir + 'synergy/synergy_loewe_S_mean_std_threshold_0.1.tsv'
+        inputs.smean_processed_syn_file = input_dir + 'synergy/SynergyX.npy'
+        # inputs.loewe_processed_syn_file = input_dir + 'synergy/MatchMaker.tsv'
         # inputs.processed_syn_file = input_dir + 'synergy/merged.tsv'
 
         inputs.drug_smiles_file = input_dir + 'drug/smiles.tsv'

@@ -29,10 +29,10 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/debug_smiles.yaml",
+                       "config_files/experiment_1/debug_statistical.yaml",
                        help="Configuration file for this script.")
-    # group.add_argument('--score_name', type=str, default='synergy_loewe_mean', help="Name of the score to predict.")
-    group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
+    group.add_argument('--score_name', type=str, default='synergy_loewe_mean', help="Name of the score to predict.")
+    # group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
 
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space. Applicable when you want to run just one set of features.")
@@ -87,7 +87,7 @@ def run_SynVerse(inputs, params, **kwargs):
     '''keep the cell lines consisting of at least abundance% of the total #triplets in the final dataset.'''
     synergy_df = abundance_based_filtering(synergy_df, min_frac=abundance)
 
-    # plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{abundance}_{score_name}')
+    plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{abundance}_{score_name}')
 
 
 
@@ -141,11 +141,11 @@ def run_SynVerse(inputs, params, **kwargs):
             # print('\n\nnode_degree_based_sampling model')
             # predicted, mse_loss = node_degree_based_sampling_model(all_train_df, test_df, score_name)
 
-            print('\n\nnode_degree_based_sampling model')
-            predicted, mse_loss = edge_type_spec_node_degree_based_model(all_train_df, test_df, score_name, choice='average')
+            # print('\n\nnode_degree_based_sampling model')
+            # predicted, mse_loss = edge_type_spec_node_degree_based_model(all_train_df, test_df, score_name, choice='average')
 
-            # print("\n\nlabel_distribution_based_model")
-            # predicted, mse_loss = label_distribution_based_model(all_train_df, test_df, score_name)
+            print("\n\nlabel_distribution_based_model")
+            predicted, mse_loss = label_distribution_based_model(all_train_df, test_df, score_name)
             print('MSE: ', mse_loss)
             mse_loss_dict[run_no] = mse_loss
             rmse_loss_dict[run_no] = np.sqrt(mse_loss)

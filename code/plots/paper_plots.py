@@ -102,9 +102,10 @@ def compute_difference_with_1hot(df):
         suffixes=('', '_baseline'),
         how='inner'
     )
-    # Calculate differences for the required columns
-    for column in ['test_loss', 'val_loss', 'train_loss']:
-        merged_df[f'{column}_diff'] = merged_df[f'{column}_baseline']-merged_df[column]
+
+    for column in ['test_MSE', 'val_MSE', 'train_MSE', 'test_RMSE', 'val_RMSE', 'train_RMSE',
+                   'Pearsons', 'Spearman']:
+        merged_df[f'{column}_diff'] = merged_df[f'{column}_baseline'] - merged_df[column]
 
     return merged_df
 
@@ -113,50 +114,87 @@ def compute_difference_with_1hot(df):
 
 def compute_average_with_1hot_diff(df):
     aggregated_results = df.groupby(['drug_features', 'cell_features', 'feature_filter','Model']).agg(
-        test_loss_mean=('test_loss', 'mean'),
-        test_loss_max=('test_loss', 'max'),
-        test_loss_std=('test_loss', 'std'),
-        val_loss_mean=('val_loss', 'mean'),
-        val_loss_max=('val_loss', 'max'),
-        val_loss_std=('val_loss', 'std'),
-        train_loss_mean=('train_loss', 'mean'),
-        train_loss_max=('train_loss', 'max'),
-        train_loss_std=('train_loss', 'std'),
-        test_loss_diff_mean=('test_loss_diff', 'mean'),
-        val_loss_diff_mean=('val_loss_diff', 'mean'),
-        train_loss_diff_mean=('train_loss_diff', 'mean'),
+        test_MSE_mean=('test_MSE', 'mean'),
+        test_MSE_max=('test_MSE', 'max'),
+        test_MSE_std=('test_MSE', 'std'),
+        val_MSE_mean=('val_MSE', 'mean'),
+        val_MSE_max=('val_MSE', 'max'),
+        val_MSE_std=('val_MSE', 'std'),
+        train_MSE_mean=('train_MSE', 'mean'),
+        train_MSE_max=('train_MSE', 'max'),
+        train_MSE_std=('train_MSE', 'std'),
+        test_RMSE_mean=('test_RMSE', 'mean'),
+        test_RMSE_max=('test_RMSE', 'max'),
+        test_RMSE_std=('test_RMSE', 'std'),
+        val_RMSE_mean=('val_RMSE', 'mean'),
+        val_RMSE_max=('val_RMSE', 'max'),
+        val_RMSE_std=('val_RMSE', 'std'),
+        train_RMSE_mean=('train_RMSE', 'mean'),
+        train_RMSE_max=('train_RMSE', 'max'),
+        train_RMSE_std=('train_RMSE', 'std'),
+        Pearsons_mean=('Pearsons', 'mean'),
+        Pearsons_std=('Pearsons', 'std'),
+        Pearsons_max=('Pearsons', 'max'),
+
+        Spearman_mean=('Spearman', 'mean'),
+        Spearman_std=('Spearman', 'std'),
+        Spearman_max=('Spearman', 'max'),
+
+        test_MSE_diff_mean=('test_MSE_diff', 'mean'),
+        val_MSE_diff_mean=('val_MSE_diff', 'mean'),
+        train_MSE_diff_mean=('train_MSE_diff', 'mean'),
+        test_RMSE_diff_mean=('test_RMSE_diff', 'mean'),
+        val_RMSE_diff_mean=('val_RMSE_diff', 'mean'),
+        train_RMSE_diff_mean=('train_RMSE_diff', 'mean'),
+        Pearsons_diff_mean=('Pearsons_diff', 'mean'),
+        Spearman_diff_mean=('Spearman_diff', 'mean'),
+
     ).reset_index()
     return aggregated_results
 
 
 def compute_average(df):
     aggregated_results = df.groupby(['drug_features', 'cell_features', 'feature_filter','Model']).agg(
-        test_loss_mean=('test_loss', 'mean'),
-        test_loss_max=('test_loss', 'max'),
-        test_loss_std=('test_loss', 'std'),
-        val_loss_mean=('val_loss', 'mean'),
-        val_loss_max=('val_loss', 'max'),
-        val_loss_std=('val_loss', 'std'),
-        train_loss_mean=('train_loss', 'mean'),
-        train_loss_max=('train_loss', 'max'),
-        train_loss_std=('train_loss', 'std')
+        test_MSE_mean=('test_MSE', 'mean'),
+        test_MSE_max=('test_MSE', 'max'),
+        test_MSE_std=('test_MSE', 'std'),
+        val_MSE_mean=('val_MSE', 'mean'),
+        val_MSE_max=('val_MSE', 'max'),
+        val_MSE_std=('val_MSE', 'std'),
+        train_MSE_mean=('train_MSE', 'mean'),
+        train_MSE_max=('train_MSE', 'max'),
+        train_MSE_std=('train_MSE', 'std'),
+        test_RMSE_mean=('test_RMSE', 'mean'),
+        test_RMSE_max=('test_RMSE', 'max'),
+        test_RMSE_std=('test_RMSE', 'std'),
+        val_RMSE_mean=('val_RMSE', 'mean'),
+        val_RMSE_max=('val_RMSE', 'max'),
+        val_RMSE_std=('val_RMSE', 'std'),
+        train_RMSE_mean=('train_RMSE', 'mean'),
+        train_RMSE_max=('train_RMSE', 'max'),
+        train_RMSE_std=('train_RMSE', 'std'),
+        Pearsons_mean=('Pearsons', 'mean'),
+        Pearsons_std=('Pearsons', 'std'),
+        Pearsons_max=('Pearsons', 'max'),
+        Spearman_mean=('Spearman', 'mean'),
+        Spearman_std=('Spearman', 'std'),
+        Spearman_max=('Spearman', 'max'),
+
     ).reset_index()
     return aggregated_results
 
-def compute_average_and_significance(df, n_runs=5):
-    # Define a function to compute the Mann-Whitney U test for a group
-    def compute_mannwhitney(group):
-        stat, p_value = mannwhitneyu(group['test_loss'], group['test_loss_baseline'], alternative='less')
-        return pd.Series({'stat': stat, 'p_value': p_value})
-
+def compute_average_and_significance(df, measure, n_runs=5):
     # Group by and compute aggregation metrics
     aggregated_results = compute_average_with_1hot_diff(df)
 
-    # # Compute confidence intervals for test, val, and train losses
-    for loss_type in [ 'train_loss', 'test_loss', 'val_loss']:
-        aggregated_results[f'{loss_type}_CI'] = aggregated_results[f'{loss_type}_std'].apply(
-            lambda x: confidence_interval(x, n_runs, confidence_level=0.95)
-        )
+    # Define a function to compute the Mann-Whitney U test for a group
+    def compute_mannwhitney(group):
+        stat, p_value = mannwhitneyu(group[measure], group[f'{measure}_baseline'], alternative='less')
+        return pd.Series({'stat': stat, 'p_value': p_value})
+
+
+
+
 
     # Compute significance of the test_loss compared to test_loss_baseline
     significance_results = (
@@ -178,7 +216,7 @@ def compute_average_and_significance(df, n_runs=5):
     )
 
     return final_results
-def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std', color_on = 'is_significant', out_file_prefix=None):
+def plot_diff(df_1hot_diff_avg, metric, y_label, yerr ='std', out_file_prefix=None):
     """
     Plot a barplot with horizontally grouped subplots for each feature_filter with dynamic widths.
     The colorbar is positioned to the right of all subplots.
@@ -194,17 +232,14 @@ def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std',
     err_col = f'{metric}_{yerr}'
     diff_mean_col = f'{metric}_diff_mean'
 
-    if color_on != 'is_significant':
-        color_on = diff_mean_col
-
-    if color_on != 'is_significant':
-        # Create a diverging color palette based on the diff_mean_col with 0 as the center
-        abs_max_diff = max(abs(df_1hot_diff_avg[diff_mean_col].min()), abs(df_1hot_diff_avg[diff_mean_col].max()))
-        norm = TwoSlopeNorm(vmin=-abs_max_diff, vcenter=0, vmax=abs_max_diff)
-        cmap = sns.diverging_palette(220, 15, s=85, l=65, as_cmap=True).reversed()  # Colorblind-friendly palette
+    # Create a diverging color palette based on the diff_mean_col with 0 as the center
+    abs_max_diff = max(abs(df_1hot_diff_avg[diff_mean_col].min()), abs(df_1hot_diff_avg[diff_mean_col].max()))
+    norm = TwoSlopeNorm(vmin=-abs_max_diff, vcenter=0, vmax=abs_max_diff)
+    if (metric == 'Pearsons') | (metric == 'Spearman'):
+        cmap = sns.diverging_palette(220, 15, s=85, l=65, as_cmap=True)
     else:
-        colors = ['#ff8080', '#b3d7ff']
-        cmap = ListedColormap(colors)
+        cmap = sns.diverging_palette(220, 15, s=85, l=65, as_cmap=True).reversed()
+
 
     # Get unique feature filters
     assert len(set(df_1hot_diff_avg['feature_filter'].unique()).difference(set(feature_filters)))==0, print('mismatch')
@@ -221,13 +256,15 @@ def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std',
     if len(feature_filters) == 1:  # Ensure axes is always iterable
         axes = [axes]
 
-    # # Calculate global y-axis limits. Make ylims divisible by 5
-    # y_min = min(df_1hot_diff_avg[mean_col] - df_1hot_diff_avg[err_col])
-    y_max = max(df_1hot_diff_avg[mean_col] + df_1hot_diff_avg[err_col])
-
-    # y_min = y_min-(y_min%5)-5
-    y_min=0
-    y_max = y_max-(y_max%5)+5
+    if (metric == 'Pearsons')|(metric == 'Spearman'):
+        y_max=1
+        y_min = min(min(df_1hot_diff_avg[mean_col]-df_1hot_diff_avg[err_col]), 0)
+    else:
+        # # Calculate global y-axis limits. Make ylims divisible by 5
+        y_max = max(df_1hot_diff_avg[mean_col] + df_1hot_diff_avg[err_col])
+        # y_min = y_min-(y_min%5)-5
+        y_min=0
+        y_max = y_max-(y_max%5)+5
 
     # Optional: Adjust limits slightly for better aesthetics
     # padding = 0.01 * (y_max - y_min)
@@ -241,13 +278,9 @@ def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std',
         if len(subset)==0:
             continue
 
-        if color_on != 'is_significant':
-            # Normalize colors for the subset
-            colors = cmap(norm(subset[diff_mean_col]))
-        else:
-            colors = ['#ff8080', '#b3d7ff']
-            cmap = ListedColormap(colors)
-            colors = [cmap(value) for value in subset['is_significant']]
+        # Normalize colors for the subset
+        colors = cmap(norm(subset[diff_mean_col]))
+
 
         # Plot bars
         bars = ax.bar(
@@ -285,28 +318,28 @@ def plot_diff(df_1hot_diff_avg, y_label, title, metric='test_loss', yerr ='std',
     fig.text(0.5, -0.22, 'Models', ha='center', fontsize=16)
 
 
-    if color_on !='is_significant':
-        # # Create colorbar outside the subplots grid
-        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        sm.set_array(df_1hot_diff_avg[diff_mean_col])
 
-        # Add a vertical colorbar to the right of the subplots
-        cbar = fig.colorbar(sm, ax=axes, orientation='vertical', fraction=0.05, pad=0.04)
-        cbar.set_label(f'Difference with baseline', fontsize=14)
+    # # Create colorbar outside the subplots grid
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array(df_1hot_diff_avg[diff_mean_col])
+
+    # Add a vertical colorbar to the right of the subplots
+    cbar = fig.colorbar(sm, ax=axes, orientation='vertical', fraction=0.05, pad=0.04)
+    cbar.set_label(f'Difference with baseline', fontsize=14)
 
     # # Adjust layout to ensure that the colorbar does not overlap the plots
     plt.subplots_adjust(right=0.85, wspace=0.15)  # Adjust right margin to create space for colorbar
     # fig.suptitle(f'{title}_{yerr}', fontsize=16, y=0.98)
     # Save the figure with tight bounding box (to avoid clipping)
     os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
-    plot_file = f"{out_file_prefix}_{metric}_{color_on}_plot.pdf"
+    plot_file = f"{out_file_prefix}_with_baseline_barplot.pdf"
     plt.savefig(plot_file, bbox_inches='tight')
     print(f'saved file: {plot_file}')
     # Show the plot
-    # plt.show()
+    plt.show()
 
 
-def plot_performance(df_avg, y_label, title, metric='test_loss', yerr ='std', out_file_prefix=None):
+def plot_performance(df_avg, metric, y_label, title, yerr ='std', out_file_prefix=None):
     """
     Plot a barplot with horizontally grouped subplots for each feature_filter with dynamic widths.
     The colorbar is positioned to the right of all subplots.
@@ -336,13 +369,17 @@ def plot_performance(df_avg, y_label, title, metric='test_loss', yerr ='std', ou
     if len(feature_filters) == 1:  # Ensure axes is always iterable
         axes = [axes]
 
-    # # Calculate global y-axis limits. Make ylims divisible by 5
-    # y_min = min(df_1hot_diff_avg[mean_col] - df_1hot_diff_avg[err_col])
-    y_max = max(df_avg[mean_col] + df_avg[err_col])
+    if (metric == 'Pearsons')|(metric == 'Spearman'):
+        y_max=1
+        y_min = min(min(df_avg[mean_col]-df_avg[err_col]), 0)
+    else:
+        # # Calculate global y-axis limits. Make ylims divisible by 5
+        y_max = max(df_avg[mean_col] + df_avg[err_col])
+        # y_min = y_min-(y_min%5)-5
+        y_min=0
+        y_max = y_max-(y_max%5)+5
 
-    # y_min = y_min-(y_min%5)-5
-    y_min=0
-    y_max = y_max-(y_max%5)+5
+
 
     # Optional: Adjust limits slightly for better aesthetics
     # padding = 0.01 * (y_max - y_min)
@@ -390,7 +427,7 @@ def plot_performance(df_avg, y_label, title, metric='test_loss', yerr ='std', ou
     # fig.suptitle(f'{title}_{yerr}', fontsize=16, y=0.98)
     # Save the figure with tight bounding box (to avoid clipping)
     os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
-    plot_file = f"{out_file_prefix}_{metric}_average_performance_plot.pdf"
+    plot_file = f"{out_file_prefix}_barplot.pdf"
     plt.savefig(plot_file, bbox_inches='tight')
     print(f'saved file: {plot_file}')
     # Show the plot
@@ -409,8 +446,8 @@ def pair_plot(df_all, metric, out_file_prefix):
     fig, axes = plt.subplots(4, 4, figsize=(8, 8))  # Adjust figure size as needed
     axes = axes.flatten()  # Flatten to easily iterate through axes
 
-    max_loss = max(df_all['test_loss'].max(), df_all['test_loss_baseline'].max())
-    min_val = 5
+    max_loss = max(df_all[metric].max(), df_all[f'{metric}_baseline'].max())
+    min_val = min (df_all[metric].min(), df_all[f'{metric}_baseline'].min(), 5)
 
     for (i,model) in enumerate(models):
         df = df_all[df_all['Model'] == model]
@@ -419,8 +456,8 @@ def pair_plot(df_all, metric, out_file_prefix):
         # colors = ['red' if x > y else 'blue' for x, y in zip( df['test_loss'], df['test_loss_baseline'])]
 
         sns.scatterplot(
-            x='test_loss',
-            y='test_loss_baseline',
+            x=metric,
+            y=f'{metric}_baseline',
             data=df,
             s=50,
             # c=colors,
@@ -454,101 +491,86 @@ def pair_plot(df_all, metric, out_file_prefix):
     plt.tight_layout(rect=[0.05, 0.05, 1, 0.97])  # Adjust space for labels and title
 
     # plt.tight_layout()
-    out_file = f'{out_file_prefix}_pairplot.pdf'
+    out_file = f'{out_file_prefix}_with_baseline_pairplot.pdf'
     plt.savefig(out_file, bbox_inches='tight')
     print(f'saving file at {out_file}')
-    # plt.show()
+    plt.show()
 
 
 
-def wrapper_plot_compare_with_1hot(df_MSE, title, out_file_prefix):
-
-    #compute RMSE from MSE:
-    df_RMSE= copy.deepcopy(df_MSE)
-    for  metric in ['test_loss', 'train_loss','val_loss']:
-        df_RMSE[metric] = np.sqrt(df_MSE[metric])
-
-    data_dict = {'Root Mean Squared Error (RMSE)': df_RMSE, 'Mean Squared Error (MSE)': df_MSE}
-
-    #compute the difference between the model's result and corresponding 1 hot encoding
-    #plot MSE
-    for measure in data_dict:
-        file_name_suitable_measure = measure.split(' ')[-1].replace('(','').replace(')','')#metrci name, MSE or RMSE
-
-        df_1hot_diff = compute_difference_with_1hot(data_dict[measure])
-
-        if df_1hot_diff.empty:
-            continue
-        df_1hot_diff = set_model_names(df_1hot_diff) #give model name from features.
-
-        #draw a pairplot to show difference between
-        df_1hot_diff_avg = compute_average_and_significance(df_1hot_diff)
-
-        # Sort and save DataFrame according to the order of models in model_name_mapping
-        df_1hot_diff['Model'] = pd.Categorical(df_1hot_diff['Model'], categories=model_name_mapping.values(),ordered=True)
-        df_1hot_diff = df_1hot_diff.sort_values('Model')
-        df_1hot_diff.to_csv(f'{out_file_prefix}_{file_name_suitable_measure}_performance_compared_to_baseline.tsv', sep='\t')
+def wrapper_plot_compare_with_1hot(df, metric, y_label, title, out_file_prefix):
 
 
-        #sort model names
-        df_1hot_diff_avg['Model'] = pd.Categorical(df_1hot_diff_avg['Model'], categories=model_name_mapping.values(), ordered=True)
-        df_1hot_diff_avg = df_1hot_diff_avg.sort_values('Model')
-        df_1hot_diff_avg.to_csv(f'{out_file_prefix}_{file_name_suitable_measure}_aggreagred_performance.tsv', sep='\t')
+    df_1hot_diff = compute_difference_with_1hot(df)
+    if df_1hot_diff.empty:
+        return
+
+    df_1hot_diff = set_model_names(df_1hot_diff) #give model name from features.
+
+    #draw a pairplot to show difference between
+    df_1hot_diff_avg = compute_average_and_significance(df_1hot_diff, metric)
+
+    # Sort and save DataFrame according to the order of models in model_name_mapping
+    df_1hot_diff['Model'] = pd.Categorical(df_1hot_diff['Model'], categories=model_name_mapping.values(),ordered=True)
+    df_1hot_diff = df_1hot_diff.sort_values('Model')
+    # y_label = metric.split('_')[-1]
+
+    df_1hot_diff.to_csv(f'{out_file_prefix}_with_baseline.tsv', sep='\t')
 
 
-        #pair plot for comparing each modelw ith baseline across each individual run
-        pair_plot(df_1hot_diff, file_name_suitable_measure, out_file_prefix=f'{out_file_prefix}_{file_name_suitable_measure}')
+    #sort model names
+    df_1hot_diff_avg['Model'] = pd.Categorical(df_1hot_diff_avg['Model'], categories=model_name_mapping.values(), ordered=True)
+    df_1hot_diff_avg = df_1hot_diff_avg.sort_values('Model')
+    df_1hot_diff_avg.to_csv(f'{out_file_prefix}_aggreagred.tsv', sep='\t')
 
-        #bar plot for showing average MSE/RMSE of each model, showing performance improvement over baseline with color.
-        plot_diff(df_1hot_diff_avg, measure, title, metric ='test_loss', yerr='std', color_on = 'diff_mean', out_file_prefix=f'{out_file_prefix}_{file_name_suitable_measure}')
-        plot_diff(df_1hot_diff_avg, measure, title, metric ='test_loss', yerr='std', color_on = 'is_significant', out_file_prefix=f'{out_file_prefix}_{file_name_suitable_measure}')
 
+    #pair plot for comparing each modelw ith baseline across each individual run
+    pair_plot(df_1hot_diff, metric, out_file_prefix=f'{out_file_prefix}')
+    #bar plot for showing average MSE/RMSE of each model, showing performance improvement over baseline with color.
+    plot_diff(df_1hot_diff_avg, metric=metric, y_label=y_label, yerr='std', out_file_prefix=f'{out_file_prefix}')
 
     print(title)
 
-def wrapper_plot_model_performance(df_MSE, title, out_file_prefix):
+def wrapper_plot_model_performance(df, metric, y_label,title, out_file_prefix):
 
-    #compute RMSE from MSE:
-    df_RMSE= copy.deepcopy(df_MSE)
-    for  metric in ['test_loss', 'train_loss','val_loss']:
-        df_RMSE[metric] = np.sqrt(df_MSE[metric])
-
-    # data_dict = {'Root Mean Squared Error (RMSE)': df_RMSE, 'Mean Squared Error (MSE)': df_MSE}
-    data_dict = {'Root Mean Squared Error (RMSE)': df_RMSE}
-
+    # #compute RMSE from MSE:
+    # df_RMSE= copy.deepcopy(df_MSE)
+    # for  metric in ['test_loss', 'train_loss','val_loss']:
+    #     df_RMSE[metric] = np.sqrt(df_MSE[metric])
+    #
+    # # data_dict = {'Root Mean Squared Error (RMSE)': df_RMSE, 'Mean Squared Error (MSE)': df_MSE}
+    # data_dict = {'Root Mean Squared Error (RMSE)': df_RMSE}
+    #
 
     #compute the difference between the model's result and corresponding 1 hot encoding
     #plot MSE
-    for measure in data_dict:
-        file_name_suitable_measure = measure.split(' ')[-1].replace('(','').replace(')','')#metrci name, MSE or RMSE
+    # for measure in data_dict:
 
-        df = data_dict[measure]
-        df = set_model_names(df) #give model name from features.
+    df = set_model_names(df) #give model name from features.
 
-        #draw a pairplot to show difference between
-        df = compute_average(df)
+    #draw a pairplot to show difference between
+    df = compute_average(df)
 
-        # Sort and save DataFrame according to the order of models in model_name_mapping
-        df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(),ordered=True)
+    # Sort and save DataFrame according to the order of models in model_name_mapping
+    df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(),ordered=True)
 
-        #sort model names
-        df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(), ordered=True)
-        df = df.sort_values('Model')
-        df.to_csv(f'{out_file_prefix}_{file_name_suitable_measure}_aggreagred_performance.tsv', sep='\t')
+    #sort model names
+    df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(), ordered=True)
+    df = df.sort_values('Model')
+    # y_label = metric.split('_')[-1]
+    df.to_csv(f'{out_file_prefix}_aggreagred.tsv', sep='\t')
 
-        #bar plot for showing average MSE/RMSE of each model, showing performance improvement over baseline with color.
-        plot_performance(df, measure, title, metric='test_loss', yerr='std', out_file_prefix=f'{out_file_prefix}_{file_name_suitable_measure}')
-
+    #bar plot for showing average MSE/RMSE of each model, showing performance improvement over baseline with color.
+    plot_performance(df, metric=metric, y_label=y_label, title=title, yerr='std', out_file_prefix=f'{out_file_prefix}')
 
     print(title)
 
 
 
-def wrapper_plot_compare_rewired(result_df, rewired_result_df, out_file_prefix):
+def wrapper_plot_compare_rewired(result_df, rewired_result_df, metric, y_label, out_file_prefix):
 
         df = pd.concat([result_df, rewired_result_df], axis=0)
         df = set_model_names(df)
-        df['test_loss_RMSE'] = np.sqrt(df['test_loss'])
 
 
         #keeps models  which I ran on rewired network
@@ -561,47 +583,21 @@ def wrapper_plot_compare_rewired(result_df, rewired_result_df, out_file_prefix):
 
         #modify model name to look good on plot
         df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
-
-        # def box_plot(y, metric):
-        #     # plot test MSE loss
-        #     plt.figure(figsize=(6, 4))
-        #     sns.boxplot(data=data, x='Model', y=y, hue='rewire_method', dodge=True, width=0.5, palette="Set2",
-        #                 linewidth=0.4)
-        #     # Add labels and title
-        #     plt.xlabel("Models", fontsize=12)
-        #     if metric == 'MSE':
-        #         plt.ylabel("Mean Squared Error (MSE)", fontsize=12)
-        #     if metric == 'RMSE':
-        #         plt.ylabel("Root Mean Squared Error (RMSE)", fontsize=12)
-        #     # plt.title("Test Loss Distribution by Model and Rewired Status", fontsize=14)
-        #     # Add legend
-        #     # plt.ylim(0, 20)
-        #     # Add grid lines along the y-axis
-        #     plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
-        #     plt.xticks(fontsize=10)
-        #
-        #     # Add vertical lines between models
-        #     # unique_models = df['Model'].unique()
-        #     # for i in range(1, len(unique_models)):
-        #     #     plt.axvline(i - 0.5, color='gray', linestyle='--', linewidth=0.8, alpha=0.7)
-        #
-        #     plt.legend(loc="upper left")
-        #     plt.savefig(f'{out_file_prefix}_rewired_{metric}.pdf', bbox_inches='tight')
-        #     # Show the plot
-        #     plt.tight_layout()
-        #     plt.show()
-        # box_plot('test_loss_RMSE', 'RMSE')
-
-        # box_lot('test_loss', 'MSE')
-        # df_1 = df.groupby(['Model','rewire_method']).agg({'test_loss_RMSE': 'mean'})
+        df_1 = df.groupby(['Model','rewire_method']).agg({'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
+        df_1.to_csv(f'{out_file_prefix}_aggregated.tsv', sep='\t')
         # print(df_1)
-        box_plot(df, x='Model', y='test_loss_RMSE', hue='rewire_method', ylabel='RMSE', palette="Set2", out_file_prefix=out_file_prefix)
+        if (metric == 'Pearsons') | (metric == 'Spearman'):
+            y_max=1
+            y_min = min(min(df[metric]), 0)
+        else:
+            y_max=None
+            y_min=None
+        box_plot(df, x='Model', y=metric, hue='rewire_method', ylabel=y_label,y_min=y_min, y_max=y_max, palette="Set2", out_file_prefix=out_file_prefix)
 
 
-def wrapper_plot_compare_shuffled(result_df, shuffled_result_df, out_file_prefix):
+def wrapper_plot_compare_shuffled(result_df, shuffled_result_df, metric, y_label, out_file_prefix):
     df = pd.concat([result_df, shuffled_result_df], axis=0)
     df = set_model_names(df)
-    df['test_loss_RMSE'] = np.sqrt(df['test_loss'])
 
     # keeps models  which I ran with shuffled features
     shuffled_model_names = df[df['shuffled'] == True]['Model'].unique()
@@ -613,41 +609,34 @@ def wrapper_plot_compare_shuffled(result_df, shuffled_result_df, out_file_prefix
 
     # modify model name to look good on plot
     df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
+    df_1 = df.groupby(['Model', 'shuffle_method']).agg({'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
+    df_1.to_csv(f'{out_file_prefix}_aggregated.tsv', sep='\t')
 
-    # def box_plot(y, metric):
-    #     # plot test MSE loss
-    #     plt.figure(figsize=(6, 4))
-    #     sns.boxplot(data=df, x='Model', y=y, hue='shuffle_method', dodge=True, width=0.5, palette="Set2", linewidth=0.4)
-    #     # Add labels and title
-    #     plt.xlabel("Models", fontsize=12)
-    #     if metric == 'MSE':
-    #         plt.ylabel("Mean Squared Error (MSE)", fontsize=12)
-    #     if metric == 'RMSE':
-    #         plt.ylabel("Root Mean Squared Error (RMSE)", fontsize=12)
-    #     # Add legend
-    #     # plt.ylim(0, 20)
-    #     # Add grid lines along the y-axis
-    #     plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
-    #     plt.xticks(fontsize=10)
-    #
-    #     plt.legend(loc="upper left")
-    #     plt.savefig(f'{out_file_prefix}_shuffled_{metric}.pdf', bbox_inches='tight')
-    #     # Show the plot
-    #     plt.tight_layout()
-    #     plt.show()
-
-    # box_lot('test_loss', 'MSE')
-    # box_plot('test_loss_RMSE', 'RMSE')
-    box_plot(df, x='Model', y='test_loss_RMSE', hue='shuffle_method', ylabel='RMSE', palette="Set2",
+    if (metric == 'Pearsons') | (metric == 'Spearman'):
+        y_max = 1
+        y_min = min(min(df[metric]), 0)
+    else:
+        y_max = None
+        y_min = None
+    # modify model name to look good on plot
+    box_plot(df, x='Model', y=metric, hue='shuffle_method', ylabel=y_label, y_min=y_min, y_max=y_max,palette="Set2", hue_order = ['Original', 'Shuffled'],
              out_file_prefix=out_file_prefix)
 
 
 def main():
     score_names = ['S_mean_mean', 'synergy_loewe_mean']
+    # score_names = [ 'synergy_loewe_mean']
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line', 'random']
+
+    # metric = 'Pearsons'
+    # y_label = 'Pearsons'
+    metric = 'test_RMSE'
+    y_label = 'RMSE'
 
     for score_name in score_names:
         result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_{score_name}'
+        score_name_str = score_name.split('_')[0]
+
         # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_{score_name}'
 
         for split_type in split_types:
@@ -658,19 +647,14 @@ def main():
                 print(f'file {result_file} does not exist. Continuing to next file.')
                 continue
             result_df = pd.read_csv(result_file_path, sep='\t', index_col=None)
-            #todo uncomment later
-            wrapper_plot_compare_with_1hot(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
-            wrapper_plot_model_performance(result_df, title=split_type, out_file_prefix = f'{result_dir}/{score_name}_{split_type}')
+            #compute_RMSE from MSE
+            for split in ['test', 'train', 'val']:
+                result_df[f'{split}_RMSE'] = np.sqrt(result_df[f'{split}_MSE'])
+
+            wrapper_plot_compare_with_1hot(result_df, metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
+            wrapper_plot_model_performance(result_df,metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
 
 
-            # plot for comparing models trained on original vs. rewired networks
-            rewired_net_result_file = f'output_{split_type}_rewired.tsv'
-            rewired_result_file_path = os.path.join(result_dir, rewired_net_result_file)
-            if not os.path.exists(rewired_result_file_path):
-                print(f'file {rewired_result_file_path} does not exist. Continuing to next file.')
-                continue
-            rewired_result_df = pd.read_csv(rewired_result_file_path, sep='\t', index_col=None)
-            wrapper_plot_compare_rewired(result_df, rewired_result_df, out_file_prefix= f'{result_dir}/{score_name}_{split_type}_rewired')
 
             # plot for comparing models trained on original vs. shuffled features
             shuffled_result_file = f'output_{split_type}_shuffled.tsv'
@@ -679,8 +663,25 @@ def main():
                 print(f'file {shuffled_result_file_path} does not exist. Continuing to next file.')
                 continue
             shuffled_result_df = pd.read_csv(shuffled_result_file_path, sep='\t', index_col=None)
-            wrapper_plot_compare_shuffled(result_df, shuffled_result_df,
-                                         out_file_prefix=f'{result_dir}/{score_name}_{split_type}_shuffled')
+            # compute_RMSE from MSE
+            for split in ['test', 'train', 'val']:
+                shuffled_result_df[f'{split}_RMSE'] = np.sqrt(shuffled_result_df[f'{split}_MSE'])
+            wrapper_plot_compare_shuffled(result_df, shuffled_result_df, metric=metric, y_label=y_label,
+                                         out_file_prefix=f'{result_dir}/{score_name_str}_{split_type}_{y_label}_shuffled')
+
+            # plot for comparing models trained on original vs. rewired networks
+            rewired_net_result_file = f'output_{split_type}_rewired.tsv'
+            rewired_result_file_path = os.path.join(result_dir, rewired_net_result_file)
+            if not os.path.exists(rewired_result_file_path):
+                print(f'file {rewired_result_file_path} does not exist. Continuing to next file.')
+                continue
+            rewired_result_df = pd.read_csv(rewired_result_file_path, sep='\t', index_col=None)
+            # compute_RMSE from MSE
+            for split in ['test', 'train', 'val']:
+                rewired_result_df[f'{split}_RMSE'] = np.sqrt(rewired_result_df[f'{split}_MSE'])
+
+            wrapper_plot_compare_rewired(result_df, rewired_result_df, metric=metric, y_label=y_label,
+                                         out_file_prefix=f'{result_dir}/{score_name_str}_{split_type}_{y_label}_rewired')
 
     # barplot_model_comparison_with_deepsynergy("/home/grads/tasnina/Projects/SynVerse/inputs/existing_model_performance.tsv")
     # scatter_plot_model_comparison_with_deepsynergy("/home/grads/tasnina/Projects/SynVerse/inputs/existing_model_performance.tsv")

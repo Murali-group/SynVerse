@@ -1,0 +1,113 @@
+dataset_dir: "/home/grads/tasnina/Projects/SynVerse/datasets/"
+
+# Input Settings: initialize base input folder names,
+# dataset collections, and models to run over
+input_settings:
+  # Base input directory
+  input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
+
+  drug_features:
+
+    - name: 'MACCS'
+      use: [ false ]
+
+    - name: 'ECFP_4'
+      use: [  false ]
+
+    - name: 'MFP' #morgan fingerprint
+      use: [ false ]
+
+    - name: 'mol_graph'
+      encoder: 'GCN'
+      use: [ false ]
+
+    - name: 'smiles'
+      encoder: 'Transformer'
+      use: [ false ]
+
+    - name: 'd1hot'
+      use: [ true ]
+
+
+  cell_line_features:
+    - name: 'c1hot'
+      use: [true]
+
+
+  models:
+     decoder:
+       name: 'MLP'
+       hp_range: { 'lr': [ 1e-5, 1e-3 ], 'optimizer': [ 'Adam', 'SGD' ],
+                   'sgd_momentum': [ 0.5, 0.99 ] ,
+                   'num_hid_layers': [ 1,3 ] ,
+                   'hid_0': [ 128, 256, 512, 1024, 2048, 4096 ],
+                   'hid_1': [ 128, 256, 512, 1024, 2048, 4096 ],
+                   'hid_2': [ 128, 256, 512, 1024, 2048, 4096 ],
+                   'in_dropout_rate': [ 0.0, 0.5 ],
+                   'hid_dropout_rate': [ 0.0, 0.5 ] }
+
+       hp: {'hid_0': 2048, 'hid_1': 1024,'hid_2': 512, 'hid_dropout_rate': 0.3, 'in_dropout_rate': 0.1,
+            'lr': 0.001, 'num_hid_layers': 3, 'optimizer': 'Adam'}
+
+     drug_encoder:
+       - name: 'GCN'
+         hp_range: { 'batch_norm': [ True, False ], 'gnn_num_layers': [ 1, 3 ], 'gnn_0': [ 256, 512, 1024, 2048, 4096 ] ,'gnn_1': [ 256, 512, 1024, 2048, 4096 ],
+                     'gnn_2': [  256, 512, 1024, 2048, 4096 ],
+                     'ff_num_layers': [ 1,3 ], 'ff_0': [ 256, 512, 1024, 2048, 4096 ] , 'ff_1': [ 256, 512, 1024, 2048, 4096 ] , 'ff_2': [ 256, 512, 1024, 2048, 4096 ],
+                     'gnn_dropout': [ 0.0,0.5 ] }
+         hp: { 'batch_norm': True, 'gnn_num_layers': 2 ,'gnn_0': 512 ,'gnn_1': 128, 'ff_num_layers': 1, 'ff_0': 128, 'gnn_dropout': 0.1 }
+
+       - name: 'Transformer'
+         hp_range: { 'transformer_batch_norm': [ True, False ], 'transformer_num_layers': [ 2, 3, 4 ] ,'transformer_embedding_dim': [ 64, 128, 256, 512, 1024, 2048 ] ,
+                     'transformer_n_head': [ 4, 8 ], 'transformer_ff_num_layers': [ 64, 128, 256, 512, 1024, 2048 ], 'max_seq_length': [ 120 ],
+                     'positional_encoding_type': [ 'learnable', 'fixed' ] }
+         hp: {'positional_encoding_type': 'learnable', 'transformer_batch_norm': True, 'transformer_embedding_dim': 512,
+                  'transformer_ff_num_layers': 1024, 'transformer_n_head': 8, 'transformer_num_layers': 3,'max_seq_length': 120}
+
+
+  batch_size: 4096
+  epochs: 1500
+
+
+  splits:
+#    - type: 'random'
+#      test_frac: 0.2
+#      val_frac: 0.25
+
+    - type: 'leave_comb'
+      test_frac: 0.2
+      val_frac: 0.25
+
+#    - type: 'leave_drug'
+#      test_frac: 0.2
+#      val_frac: 0.25
+#
+#    - type: 'leave_cell_line'
+#      test_frac: 0.2
+#      val_frac: 0.25
+#
+
+  wandb:
+    enabled: False
+    token: 'd9462b91edea6523563900fab17134d7e9177e16'
+    project_name: 'Synverse'
+    entity_name: 'ntasnina'
+    timezone: 'US/Eastern'
+    timezone_format: '%Y-%m-%d_%H-%M-%S'
+  bohb:
+    min_budget: 1
+    max_budget: 3
+    n_iterations: 1
+    run_id : 'synverse'
+    server_type: 'local' #or cluster
+
+  feature: 'must'
+  abundance: 0.05
+
+  max_feat: 1
+  hp_tune: False
+  train_mode:
+    use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
+
+output_settings:
+  output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs/'

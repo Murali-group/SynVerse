@@ -5,6 +5,7 @@ from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.stats as stats
 import sys
 
 
@@ -89,6 +90,16 @@ def compute_cls_performance(pred_file_path, thresholds = [0]):
         rec_dict[f'Recall_{threshold}'] = recall
     return prec_dict, rec_dict
 
+def compute_corr(pred_file_path):
+    #columns = drug1	drug2	cell_line	TRUE	predicted
+    pred_df = pd.read_csv(pred_file_path, sep='\t')
+    y_true = list(pred_df['true'].astype(float))
+    y_pred = list(pred_df['predicted'].astype(float))
+    corr_prsn, pval_prsn = stats.pearsonr(y_true, y_pred)
+    corr_sprmn, pval_sprmn = stats.spearmanr(y_true, y_pred)
+    corr = {'Pearsons':corr_prsn, 'Spearman':corr_sprmn}
+    return corr
+
 def read_loss_file_content(file_path):
     with open(file_path, 'r') as file:
         content = file.read()
@@ -109,9 +120,9 @@ def read_loss_file_content(file_path):
         val_loss = float(val_loss_match.group(1)) if val_loss_match else None
 
 
-        loss_dict = {'test_loss': test_loss,
-            'val_loss': val_loss,
-            'train_loss': train_loss,
+        loss_dict = {'test_MSE': test_loss,
+            'val_MSE': val_loss,
+            'train_MSE': train_loss,
             'num_epochs': epochs,
             'best_config': best_config}
     return loss_dict
@@ -193,7 +204,8 @@ def main():
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/"
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_S_mean_mean/"
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.95/k_0.05_S_mean_mean/"
-    base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_synergy_loewe_mean/"
+    # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_synergy_loewe_mean/"
+    base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/MARSY_data/k_0.05_S_mean_mean/"
 
 
     split_types = ['random','leave_comb', 'leave_drug', 'leave_cell_line']
@@ -212,12 +224,14 @@ def main():
         out_info_list = iterate_output_files(spec_folder)
         data = []
         for out_info in out_info_list:
+            if not os.path.exists(out_info['pred_file']):
+                continue
             all_info = out_info
             loss_info = read_loss_file_content(out_info['loss_file'])
             # precision, recall = compute_cls_performance(out_info['pred_file'], thresholds = [0, 10, 30])
+            correlations_dict  = compute_corr(out_info['pred_file'])
             all_info.update(loss_info)
-            # all_info.update(precision)
-            # all_info.update(recall)
+            all_info.update(correlations_dict)
             data.append(all_info)
         df = pd.DataFrame(data)
         df.drop(columns=['loss_file', 'pred_file'], axis=1, inplace=True)

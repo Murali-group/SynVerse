@@ -100,14 +100,6 @@ def run_SynVerse(inputs, params, **kwargs):
         split_dir = os.path.join(split_dir, f'sample_norm_{retain_ratio}')
         out_dir = os.path.join(out_dir, f'sample_norm_{retain_ratio}')
 
-    # if params.sample_heavy_tail: #sample the triplets from synergy_df such that they are heavy tailed
-    #     retain_ratio = params.retain_ratio #how much sample to retain
-    #     retained_triplets = int(len(synergy_df)*retain_ratio)
-    #     score_th = sorted(list(synergy_df[score_name]), reverse=True)[retained_triplets]
-    #     #keep only the triplets whose socre>threshold
-    #     synergy_df = synergy_df[synergy_df[score_name]>score_th]
-    #     split_dir = os.path.join(split_dir, f'sample_heavy_tail_{retain_ratio}')
-    #     out_dir = os.path.join(out_dir, f'sample_heavy_tail_{retain_ratio}')
 
 
 
@@ -272,7 +264,6 @@ def run_SynVerse(inputs, params, **kwargs):
 
 
 
-
                 else:
 
                     runner = Encode_MLP_runner(all_train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
@@ -333,7 +324,7 @@ def main(config_map, **kwargs):
 
         params.splits = config_map['input_settings']['splits']
         params.feature = config_map['input_settings']['feature']
-        params.abundance = config_map['input_settings']['abundance']
+        params.abundance = config_map['input_settings'].get(['abundance'],0)
         params.max_feat=config_map['input_settings']['max_feat']
         params.hp_tune=config_map['input_settings']['hp_tune']
         params.train_mode = config_map['input_settings']['train_mode']

@@ -39,26 +39,28 @@ def set_model_names(df):
 
     return df
 
-def box_plot(data, x, y, hue, ylabel, rotate=0, palette="Set2", out_file_prefix=None, title=''):
-    # plot test MSE loss
-    plt.figure(figsize=(6, 4))
-    sns.boxplot(data=data, x=x, y=y, hue=hue, dodge=True, width=0.5, palette=palette, linewidth=0.4)
-    # Add labels and title
+def box_plot(data, x, y, hue, ylabel, y_min=None, y_max=None, rotate=0, palette="Set2", hue_order=None,out_file_prefix=None, title=''):
 
-    plt.ylabel(ylabel, fontsize=12)
+    plt.figure(figsize=(6, 4))
+    sns.boxplot(data=data, x=x, y=y, hue=hue, hue_order = hue_order, dodge=True, width=0.5, palette=palette, linewidth=0.4)
+    # Add labels and title
+    plt.xlabel('Models', fontsize=14)
+    plt.ylabel(ylabel, fontsize=14)
     # plt.title("Test Loss Distribution by Model and Rewired Status", fontsize=14)
-    # Add legend
-    # plt.ylim(0, 20)
+    if (y_min is not None) and (y_max is not None):
+        plt.ylim(y_min, y_max)
     # Add grid lines along the y-axis
     plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
-    plt.xticks(fontsize=10, rotation=rotate)
+    plt.xticks(fontsize=12, rotation=rotate)
+    plt.yticks(fontsize=12)
+
 
 
     plt.legend(loc="upper left")
     plt.title(title)
     plt.tight_layout()
     if out_file_prefix is not None:
-        plt.savefig(f'{out_file_prefix}_{ylabel}.pdf', bbox_inches='tight')
+        plt.savefig(f'{out_file_prefix}_boxplot.pdf', bbox_inches='tight')
     # Show the plot
     plt.show()
 
@@ -382,17 +384,7 @@ def plot_nodewise_train_test_score_dist(train_df, test_df, score_name, out_dir=N
     print("\nDifferences in median and mean between Train and Test for each (node, edge_type) pair:\n",
           pivoted_stats[['Node', 'Edge Type', 'median_diff', 'mean_diff']])
 
-    # Plotting boxplots for each (node, edge_type) pair, with separate colors for train and test
-    # plt.figure(figsize=(16, 8))
-    # sns.boxplot(x='Node', y='Score', hue='Set', data=df, col='Edge Type')
-    # plt.title("Distribution of Scores per (Node, Edge Type) Pair (Train vs. Test)")
-    # plt.xlabel("Node")
-    # plt.ylabel("Score")
-    #
-    # plt.legend(title="split")
-    # plt.tight_layout()
-    # plt.savefig(out_dir + f'{score_name}_nodewise_test_train_scores.pdf')
-    # plt.show()
+
 
     return stats_df
 

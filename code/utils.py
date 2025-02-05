@@ -160,7 +160,7 @@ def print_synergy_stat(synergy_df):
     return drug_pairs, drug_pids, cell_line_names
 
 
-def abundance_based_filtering(synergy_df, min_frac=0.01):
+def abundance_based_filtering(synergy_df, min_frac=0):
     # Initialize the filtered_df as empty
     filtered_df = pd.DataFrame()
 

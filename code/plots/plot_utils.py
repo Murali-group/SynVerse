@@ -269,7 +269,7 @@ def plot_dist(values, prefix='', out_dir=None):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         plt.savefig(filename)
     # Show plot
-    # plt.show()
+    plt.show()
 
 
 def plot_double_dist(values_1, values_2, labels, prefix='', out_dir=None):

@@ -87,6 +87,8 @@ def run_SynVerse(inputs, params, **kwargs):
 
     '''Filter out the triplets based on the availability of drug and cell line features'''
     synergy_df = feature_based_filtering(synergy_df, dfeat_dict['value'], cfeat_dict['value'], params.feature)
+    plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{abundance}_{score_name}')
+
 
     '''keep the cell lines consisting of at least abundance% of the total #triplets in the final dataset.'''
     synergy_df = abundance_based_filtering(synergy_df, min_frac=abundance)
@@ -324,7 +326,7 @@ def main(config_map, **kwargs):
 
         params.splits = config_map['input_settings']['splits']
         params.feature = config_map['input_settings']['feature']
-        params.abundance = config_map['input_settings'].get(['abundance'],0)
+        params.abundance = config_map['input_settings'].get('abundance',0)
         params.max_feat=config_map['input_settings']['max_feat']
         params.hp_tune=config_map['input_settings']['hp_tune']
         params.train_mode = config_map['input_settings']['train_mode']

@@ -60,8 +60,6 @@ def run_SynVerse(inputs, params, **kwargs):
     split_dir = params.split_dir
     out_dir = params.out_dir
 
-
-
     split_dir = os.path.join(split_dir, 'MatchMaker_data')
     out_dir = os.path.join(out_dir, 'MatchMaker_data')
 

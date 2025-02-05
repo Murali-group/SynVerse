@@ -280,7 +280,11 @@ def run_SynVerse(inputs, params, **kwargs):
                             hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace(f'sample_norm_{retain_ratio}/','') + '_best_hyperparam.txt')
                         else:
                             #find the best hyperparam saved in a file for the given features and architecture
-                            hyperparam, _ = extract_best_hyperparam(out_file_prefix+'_best_hyperparam.txt')
+                            hyperparam_file = out_file_prefix+'_best_hyperparam.txt'
+
+                            if abundance==0:  #if abundance==0, then use hyperparam tuned for k=0.05
+                                hyperparam_file = hyperparam_file.replace('k_0', 'k_0.05')
+                            hyperparam, _ = extract_best_hyperparam(hyperparam_file)
 
                     trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,validation=True,save_output=True) #when validation=True, use given epochs as you can always early stop using validation loss
                     runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True, file_prefix='_val_true_')

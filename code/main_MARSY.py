@@ -204,6 +204,7 @@ def run_SynVerse(inputs, params, **kwargs):
                     runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
 
                 if params.train_mode['use_best_hyperparam']:
+                    #TODO decide on which version to keep
                     # hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace('/MARSY_data','') + '_best_hyperparam.txt')
                     hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')
 

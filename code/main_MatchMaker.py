@@ -200,10 +200,10 @@ def run_SynVerse(inputs, params, **kwargs):
 
                 if params.train_mode['use_best_hyperparam']:
                     hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace('/MatchMaker_data','') + '_best_hyperparam.txt')
+                    # hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')
 
                 trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,validation=True,save_output=True) #when validation=True, use given epochs as you can always early stop using validation loss
                 runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True, file_prefix='_val_true_')
-
 
             del cur_dfeat_dict
             del cur_cfeat_dict

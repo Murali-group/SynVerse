@@ -71,7 +71,6 @@ def run_SynVerse(inputs, params, **kwargs):
 
 
     '''Read synergy triplets'''
-    #TODO wirte code for reading npy file formatted as [drugA_canonical_smi, drugB_canonical_smi, cell_ID, label]
     # synergy_df = pd.read_csv(synergy_file, sep='\t', dtype={'drug_1_pid': str, 'drug_2_pid': str, 'cell_line_name': str})
     data = np.load(synergy_file, allow_pickle=True)
     # synergy_df = pd.DataFrame(data, columns=['drug_1_pid', 'drug_2_pid', 'cell_line_name', 'S_mean_mean']).
@@ -93,7 +92,7 @@ def run_SynVerse(inputs, params, **kwargs):
     cfeat_dict, cfeat_names = prepare_cell_line_features(cell_line_features, cell_line_names, inputs)
 
 
-    # plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{abundance}_{score_name}')
+    plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{abundance}_{score_name}')
 
 
     #******************************************* MODEL TRAINING ***********************************************
@@ -204,6 +203,7 @@ def run_SynVerse(inputs, params, **kwargs):
                     runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
 
                 if params.train_mode['use_best_hyperparam']:
+                    #TODO check which version you want
                     # hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace('/SynergyX_data','') + '_best_hyperparam.txt')
                     hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')
 

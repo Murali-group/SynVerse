@@ -9,7 +9,6 @@ import scipy.stats as stats
 import sys
 
 
-
 def feature_to_filter_map(drug_feat, cell_feat):
     '''
     Based on the features used in a model, map the features to feature_based filter being used in data preprocessing.
@@ -206,7 +205,7 @@ def main():
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.95/k_0.05_S_mean_mean/"
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_synergy_loewe_mean/"
     base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/MARSY_data/k_0.05_S_mean_mean/"
-
+    # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/MatchMaker_data/k_0.05_synergy_loewe_mean/"
 
     split_types = ['random','leave_comb', 'leave_drug', 'leave_cell_line']
     outfile_detailed = base_folder + f'combined_output.xlsx'

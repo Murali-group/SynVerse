@@ -78,13 +78,13 @@ input_settings:
       test_frac: 0.2
       val_frac: 0.25
 
-#    - type: 'leave_drug'
-#      test_frac: 0.2
-#      val_frac: 0.25
-#
-#    - type: 'leave_cell_line'
-#      test_frac: 0.2
-#      val_frac: 0.25
+    - type: 'leave_drug'
+      test_frac: 0.2
+      val_frac: 0.25
+
+    - type: 'leave_cell_line'
+      test_frac: 0.2
+      val_frac: 0.25
 #
 
   wandb:

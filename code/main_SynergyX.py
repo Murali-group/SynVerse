@@ -205,8 +205,8 @@ def run_SynVerse(inputs, params, **kwargs):
 
                 if params.train_mode['use_best_hyperparam']:
                     #TODO check which version you want
-                    hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace('/SynergyX_data','') + '_best_hyperparam.txt')
-                    # hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')
+                    # hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace('/SynergyX_data','') + '_best_hyperparam.txt')
+                    hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')
 
 
                 trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,validation=True,save_output=True) #when validation=True, use given epochs as you can always early stop using validation loss

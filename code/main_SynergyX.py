@@ -76,7 +76,8 @@ def run_SynVerse(inputs, params, **kwargs):
     # synergy_df = pd.DataFrame(data, columns=['drug_1_pid', 'drug_2_pid', 'cell_line_name', 'S_mean_mean']).
     #               astype({'drug_1_pid':'string', 'drug_2_pid':'string', 'cell_line_name':'string', 'S_mean_mean':float}))
 
-    synergy_df = pd.DataFrame(data, columns=['drug_1_pid', 'drug_2_pid', 'cell_line_name', 'S_mean_mean'])
+    synergy_df = pd.DataFrame(data, columns=['drug_1_pid', 'drug_2_pid', 'cell_line_name', 'S_mean_mean']).\
+                    astype({'drug_1_pid':'string', 'drug_2_pid':'string', 'cell_line_name':'string', 'S_mean_mean':float})
     drug_pids = sorted(list(set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid']))))
     cell_line_names = sorted(synergy_df['cell_line_name'].unique())
 
@@ -204,8 +205,8 @@ def run_SynVerse(inputs, params, **kwargs):
 
                 if params.train_mode['use_best_hyperparam']:
                     #TODO check which version you want
-                    # hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace('/SynergyX_data','') + '_best_hyperparam.txt')
-                    hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')
+                    hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace('/SynergyX_data','') + '_best_hyperparam.txt')
+                    # hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')
 
 
                 trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,validation=True,save_output=True) #when validation=True, use given epochs as you can always early stop using validation loss

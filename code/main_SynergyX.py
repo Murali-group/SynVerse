@@ -203,6 +203,7 @@ def run_SynVerse(inputs, params, **kwargs):
                     # find best hyperparam setup
                     runner.find_best_hyperparam(params.bohb['server_type'], **kwargs)
 
+
                 if params.train_mode['use_best_hyperparam']:
                     #TODO check which version you want
                     # hyperparam, _ = extract_best_hyperparam(out_file_prefix.replace('/SynergyX_data','') + '_best_hyperparam.txt')

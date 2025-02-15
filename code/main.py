@@ -28,7 +28,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/debug_smiles.yaml",
+                       "config_files/experiment_1/rewired_cgenex.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
     group.add_argument('--feat', type=str,
@@ -212,28 +212,30 @@ def run_SynVerse(inputs, params, **kwargs):
 
                 if params.rewire:
                     # rewire the training dataset keeping the node degree intact. Modified all_train_df, train_idx, val_idx
-                    rewire_method = params.rewire_method  # SA => Simulaed annealing, SM=> Sneppen-Amslov, RS: Rubinov as randomization method
-                    for rand_net in range(10): #run model on 10 randmized network
-                        print(f'Running model on {rand_net}th randomized network')
-                        rewired_all_train_df, rewired_train_idx, rewired_val_idx = get_rewired_train_val(all_train_df, score_name, rewire_method,
-                                                            split_type, val_frac, out_dir=f'{split_file_path}{rand_net}',
-                                                            force_run=force_split)
-                        wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix = f'{split_file_path}/{rand_net}_{rewire_method}'  )
+                    rewire_methods = params.rewire_method  # SA => Simulated annealing, SM=> Sneppen-Maslov, RS: Rubinov as randomization method
 
-                        out_file_prefix_rand = f'{out_file_prefix}_rewired_{rand_net}_{rewire_method}'
-                        runner = Encode_MLP_runner(rewired_all_train_df, rewired_train_idx, rewired_val_idx, select_dfeat_dict,
-                                                   select_cfeat_dict,
-                                                   out_file_prefix_rand, params, select_model_info, device, **kwargs)
+                    for rewire_method in rewire_methods:
+                        for rand_net in range(10): #run model on 10 randmized network
+                            print(f'Running model on {rand_net}th randomized network')
+                            rewired_all_train_df, rewired_train_idx, rewired_val_idx = get_rewired_train_val(all_train_df, score_name, rewire_method,
+                                                                split_type, val_frac, out_dir=f'{split_file_path}{rand_net}',
+                                                                force_run=force_split)
+                            wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix = f'{split_file_path}/{rand_net}_{rewire_method}'  )
 
-                        if params.train_mode['use_best_hyperparam']:
-                            # find the best hyperparam saved in a file for the given features and architecture
-                            hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')  # incase rewire is true, we want to find the best param for the main model without rewiring.
+                            out_file_prefix_rand = f'{out_file_prefix}_rewired_{rand_net}_{rewire_method}'
+                            runner = Encode_MLP_runner(rewired_all_train_df, rewired_train_idx, rewired_val_idx, select_dfeat_dict,
+                                                       select_cfeat_dict,
+                                                       out_file_prefix_rand, params, select_model_info, device, **kwargs)
 
-                        trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,
-                                                                                          validation=True,
-                                                                                          save_output=True)  # when validation=True, use given epochs as you can always early stop using validation loss
-                        runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True,
-                                              file_prefix='_val_true_')
+                            if params.train_mode['use_best_hyperparam']:
+                                # find the best hyperparam saved in a file for the given features and architecture
+                                hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')  # incase rewire is true, we want to find the best param for the main model without rewiring.
+
+                            trained_model_state, train_loss = runner.train_model_given_config(hyperparam, given_epochs,
+                                                                                              validation=True,
+                                                                                              save_output=True)  # when validation=True, use given epochs as you can always early stop using validation loss
+                            runner.get_test_score(test_df, trained_model_state, hyperparam, save_output=True,
+                                                  file_prefix='_val_true_')
 
                 elif params.shuffle:
                     # shuffle the features in training dataset keeping the test intact

@@ -11,7 +11,7 @@ input_settings:
       use: [false]
 
     - name: 'target'
-      preprocess: 'rwr'
+#      preprocess: 'rwr'
       use: [true]
 
 
@@ -67,7 +67,7 @@ input_settings:
     use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
 
   rewire: True #if True, rewire the training data such that the node degree is preserved.
-  rewire_method: "SM"
+  rewire_method: ["SA", "SM"]
 
 output_settings:
   output_dir: '/home/tasnina/Projects/SynVerse/outputs/'

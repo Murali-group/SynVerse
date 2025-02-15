@@ -9,21 +9,21 @@ input_settings:
   drug_features:
 
     - name: 'MACCS'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'ECFP_4'
-      use: [  true, false ]
+      use: [  false ]
 
     - name: 'MFP' #morgan fingerprint
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'mol_graph'
       encoder: 'GCN'
       use: [ false ]
 
     - name: 'smiles'
-      encoder: 'Transformer'
-      use: [ false ]
+      encoder: 'mole'
+      use: [ true ]
 
     - name: 'd1hot'
       use: [ false ]

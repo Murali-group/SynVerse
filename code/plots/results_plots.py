@@ -45,51 +45,7 @@ def scatter_plot_model_comparison_with_deepsynergy(filename):
     plt.tight_layout()
     plt.show()
 
-def barplot_model_comparison_with_deepsynergy(filename):
-    df = pd.read_csv(filename, sep='\t')[['Model name', 'Own', 'DeepSynergy', 'Threshold']]
-    # Extracting the DeepSynergy's self-reported performance
-    deep_synergy_self_performance = df.loc[df['Model name'].str.contains('DeepSynergy'), 'DeepSynergy'].iloc[0]
 
-    # Setting up the plot
-    df = df[df['Model name'].str.contains('DeepSynergy', case=False, na=False) == False]
-    x = range(len(df))
-    bar_width = 0.32
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-
-    # Adding background colors based on 'Threshold'
-    for idx, threshold in enumerate(df['Threshold']):
-        if threshold == 10:
-            ax.axvspan(idx - 0.5, idx + 0.5, facecolor='gainsboro', edgecolor='gainsboro')
-        elif threshold == 30:
-            ax.axvspan(idx - 0.5, idx + 0.5, facecolor='white', alpha=0.3, edgecolor='none')
-        else:
-            ax.axvspan(idx - 0.5, idx + 0.5, facecolor='lightgreen', alpha=0.3, edgecolor='none')
-
-    colors = ListedColormap(cm.get_cmap('Paired').colors[:4])
-    bars1 = ax.bar([i - bar_width / 2 for i in x], df['DeepSynergy'], bar_width,
-                   label='DeepSynergy', color=colors(2))
-    bars2 = ax.bar([i + bar_width / 2 for i in x], df['Own'], bar_width, label='Compared Model', color=colors(1))
-
-
-    # Adding the line
-    ax.axhline(y=deep_synergy_self_performance, color='red', linestyle='--',
-               # label=f'Self-Reported AUPRC by DeepSynergy({deep_synergy_self_performance:.2f})'
-               )
-
-    # Adding labels and legend
-    ax.set_xticks(x)
-    # ax.set_xticklabels(df['Model name'])
-    ax.set_xticklabels([name.replace(' (', '\n(') for name in df['Model name']])
-    ax.set_ylabel('AUPRC')
-    # ax.set_title('Model Performance Comparison')
-    ax.legend()
-
-    # Showing the plot
-    ax.set_xlim(-0.5, len(df) - 0.5)
-    plt.tight_layout()
-    plt.savefig(os.path.dirname(filename) + '/barplot_model_comparison_with_deepsynergy.pdf')
-    plt.show()
 
 def compute_difference_with_1hot(df):
     baseline_df = df[(df['drug_features'] == 'd1hot') & (df['cell_features'] == 'c1hot')]
@@ -105,7 +61,8 @@ def compute_difference_with_1hot(df):
 
     for column in ['test_MSE', 'val_MSE', 'train_MSE', 'test_RMSE', 'val_RMSE', 'train_RMSE',
                    'Pearsons', 'Spearman']:
-        merged_df[f'{column}_diff'] = merged_df[f'{column}_baseline'] - merged_df[column]
+        merged_df[f'{column}_diff'] =  merged_df[column]-merged_df[f'{column}_baseline']
+
 
     return merged_df
 
@@ -236,9 +193,9 @@ def plot_diff(df_1hot_diff_avg, metric, y_label, yerr ='std', out_file_prefix=No
     abs_max_diff = max(abs(df_1hot_diff_avg[diff_mean_col].min()), abs(df_1hot_diff_avg[diff_mean_col].max()))
     norm = TwoSlopeNorm(vmin=-abs_max_diff, vcenter=0, vmax=abs_max_diff)
     if (metric == 'Pearsons') | (metric == 'Spearman'):
-        cmap = sns.diverging_palette(220, 15, s=85, l=65, as_cmap=True)
-    else:
         cmap = sns.diverging_palette(220, 15, s=85, l=65, as_cmap=True).reversed()
+    else:
+        cmap = sns.diverging_palette(220, 15, s=85, l=65, as_cmap=True)
 
 
     # Get unique feature filters
@@ -339,7 +296,7 @@ def plot_diff(df_1hot_diff_avg, metric, y_label, yerr ='std', out_file_prefix=No
     plt.show()
 
 
-def plot_performance(df_avg, metric, y_label, title, yerr ='std', out_file_prefix=None):
+def plot_performance_subplots(df_avg, metric, y_label, title, yerr ='std', out_file_prefix=None):
     """
     Plot a barplot with horizontally grouped subplots for each feature_filter with dynamic widths.
     The colorbar is positioned to the right of all subplots.
@@ -380,11 +337,20 @@ def plot_performance(df_avg, metric, y_label, title, yerr ='std', out_file_prefi
         y_max = y_max-(y_max%5)+5
 
 
+    #model colors
+    unique_models = df_avg['Model'].unique()
+    color_palette = sns.cubehelix_palette(start=0.3, hue=1,
+                                      gamma=0.4, dark=0.1, light=0.8,
+                                      rot=-1, reverse=False,  n_colors=len(unique_models))
+    model_colors = {model: color for model, color in zip(unique_models, color_palette)}
 
-    # Optional: Adjust limits slightly for better aesthetics
-    # padding = 0.01 * (y_max - y_min)
-    # y_min -= padding
-    # y_max += padding
+    # color_palette = sns.light_palette("seagreen", n_colors=len(feature_filters))
+    # color_palette = sns.color_palette("Spectral",n_colors=len(feature_filters))
+    # color_palette = sns.cubehelix_palette(start=0.5, hue=1,
+    #                                   gamma=0.4, dark=0.3, light=0.7,
+    #                                   rot=-0.6, reverse=False,  n_colors=len(feature_filters))
+    # feature_filter_colors = {feature_filter: color for feature_filter, color in zip(feature_filters, color_palette)}
+
 
     # Plot each feature_filter's data
     for ax, feature_filter in zip(axes, feature_filters):
@@ -399,7 +365,10 @@ def plot_performance(df_avg, metric, y_label, title, yerr ='std', out_file_prefi
             subset[mean_col],
             yerr=subset[err_col],
             capsize=5,
-            edgecolor='black'
+            edgecolor='black',
+            color=[model_colors[model] for model in subset['Model']]
+            # color=[feature_filter_colors[feature_filter]]
+
         )
 
         ax.set_ylim(y_min, y_max)
@@ -432,9 +401,73 @@ def plot_performance(df_avg, metric, y_label, title, yerr ='std', out_file_prefi
     print(f'saved file: {plot_file}')
     # Show the plot
     plt.show()
+    print('done')
 
 
+def plot_performance(df_avg, metric, y_label, title, yerr='std', out_file_prefix=None):
+    """
+    Plot a barplot for the given metric, coloring each model distinctly.
 
+    Parameters:
+    - df_avg: DataFrame containing the required metrics.
+    - metric: The metric to plot ('test_loss' by default).
+    - y_label: Label for the y-axis.
+    - title: Plot title.
+    - yerr: Column name for error values.
+    - out_file_prefix: Prefix for saving the output file.
+    """
+    mean_col = f'{metric}_mean'
+    err_col = f'{metric}_{yerr}'
+
+    assert len(
+        set(df_avg['feature_filter'].unique()).difference(set(feature_filters))) == 0, "Mismatch in feature filters"
+
+    fig, ax = plt.subplots(figsize=(len(df_avg['Model'].unique()), 8))
+
+    if metric in ['Pearsons', 'Spearman']:
+        y_max = 1
+        y_min = min(min(df_avg[mean_col] - df_avg[err_col]), 0)
+    else:
+        y_max = max(df_avg[mean_col] + df_avg[err_col])
+        y_min = 0
+        y_max = y_max - (y_max % 5) + 5
+
+    # Assign distinct colors to models
+    unique_models = df_avg['Model'].unique()
+    color_palette = sns.cubehelix_palette(start=0.3, hue=1,
+                                          gamma=0.4, dark=0.1, light=0.8,
+                                          rot=-1.5, reverse=False, n_colors=len(unique_models))
+    model_colors = {model: color for model, color in zip(unique_models, color_palette)}
+    edge_color = "#666666"
+    edge_width = 0.5
+    # Plot bars
+    bars = ax.bar(
+        df_avg['Model'],
+        df_avg[mean_col],
+        yerr=df_avg[err_col],
+        capsize=5,
+        edgecolor=edge_color,
+        linewidth=edge_width,
+        color=[model_colors[model] for model in df_avg['Model']]
+    )
+    ax.set_ylabel(y_label, fontsize=16)
+
+    ax.set_ylim(y_min, y_max)
+    ax.set_xticks(range(len(df_avg['Model'])))
+    ax.set_xticklabels(df_avg['Model'], fontsize=14, rotation=90)
+
+    # fig.text(0.08, 0.5, y_label, va='center', rotation='vertical', fontsize=16)
+    # fig.text(0.5, -0.22, 'Models', ha='center', fontsize=16)
+    # fig.text(0.5, 0.95, title, ha='center', fontsize=16)
+
+    # Save the figure
+    os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
+    plot_file = f"{out_file_prefix}_barplot.pdf"
+    plt.savefig(plot_file, bbox_inches='tight')
+    print(f'Saved file: {plot_file}')
+
+    plt.show()
+    print('Done')
 
 
 def pair_plot(df_all, metric, out_file_prefix):
@@ -499,8 +532,6 @@ def pair_plot(df_all, metric, out_file_prefix):
 
 
 def wrapper_plot_compare_with_1hot(df, metric, y_label, title, out_file_prefix):
-
-
     df_1hot_diff = compute_difference_with_1hot(df)
     if df_1hot_diff.empty:
         return
@@ -526,25 +557,32 @@ def wrapper_plot_compare_with_1hot(df, metric, y_label, title, out_file_prefix):
 
     #pair plot for comparing each modelw ith baseline across each individual run
     pair_plot(df_1hot_diff, metric, out_file_prefix=f'{out_file_prefix}')
+
+    #plot a boxplot to show the difference between performance of baseline and a model
+    # box_plot(df, x='Model', y=metric, hue='rewire_method', ylabel=y_label, y_min=y_min, y_max=y_max, palette="Set2",
+    #          out_file_prefix=out_file_prefix)
+    #
+    if metric =='Pearsons':
+        y_min=-0.1
+        y_max=0.1
+    else:
+        y_min= None
+        y_max = None
+    unique_models = df_1hot_diff['Model'].unique()
+    color_palette = sns.cubehelix_palette(start=0.3, hue=1,
+                                          gamma=0.4, dark=0.1, light=0.8,
+                                          rot=-1.5, reverse=False, n_colors=len(unique_models))
+
+    box_plot(df_1hot_diff, x='Model', y=f'{metric}_diff', hue='Model', ylabel='Improvement over baseline (Pearsons)',
+             rotate=90, y_min=y_min, y_max=y_max, palette=color_palette, figsize=(len(unique_models), 8),
+             width=0.4, n_cols=5, dodge=False, zero_line=True, out_file_prefix=f'{out_file_prefix}')
+
     #bar plot for showing average MSE/RMSE of each model, showing performance improvement over baseline with color.
     plot_diff(df_1hot_diff_avg, metric=metric, y_label=y_label, yerr='std', out_file_prefix=f'{out_file_prefix}')
 
     print(title)
 
 def wrapper_plot_model_performance(df, metric, y_label,title, out_file_prefix):
-
-    # #compute RMSE from MSE:
-    # df_RMSE= copy.deepcopy(df_MSE)
-    # for  metric in ['test_loss', 'train_loss','val_loss']:
-    #     df_RMSE[metric] = np.sqrt(df_MSE[metric])
-    #
-    # # data_dict = {'Root Mean Squared Error (RMSE)': df_RMSE, 'Mean Squared Error (MSE)': df_MSE}
-    # data_dict = {'Root Mean Squared Error (RMSE)': df_RMSE}
-    #
-
-    #compute the difference between the model's result and corresponding 1 hot encoding
-    #plot MSE
-    # for measure in data_dict:
 
     df = set_model_names(df) #give model name from features.
 
@@ -558,8 +596,11 @@ def wrapper_plot_model_performance(df, metric, y_label,title, out_file_prefix):
     df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(), ordered=True)
     df = df.sort_values('Model')
     # y_label = metric.split('_')[-1]
+
     df.to_csv(f'{out_file_prefix}_aggreagred.tsv', sep='\t')
 
+    # remove one-hot based model
+    df = df[df['Model'] != 'One hot']
     #bar plot for showing average MSE/RMSE of each model, showing performance improvement over baseline with color.
     plot_performance(df, metric=metric, y_label=y_label, title=title, yerr='std', out_file_prefix=f'{out_file_prefix}')
 
@@ -625,16 +666,16 @@ def wrapper_plot_compare_shuffled(result_df, shuffled_result_df, metric, y_label
 
 def main():
     score_names = ['S_mean_mean', 'synergy_loewe_mean']
-    # score_names = [ 'synergy_loewe_mean']
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line', 'random']
 
-    # metric = 'Pearsons'
-    # y_label = 'Pearsons'
-    metric = 'test_RMSE'
-    y_label = 'RMSE'
+    metric = 'Pearsons'
+    y_label = 'Pearson\'s'
+    # metric = 'test_RMSE'
+    # y_label = 'RMSE'
 
     for score_name in score_names:
         result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_{score_name}'
+        # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/MARSY_data/k_0.05_{score_name}'
         score_name_str = score_name.split('_')[0]
 
         # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_{score_name}'
@@ -650,9 +691,8 @@ def main():
             #compute_RMSE from MSE
             for split in ['test', 'train', 'val']:
                 result_df[f'{split}_RMSE'] = np.sqrt(result_df[f'{split}_MSE'])
-
-            wrapper_plot_compare_with_1hot(result_df, metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
-            wrapper_plot_model_performance(result_df,metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
+            wrapper_plot_model_performance(copy.deepcopy(result_df),metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
+            wrapper_plot_compare_with_1hot(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
 
 
 
@@ -683,8 +723,6 @@ def main():
             wrapper_plot_compare_rewired(result_df, rewired_result_df, metric=metric, y_label=y_label,
                                          out_file_prefix=f'{result_dir}/{score_name_str}_{split_type}_{y_label}_rewired')
 
-    # barplot_model_comparison_with_deepsynergy("/home/grads/tasnina/Projects/SynVerse/inputs/existing_model_performance.tsv")
-    # scatter_plot_model_comparison_with_deepsynergy("/home/grads/tasnina/Projects/SynVerse/inputs/existing_model_performance.tsv")
 
 
 if __name__ == '__main__':

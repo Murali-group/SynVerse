@@ -31,8 +31,8 @@ def setup_opts():
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
                        "config_files/experiment_1/debug_statistical.yaml",
                        help="Configuration file for this script.")
-    group.add_argument('--score_name', type=str, default='synergy_loewe_mean', help="Name of the score to predict.")
-    # group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
+    # group.add_argument('--score_name', type=str, default='synergy_loewe_mean', help="Name of the score to predict.")
+    group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
 
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space. Applicable when you want to run just one set of features.")
@@ -87,7 +87,7 @@ def run_SynVerse(inputs, params, **kwargs):
     '''keep the cell lines consisting of at least abundance% of the total #triplets in the final dataset.'''
     synergy_df = abundance_based_filtering(synergy_df, min_frac=abundance)
 
-    plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{abundance}_{score_name}')
+    # plot_dist(synergy_df[score_name], out_dir= f'{params.input_dir}/stat/{get_feat_prefix(dfeat_dict, cfeat_dict)}_k_{abundance}_{score_name}')
 
 
 
@@ -105,12 +105,14 @@ def run_SynVerse(inputs, params, **kwargs):
     ''' prepare split'''
     mse_loss_dict = {}
     rmse_loss_dict = {}
+    pearsons_dict = {}
+    pval_dict = {}
+
     for split in splits:
         split_type = split['type']
         # n_folds = split['n_folds']
         test_frac = split['test_frac']
         val_frac = split['val_frac']
-        print('SPLIT: ', split_type)
 
         for run_no in range(start_run, end_run):
             #if user defined split type is present as kwargs param, then only the split types common between config and kwargs param
@@ -133,29 +135,44 @@ def run_SynVerse(inputs, params, **kwargs):
             #split into train test val
             test_df, all_train_df, train_idx, val_idx, drug_2_idx, cell_line_2_idx = wrapper_test_train_val(copy.deepcopy(synergy_df), split_type, test_frac, val_frac, split_file_path, seed=run_no, force_run=force_split)
             # print('\n\nedge type sepcific node_degree_based_model')
-            # predicted, mse_loss = edge_type_spec_node_degree_based_avg_model(all_train_df, test_df, score_name)
+            # predicted, mse_loss, pearson_cor, pvalue = edge_type_spec_node_degree_based_avg_model(all_train_df, test_df, score_name)
 
             # print('\n\nedge type sepcific node_degree_based_model')
-            # predicted, mse_loss = edge_type_spec_node_degree_based_sampling_model(all_train_df, test_df, score_name)
+            # predicted, mse_loss, pearson_cor, pvalue = edge_type_spec_node_degree_based_sampling_model(all_train_df, test_df, score_name)
 
             # print('\n\nnode_degree_based_sampling model')
-            # predicted, mse_loss = node_degree_based_sampling_model(all_train_df, test_df, score_name)
+            # predicted, mse_loss, pearson_cor, pvalue = node_degree_based_sampling_model(all_train_df, test_df, score_name)
 
             # print('\n\nnode_degree_based_sampling model')
-            # predicted, mse_loss = edge_type_spec_node_degree_based_model(all_train_df, test_df, score_name, choice='average')
+            # predicted, mse_loss, pearson_cor, pvalue = edge_type_spec_node_degree_based_model(all_train_df, test_df, score_name, choice='average')
 
-            print("\n\nlabel_distribution_based_model")
-            predicted, mse_loss = label_distribution_based_model(all_train_df, test_df, score_name)
-            print('MSE: ', mse_loss)
+            # print("\n\nlabel_distribution_based_model")
+            predicted, mse_loss, pearson_cor, pvalue = edge_type_label_distribution_based_model(all_train_df, test_df, score_name, split_type=split_type)
             mse_loss_dict[run_no] = mse_loss
             rmse_loss_dict[run_no] = np.sqrt(mse_loss)
+            pearsons_dict[run_no] =pearson_cor
+            pval_dict[run_no] = pvalue
+
+            # print('Split: ', split_type, 'Run:', run_no)
+            # print('RMSE: ', rmse_loss_dict[run_no])
+            # print('PEARSONS: ', pearson_cor)
+            #
+
 
         avg_mse = np.mean(list(mse_loss_dict.values()))
         avg_rmse = np.mean(list(rmse_loss_dict.values()))
+        avg_pearsons = np.mean(list(pearsons_dict.values()))
+        avg_pval = np.mean(list(pval_dict.values()))
+
+
 
         print(split_type)
         print(f'Average MSE {avg_mse:.4f}')
         print(f'Average RMSE {avg_rmse:.4f}')
+        print(f'Average PEARSONS {avg_pearsons:.4f}')
+        print(f'Average PEARSONS {avg_pval:.4f}')
+
+
 
 
 

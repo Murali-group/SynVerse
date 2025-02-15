@@ -13,11 +13,11 @@ input_settings:
   cell_line_features:
     - name: 'genex_lincs_1000'
       norm: 'std'
-      use: [true]
+      use: [false]
 
     - name: 'genex'
       norm: 'std'
-      use: [false]
+      use: [true]
 
     - name: 'c1hot'
       use: [ false ]

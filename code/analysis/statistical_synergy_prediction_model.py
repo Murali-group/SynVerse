@@ -2,7 +2,7 @@ import copy
 import pandas as pd
 import numpy as np
 import random
-
+import scipy.stats as stats
 def compute_degree_dist(train_df, score_name):
     drugs = set(train_df['source']).union(set(train_df['target']))
     dist_dict = {}
@@ -69,10 +69,7 @@ def get_mean_node_edge_type_scores(edges):
     return node_edge_type_mean_scores,node_edge_type_sampled_scores, node_edge_type_counts
 
 def node_degree_based_sampling_model(train_df, test_df, score_name):
-    '''
-        Rule for prediction on test: For all the triplets belonging to a certain edge type,
-                                    predict score by sampling score uniformly at random from training scores belonging to the same edge type.
-    '''
+
     test_df['ID'] = range(len(test_df))
     test_subset_drug_pairs = list(zip(test_df['source'],test_df['target']))
     predicted_scores = []
@@ -94,8 +91,9 @@ def node_degree_based_sampling_model(train_df, test_df, score_name):
     test_df['predicted'] = predicted_scores
 
     mse_loss = np.mean(((test_df[score_name]-test_df['predicted'])**2))
+    pearson_cor, pvalue = stats.pearsonr(list(test_df['predicted']), list(test_df[score_name]))
 
-    return list(test_df['predicted']), mse_loss
+    return list(test_df['predicted']), mse_loss, pearson_cor, pvalue
 
 
 def edge_type_spec_node_degree_based_sampling_model(train_df, test_df, score_name):
@@ -133,7 +131,10 @@ def edge_type_spec_node_degree_based_sampling_model(train_df, test_df, score_nam
     predicted_df=predicted_df.sort_values(by='ID', ascending=True)
     mse_loss = np.mean(((predicted_df[score_name]-predicted_df['predicted'])**2))
 
-    return list(predicted_df['predicted']), mse_loss
+
+    pearson_cor, pvalue = stats.pearsonr(list(test_df['predicted']), list(test_df[score_name]))
+
+    return list(predicted_df['predicted']), mse_loss,  pearson_cor, pvalue
 
 
 def edge_type_spec_node_degree_based_avg_model(train_df, test_df, score_name):
@@ -172,7 +173,10 @@ def edge_type_spec_node_degree_based_avg_model(train_df, test_df, score_name):
     #now compute the mean square error between true and predicted score.
     mse = ((test_df[score_name]-test_df[f'pred_{score_name}'])**2).mean()
     print(f"Mean Squared Error on Test data: {mse}")
-    return pred_scores, mse
+
+    pearson_cor, pvalue = stats.pearsonr(list(test_df[f'pred_{score_name}']), list(test_df[score_name]))
+
+    return pred_scores, mse, pearson_cor, pvalue
 
 def edge_type_spec_node_degree_based_model(train_df, test_df, score_name, choice = 'sample'):
 
@@ -204,54 +208,69 @@ def edge_type_spec_node_degree_based_model(train_df, test_df, score_name, choice
         pred_score = np.random.choice(score_arr, 1, p=norm_weights)
         pred_scores.append(pred_score)
 
-    test_df[f'pred_{score_name}'] = pred_scores
-    test_df[f'pred_{score_name}'].fillna(0, inplace=True)
-
+    # test_df[f'pred_{score_name}'] = pred_scores
+    # test_df[f'pred_{score_name}'].fillna(0, inplace=True)
     #now compute the mean square error between true and predicted score.
-    mse = ((test_df[score_name]-test_df[f'pred_{score_name}'])**2).mean()
-    print(f"Mean Squared Error on Test data: {mse}")
-    return pred_scores, mse
+    # mse = ((test_df[score_name]-test_df[f'pred_{score_name}'])**2).mean()
+    test_df['predicted'] = pred_scores
+    test_df['predicted'].fillna(0, inplace=True)
+    mse = ((test_df[score_name]-test_df['predicted'])**2).mean()
 
 
-# def label_distribution_based_model(train_df, test_df, score_name, split_type='leave_drug'):
-#     if split_type=='leave_drug':
-#         '''
-#             Rule for prediction on test: For all the triplets belonging to a certain edge type,
-#                                         predict score by sampling score uniformly at random from training scores belonging to the same edge type.
-#         '''
-#         test_df['ID'] = range(len(test_df))
-#         test_edge_types = test_df['edge_type'].unique()
-#         predicted_df = pd.DataFrame()
-#         for edge_type in test_edge_types:
-#             test_subset_df = test_df[test_df['edge_type'] == edge_type]
-#
-#             #sample from train
-#             train_subset_scores = list(train_df[train_df['edge_type'] == edge_type][score_name])
-#
-#             # Check if there are any train scores for the edge type
-#             if len(train_subset_scores) > 0:
-#                 # Sample uniformly at random from the training scores
-#                 test_subset_df['predicted'] = random.choices(train_subset_scores, k=len(test_subset_df))
-#             else:
-#                 # Handle the case where no training scores exist for the edge type
-#                 train_scores = train_df[score_name]
-#                 test_subset_df['predicted'] =  random.choices(list(train_scores), k=len(test_subset_df))
-#
-#             predicted_df = pd.concat([predicted_df, test_subset_df])
-#
-#         predicted_df=predicted_df.sort_values(by='ID', ascending=True)
-#         mse_loss = np.mean(((predicted_df[score_name]-predicted_df['predicted'])**2))
-#
-#         return list(predicted_df['predicted']), mse_loss
+    # print(f"Mean Squared Error on Test data: {mse}")
+    pearson_cor, pvalue = stats.pearsonr(test_df['predicted'], test_df[score_name])
 
-def label_distribution_based_model(train_df, test_df, score_name):
+    return pred_scores, mse, pearson_cor, pvalue
+
+
+def edge_type_label_distribution_based_model(train_df, test_df, score_name, split_type='leave_drug'):
+    if split_type!='leave_cell_line':
         '''
-            Rule for prediction on test: sampling score uniformly at random from training scores
+            Rule for prediction on test: For all the triplets belonging to a certain edge type,
+                                        predict score by sampling score uniformly at random from training scores belonging to the same edge type.
         '''
+        test_df['ID'] = range(len(test_df))
+        test_edge_types = test_df['edge_type'].unique()
+        predicted_df = pd.DataFrame()
+        for edge_type in test_edge_types:
+            test_subset_df = test_df[test_df['edge_type'] == edge_type]
+
+            #sample from train
+            train_subset_scores = list(train_df[train_df['edge_type'] == edge_type][score_name])
+
+            # Check if there are any train scores for the edge type
+            if len(train_subset_scores) > 0:
+                # Sample uniformly at random from the training scores
+                test_subset_df['predicted'] = random.choices(train_subset_scores, k=len(test_subset_df))
+            else:
+                # Handle the case where no training scores exist for the edge type
+                train_scores = train_df[score_name]
+                test_subset_df['predicted'] =  random.choices(list(train_scores), k=len(test_subset_df))
+
+            predicted_df = pd.concat([predicted_df, test_subset_df])
+
+        predicted_df=predicted_df.sort_values(by='ID', ascending=True)
+        mse_loss = np.mean(((predicted_df[score_name]-predicted_df['predicted'])**2))
+        pearson_cor, pvalue = stats.pearsonr(list(predicted_df['predicted']), list(predicted_df[score_name]))
+
+        return list(predicted_df['predicted']), mse_loss, pearson_cor, pvalue
+
+    else:
         train_scores = train_df[score_name]
-        test_df['predicted'] =  random.choices(list(train_scores), k=len(test_df))
-        mse_loss = np.mean(((test_df[score_name]-test_df['predicted'])**2))
+        test_df['predicted'] = random.choices(list(train_scores), k=len(test_df))
+        mse_loss = np.mean(((test_df[score_name] - test_df['predicted']) ** 2))
+        pearson_cor, pvalue = stats.pearsonr(list(test_df['predicted']), list(test_df[score_name]))
+        return list(test_df['predicted']), mse_loss, pearson_cor, pvalue
 
-        return list(test_df['predicted']), mse_loss
 
+# def label_distribution_based_model(train_df, test_df, score_name):
+#         '''
+#             Rule for prediction on test: sampling score uniformly at random from training scores
+#         '''
+#         train_scores = train_df[score_name]
+#         test_df['predicted'] =  random.choices(list(train_scores), k=len(test_df))
+#         mse_loss = np.mean(((test_df[score_name]-test_df['predicted'])**2))
+#         pearson_cor, pvalue = stats.pearsonr(list(test_df['predicted']), list(test_df[score_name]))
+#         return list(test_df['predicted']), mse_loss, pearson_cor, pvalue
+#
 

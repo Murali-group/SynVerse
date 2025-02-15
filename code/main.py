@@ -265,7 +265,6 @@ def run_SynVerse(inputs, params, **kwargs):
 
 
                 else:
-
                     runner = Encode_MLP_runner(all_train_df, train_idx, val_idx, select_dfeat_dict, select_cfeat_dict,
                              out_file_prefix, params, select_model_info, device, **kwargs)
 

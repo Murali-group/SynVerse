@@ -9,21 +9,21 @@ input_settings:
   drug_features:
 
     - name: 'MACCS'
-      use: [ false ]
+      use: [ true, false ]
 
     - name: 'ECFP_4'
-      use: [ false ]
+      use: [ true, false ]
 
     - name: 'MFP' #morgan fingerprint
-      use: [  false ]
+      use: [  true, false ]
 
     - name: 'mol_graph'
       encoder: 'GCN'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'smiles'
       encoder: 'Transformer'
-      use: [ true, false ]
+      use: [ false ]
 
     - name: 'd1hot'
       use: [ false ]
@@ -74,13 +74,13 @@ input_settings:
       test_frac: 0.2
       val_frac: 0.25
 
-    - type: 'leave_drug'
-      test_frac: 0.2
-      val_frac: 0.25
-
-    - type: 'leave_cell_line'
-      test_frac: 0.2
-      val_frac: 0.25
+#    - type: 'leave_drug'
+#      test_frac: 0.2
+#      val_frac: 0.25
+#
+#    - type: 'leave_cell_line'
+#      test_frac: 0.2
+#      val_frac: 0.25
 
   wandb:
     enabled: False
@@ -105,6 +105,7 @@ input_settings:
     use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
 
   shuffle: True
+
 
 
 output_settings:

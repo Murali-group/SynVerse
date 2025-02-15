@@ -1,8 +1,7 @@
 import pandas as pd
 import os
 import re
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
+from sklearn.metrics import recall_score, precision_score, f1_score
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
@@ -80,14 +79,18 @@ def compute_cls_performance(pred_file_path, thresholds = [0]):
     pred_df = pd.read_csv(pred_file_path, sep='\t')
     prec_dict = {}
     rec_dict = {}
+    f1_dict = {}
     for threshold in thresholds:
         y_true = list(pred_df['true'].astype(float).apply(lambda x : 1 if x > threshold else 0))
         y_pred = list(pred_df['predicted'].astype(float).apply(lambda x : 1 if x > threshold else 0))
         precision = precision_score(y_true, y_pred)
         recall = recall_score(y_true, y_pred)
+        f1 = f1_score(y_true, y_pred, average='binary')
         prec_dict[f'Precision_{threshold}'] = precision
         rec_dict[f'Recall_{threshold}'] = recall
-    return prec_dict, rec_dict
+        f1_dict[f'F1_{threshold}'] = f1
+
+    return prec_dict, rec_dict, f1_dict
 
 def compute_corr(pred_file_path):
     #columns = drug1	drug2	cell_line	TRUE	predicted
@@ -96,7 +99,8 @@ def compute_corr(pred_file_path):
     y_pred = list(pred_df['predicted'].astype(float))
     corr_prsn, pval_prsn = stats.pearsonr(y_true, y_pred)
     corr_sprmn, pval_sprmn = stats.spearmanr(y_true, y_pred)
-    corr = {'Pearsons':corr_prsn, 'Spearman':corr_sprmn}
+    corr = {'Pearsons':corr_prsn, 'Pearsons_pval': pval_prsn, 'Spearman':corr_sprmn,
+            'Spearman_pval': pval_sprmn}
     return corr
 
 def read_loss_file_content(file_path):
@@ -200,11 +204,11 @@ def iterate_output_files(folder_path):
 def main():
     # Example usage
     # base_folder=sys.argv[1]
-    # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/"
+    base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/"
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_S_mean_mean/"
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.95/k_0.05_S_mean_mean/"
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_synergy_loewe_mean/"
-    base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/MARSY_data/k_0.05_S_mean_mean/"
+    # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/MARSY_data/k_0.05_S_mean_mean/"
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/MatchMaker_data/k_0.05_synergy_loewe_mean/"
 
     split_types = ['random','leave_comb', 'leave_drug', 'leave_cell_line']
@@ -227,10 +231,15 @@ def main():
                 continue
             all_info = out_info
             loss_info = read_loss_file_content(out_info['loss_file'])
-            # precision, recall = compute_cls_performance(out_info['pred_file'], thresholds = [0, 10, 30])
+            precision_dict, recall_dict, f1_dict = compute_cls_performance(out_info['pred_file'], thresholds = [0, 10, 30])
             correlations_dict  = compute_corr(out_info['pred_file'])
             all_info.update(loss_info)
             all_info.update(correlations_dict)
+            all_info.update(precision_dict)
+            all_info.update(recall_dict)
+            all_info.update(f1_dict)
+
+
             data.append(all_info)
         df = pd.DataFrame(data)
         df.drop(columns=['loss_file', 'pred_file'], axis=1, inplace=True)

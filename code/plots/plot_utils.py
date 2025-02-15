@@ -39,31 +39,66 @@ def set_model_names(df):
 
     return df
 
-def box_plot(data, x, y, hue, ylabel, y_min=None, y_max=None, rotate=0, palette="Set2", hue_order=None,out_file_prefix=None, title=''):
+# def box_plot(data, x, y, hue, ylabel, y_min=None, y_max=None, rotate=0, palette="Set2", hue_order=None,out_file_prefix=None, figsize=(6, 4), width=0.5, title=''):
+#
+#     plt.figure(figsize=figsize)
+#     sns.boxplot(data=data, x=x, y=y, hue=hue, hue_order = hue_order, dodge=True, width=width, palette=palette, linewidth=0.4)
+#     # Add labels and title
+#     plt.xlabel('Models', fontsize=14)
+#     plt.ylabel(ylabel, fontsize=14)
+#     # plt.title("Test Loss Distribution by Model and Rewired Status", fontsize=14)
+#     if (y_min is not None) and (y_max is not None):
+#         plt.ylim(y_min, y_max)
+#     # Add grid lines along the y-axis
+#     plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
+#     plt.xticks(fontsize=12, rotation=rotate)
+#     plt.yticks(fontsize=12)
+#
+#
+#     if ylabel=='Pearsons':
+#         plt.legend(loc="lower left")
+#     else:
+#         plt.legend(loc="upper left")
+#     plt.title(title)
+#     plt.tight_layout()
+#     if out_file_prefix is not None:
+#         plt.savefig(f'{out_file_prefix}_boxplot.pdf', bbox_inches='tight')
+#     # Show the plot
+#     plt.show()
 
-    plt.figure(figsize=(6, 4))
-    sns.boxplot(data=data, x=x, y=y, hue=hue, hue_order = hue_order, dodge=True, width=0.5, palette=palette, linewidth=0.4)
+
+def box_plot(data, x, y, hue, ylabel, y_min=None, y_max=None, rotate=0, palette="Set2", hue_order=None,
+             out_file_prefix=None,
+             figsize=(6, 4), width=0.5, title='', n_cols=1, dodge=True, zero_line=False):
+    plt.figure(figsize=figsize)
+    sns.boxplot(data=data, x=x, y=y, hue=hue, hue_order=hue_order, dodge=dodge, width=width, palette=palette,
+                linewidth=0.4)
     # Add labels and title
-    plt.xlabel('Models', fontsize=14)
+    # plt.xlabel('Models', fontsize=14)
     plt.ylabel(ylabel, fontsize=14)
     # plt.title("Test Loss Distribution by Model and Rewired Status", fontsize=14)
     if (y_min is not None) and (y_max is not None):
         plt.ylim(y_min, y_max)
     # Add grid lines along the y-axis
-    plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
+    if zero_line:
+        plt.axhline(y=0, color='red', linestyle='--', linewidth=0.8)
+    else:
+        plt.grid(axis='y', linestyle='--', linewidth=0.5, alpha=0.7)
     plt.xticks(fontsize=12, rotation=rotate)
     plt.yticks(fontsize=12)
 
-
-
-    plt.legend(loc="upper left")
+    if ylabel == 'Pearsons':
+        plt.legend(loc="lower left", ncol=n_cols)
+    else:
+        plt.legend(loc="upper left", ncol=n_cols)
     plt.title(title)
     plt.tight_layout()
     if out_file_prefix is not None:
         plt.savefig(f'{out_file_prefix}_boxplot.pdf', bbox_inches='tight')
     # Show the plot
-    plt.show()
 
+    plt.show()
+#
 
 
 def confidence_interval(std_dev, n, confidence_level=0.95):

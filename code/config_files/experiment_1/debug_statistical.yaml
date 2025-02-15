@@ -70,21 +70,21 @@ input_settings:
 
 
   splits:
-#    - type: 'random'
-#      test_frac: 0.2
-#      val_frac: 0.25
+    - type: 'random'
+      test_frac: 0.2
+      val_frac: 0.25
 
     - type: 'leave_comb'
       test_frac: 0.2
       val_frac: 0.25
 
-#    - type: 'leave_drug'
-#      test_frac: 0.2
-#      val_frac: 0.25
-#
-#    - type: 'leave_cell_line'
-#      test_frac: 0.2
-#      val_frac: 0.25
+    - type: 'leave_drug'
+      test_frac: 0.2
+      val_frac: 0.25
+
+    - type: 'leave_cell_line'
+      test_frac: 0.2
+      val_frac: 0.25
 
 
   wandb:
@@ -102,7 +102,7 @@ input_settings:
     server_type: 'local' #or cluster
 
   feature: 'must'
-  abundance: 0
+  abundance: 0.05
 
   max_feat: 1
   hp_tune: False

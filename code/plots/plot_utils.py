@@ -29,14 +29,11 @@ def set_model_names(df):
     # Create x-tick labels combining 'drug_features' and 'cell_features'
     df['Model'] = df['drug_features'] + " + " + df['cell_features']
     df['Model'] = df['Model'].astype(str).apply(lambda x: model_name_mapping.get(x, x))
+    # Set categorical dtype with the correct order
+    df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(), ordered=True)
 
-    # remove model 'One hot (AE)'
-    df = df[df['Model'] != 'One hot (AE)']
-
-    # remove a few feature combo if present. Following remove model where auto-encoder used on one-hot without standardization.
-    df = df[~((df['drug_features'] == 'd1hot_comp_True') | (
-            df['cell_features'] == 'c1hot_comp_True'))]
-
+    # Explicitly sort the DataFrame based on categorical order
+    df = df.sort_values('Model')
     return df
 
 # def box_plot(data, x, y, hue, ylabel, y_min=None, y_max=None, rotate=0, palette="Set2", hue_order=None,out_file_prefix=None, figsize=(6, 4), width=0.5, title=''):
@@ -67,15 +64,20 @@ def set_model_names(df):
 #     plt.show()
 
 
-def box_plot(data, x, y, hue, ylabel, y_min=None, y_max=None, rotate=0, palette="Set2", hue_order=None,
+def box_plot(data, x, y, ylabel, hue=None, y_min=None, y_max=None, rotate=0, palette=None, color=None,  hue_order=None,
              out_file_prefix=None,
-             figsize=(6, 4), width=0.5, title='', n_cols=1, dodge=True, zero_line=False):
+             figsize=(6, 8), width=0.5, title='', n_cols=1, dodge=True, zero_line=False, legend='auto'):
     plt.figure(figsize=figsize)
-    sns.boxplot(data=data, x=x, y=y, hue=hue, hue_order=hue_order, dodge=dodge, width=width, palette=palette,
-                linewidth=0.4)
+
+    if color:
+        sns.boxplot(data=data, x=x, y=y, dodge=dodge, width=width, boxprops={'facecolor': color, 'edgecolor': 'black'}, linewidth=0.4, legend=legend)
+    else:
+        sns.boxplot(data=data, x=x, y=y, hue=hue, hue_order=hue_order, dodge=dodge, width=width, palette=palette,
+                    linewidth=0.4, legend=legend)
     # Add labels and title
     # plt.xlabel('Models', fontsize=14)
-    plt.ylabel(ylabel, fontsize=14)
+    plt.ylabel(ylabel, fontsize=16)
+    plt.xlabel('')
     # plt.title("Test Loss Distribution by Model and Rewired Status", fontsize=14)
     if (y_min is not None) and (y_max is not None):
         plt.ylim(y_min, y_max)
@@ -84,13 +86,15 @@ def box_plot(data, x, y, hue, ylabel, y_min=None, y_max=None, rotate=0, palette=
         plt.axhline(y=0, color='red', linestyle='--', linewidth=0.8)
     else:
         plt.grid(axis='y', linestyle='--', linewidth=0.5, alpha=0.7)
-    plt.xticks(fontsize=12, rotation=rotate)
-    plt.yticks(fontsize=12)
+    plt.xticks(fontsize=14, rotation=rotate)
+    plt.yticks(fontsize=14)
 
-    if ylabel == 'Pearsons':
-        plt.legend(loc="lower left", ncol=n_cols)
-    else:
-        plt.legend(loc="upper left", ncol=n_cols)
+    if legend:
+        if ylabel == 'Pearsons':
+            plt.legend(loc="lower left", ncol=n_cols)
+        else:
+            plt.legend(loc="upper left", ncol=n_cols)
+
     plt.title(title)
     plt.tight_layout()
     if out_file_prefix is not None:

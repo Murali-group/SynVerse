@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
 import sys
+from plots.plot_utils import *
 
 
 def feature_to_filter_map(drug_feat, cell_feat):
@@ -231,13 +232,13 @@ def main():
                 continue
             all_info = out_info
             loss_info = read_loss_file_content(out_info['loss_file'])
-            precision_dict, recall_dict, f1_dict = compute_cls_performance(out_info['pred_file'], thresholds = [0, 10, 30])
+            # precision_dict, recall_dict, f1_dict = compute_cls_performance(out_info['pred_file'], thresholds = [0, 10, 30])
             correlations_dict  = compute_corr(out_info['pred_file'])
             all_info.update(loss_info)
             all_info.update(correlations_dict)
-            all_info.update(precision_dict)
-            all_info.update(recall_dict)
-            all_info.update(f1_dict)
+            # all_info.update(precision_dict)
+            # all_info.update(recall_dict)
+            # all_info.update(f1_dict)
 
 
             data.append(all_info)
@@ -245,6 +246,16 @@ def main():
         df.drop(columns=['loss_file', 'pred_file'], axis=1, inplace=True)
         splitwise_df_dict[split_type] = df
         print(df.head(5))
+
+
+
+        # remove model 'One hot (AE)'
+        df = set_model_names(df)
+        #I have some extra runs which I don't want to appear in summary files. so remove them
+        df = df[df['Model'] != 'One hot (AE)']
+        # remove a few feature combo if present. Following remove model where auto-encoder used on one-hot without standardization.
+        df = df[~((df['drug_features'] == 'd1hot_comp_True') | (
+                df['cell_features'] == 'c1hot_comp_True'))]
 
         #seperate performance of models trained on original and rewired training  networks
         df_orig = df[(df['rewired'] == False) & (df['shuffled'] == False) ]

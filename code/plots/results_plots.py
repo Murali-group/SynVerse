@@ -11,8 +11,11 @@ from matplotlib.colors import TwoSlopeNorm
 from plot_utils import *
 from scipy.stats import mannwhitneyu
 from statsmodels.stats.multitest import multipletests
+import matplotlib.colors as mcolors
 
 
+single_color = mcolors.to_rgba("#196f3d", alpha=0.4)
+edge_color='#85929e'
 def scatter_plot_model_comparison_with_deepsynergy(filename):
     df = pd.read_csv(filename, sep='\t')[['Model name', 'Own', 'DeepSynergy']]
     # Create the scatter plot
@@ -138,6 +141,12 @@ def compute_average(df):
         Spearman_max=('Spearman', 'max'),
 
     ).reset_index()
+
+    # Restore categorical ordering for 'Model'
+    aggregated_results['Model'] = pd.Categorical(aggregated_results['Model'], categories=model_name_mapping.values(), ordered=True)
+
+    # Explicitly sort again based on categorical order
+    aggregated_results = aggregated_results.sort_values('Model')
     return aggregated_results
 
 def compute_average_and_significance(df, measure, n_runs=5):
@@ -321,7 +330,7 @@ def plot_performance_subplots(df_avg, metric, y_label, title, yerr ='std', out_f
 
     # Create subplots with dynamic widths
     fig, axes = plt.subplots(1, len(feature_filters),
-                             figsize=(6 * len(feature_filters), 8),
+                             figsize=(3.5 * len(feature_filters), 6),
                              gridspec_kw={'width_ratios': widths})
     if len(feature_filters) == 1:  # Ensure axes is always iterable
         axes = [axes]
@@ -338,19 +347,19 @@ def plot_performance_subplots(df_avg, metric, y_label, title, yerr ='std', out_f
 
 
     #model colors
-    unique_models = df_avg['Model'].unique()
-    color_palette = sns.cubehelix_palette(start=0.3, hue=1,
-                                      gamma=0.4, dark=0.1, light=0.8,
-                                      rot=-1, reverse=False,  n_colors=len(unique_models))
-    model_colors = {model: color for model, color in zip(unique_models, color_palette)}
+    # unique_models = df_avg['Model'].unique()
+    # color_palette = sns.cubehelix_palette(start=0.3, hue=1,
+    #                                   gamma=0.4, dark=0.1, light=0.8,
+    #                                   rot=-1, reverse=False,  n_colors=len(unique_models))
+    # model_colors = {model: color for model, color in zip(unique_models, color_palette)}
 
-    # color_palette = sns.light_palette("seagreen", n_colors=len(feature_filters))
-    # color_palette = sns.color_palette("Spectral",n_colors=len(feature_filters))
-    # color_palette = sns.cubehelix_palette(start=0.5, hue=1,
-    #                                   gamma=0.4, dark=0.3, light=0.7,
-    #                                   rot=-0.6, reverse=False,  n_colors=len(feature_filters))
+    # color_palette = sns.cubehelix_palette(start=0.3, hue=1,
+    #                                   gamma=0.4, dark=0.4, light=0.8,
+    #                                   rot=-0.7, reverse=False,  n_colors=len(feature_filters))
     # feature_filter_colors = {feature_filter: color for feature_filter, color in zip(feature_filters, color_palette)}
 
+    # hatch_patterns = ['///', 'xxx', '---', '|', '+', 'o', '*', '.']  # Add more if needed
+    # feature_filter_hatches = {feature_filter: hatch for feature_filter, hatch in zip(feature_filters, hatch_patterns)}
 
     # Plot each feature_filter's data
     for ax, feature_filter in zip(axes, feature_filters):
@@ -365,14 +374,18 @@ def plot_performance_subplots(df_avg, metric, y_label, title, yerr ='std', out_f
             subset[mean_col],
             yerr=subset[err_col],
             capsize=5,
-            edgecolor='black',
-            color=[model_colors[model] for model in subset['Model']]
+            edgecolor=edge_color,
+            width=0.65,
+            # alpha=0.4,
+            color = single_color,
+            # color=[model_colors[model] for model in subset['Model']]
             # color=[feature_filter_colors[feature_filter]]
+            # hatch=feature_filter_hatches[feature_filter]  # Apply different hatches
 
         )
 
         ax.set_ylim(y_min, y_max)
-
+        ax.set_xlim(-0.5, len(subset['Model']) - 0.5)
 
         # Set x-tick labels for each subplot
         x_positions = [bar.get_x() + bar.get_width() / 2 for bar in bars]
@@ -380,25 +393,27 @@ def plot_performance_subplots(df_avg, metric, y_label, title, yerr ='std', out_f
         ax.set_xticks(x_positions)  # Set x-tick positions
         ax.set_xticklabels(subset['Model'], fontsize=14)  # Set x-tick labels
         ax.tick_params(axis='x', rotation=90)  # Rotate labels for better readability
+        ax.yaxis.grid(True, linestyle='--', color='grey', alpha=0.6, linewidth=0.6)
 
         # Set y-axis label (Mean Squared Error) on the left side of each subplot
         # ax.set_ylabel("Mean Squared Error (MSE)", fontsize=12)
 
-    fig.text(0.08, 0.5, y_label, va='center', rotation='vertical', fontsize=16)
-    fig.text(0.5, -0.22, 'Models', ha='center', fontsize=16)
+    fig.text(0.05, 0.5, y_label, va='center', rotation='vertical', fontsize=16)
+    # fig.text(0.5, -0.22, 'Models', ha='center', fontsize=16)
 
-    fig.text(0.5, 0.95, title, ha='center', fontsize=16)
+    # fig.text(0.5, 0.95, title, ha='center', fontsize=16)
 
 
 
     # # Adjust layout to ensure that the colorbar does not overlap the plots
-    plt.subplots_adjust(right=0.85, wspace=0.15)  # Adjust right margin to create space for colorbar
+    # plt.subplots_adjust(right=0.85, wspace=0.2)  # Adjust right margin to create space for colorbar
     # fig.suptitle(f'{title}_{yerr}', fontsize=16, y=0.98)
     # Save the figure with tight bounding box (to avoid clipping)
-    os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
-    plot_file = f"{out_file_prefix}_barplot.pdf"
-    plt.savefig(plot_file, bbox_inches='tight')
-    print(f'saved file: {plot_file}')
+    if out_file_prefix is not None:
+        os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
+        plot_file = f"{out_file_prefix}_barplot.pdf"
+        plt.savefig(plot_file, bbox_inches='tight')
+        print(f'saved file: {plot_file}')
     # Show the plot
     plt.show()
     print('done')
@@ -531,37 +546,31 @@ def pair_plot(df_all, metric, out_file_prefix):
 
 
 
+def wrapper_plot_model_performance(df, metric, y_label,title, out_file_prefix=None):
+
+    df = compute_average(df)
+
+    df.to_csv(f'{out_file_prefix}_aggreagred.tsv', sep='\t')
+    # remove one-hot based model
+    df = df[df['Model'] != 'One hot']
+
+    #bar plot for showing Pearsons, RMSE or some other metric of each model, showing performance improvement over baseline with color.
+    # plot_performance(df, metric=metric, y_label=y_label, title=title, yerr='std', out_file_prefix=f'{out_file_prefix}')
+    plot_performance_subplots(df, metric=metric, y_label=y_label, title=title, yerr='std', out_file_prefix=out_file_prefix)
+
+
+    print(title)
+
 def wrapper_plot_compare_with_1hot(df, metric, y_label, title, out_file_prefix):
     df_1hot_diff = compute_difference_with_1hot(df)
     if df_1hot_diff.empty:
         return
 
-    df_1hot_diff = set_model_names(df_1hot_diff) #give model name from features.
-
-    #draw a pairplot to show difference between
-    df_1hot_diff_avg = compute_average_and_significance(df_1hot_diff, metric)
-
-    # Sort and save DataFrame according to the order of models in model_name_mapping
-    df_1hot_diff['Model'] = pd.Categorical(df_1hot_diff['Model'], categories=model_name_mapping.values(),ordered=True)
-    df_1hot_diff = df_1hot_diff.sort_values('Model')
-    # y_label = metric.split('_')[-1]
-
     df_1hot_diff.to_csv(f'{out_file_prefix}_with_baseline.tsv', sep='\t')
-
-
-    #sort model names
-    df_1hot_diff_avg['Model'] = pd.Categorical(df_1hot_diff_avg['Model'], categories=model_name_mapping.values(), ordered=True)
-    df_1hot_diff_avg = df_1hot_diff_avg.sort_values('Model')
-    df_1hot_diff_avg.to_csv(f'{out_file_prefix}_aggreagred.tsv', sep='\t')
-
 
     #pair plot for comparing each modelw ith baseline across each individual run
     pair_plot(df_1hot_diff, metric, out_file_prefix=f'{out_file_prefix}')
 
-    #plot a boxplot to show the difference between performance of baseline and a model
-    # box_plot(df, x='Model', y=metric, hue='rewire_method', ylabel=y_label, y_min=y_min, y_max=y_max, palette="Set2",
-    #          out_file_prefix=out_file_prefix)
-    #
     if metric =='Pearsons':
         y_min=-0.1
         y_max=0.1
@@ -569,61 +578,37 @@ def wrapper_plot_compare_with_1hot(df, metric, y_label, title, out_file_prefix):
         y_min= None
         y_max = None
     unique_models = df_1hot_diff['Model'].unique()
-    color_palette = sns.cubehelix_palette(start=0.3, hue=1,
-                                          gamma=0.4, dark=0.1, light=0.8,
-                                          rot=-1.5, reverse=False, n_colors=len(unique_models))
 
-    box_plot(df_1hot_diff, x='Model', y=f'{metric}_diff', hue='Model', ylabel='Improvement over baseline (Pearsons)',
-             rotate=90, y_min=y_min, y_max=y_max, palette=color_palette, figsize=(len(unique_models), 8),
-             width=0.4, n_cols=5, dodge=False, zero_line=True, out_file_prefix=f'{out_file_prefix}')
-
-    #bar plot for showing average MSE/RMSE of each model, showing performance improvement over baseline with color.
-    plot_diff(df_1hot_diff_avg, metric=metric, y_label=y_label, yerr='std', out_file_prefix=f'{out_file_prefix}')
-
-    print(title)
-
-def wrapper_plot_model_performance(df, metric, y_label,title, out_file_prefix):
-
-    df = set_model_names(df) #give model name from features.
-
-    #draw a pairplot to show difference between
-    df = compute_average(df)
-
-    # Sort and save DataFrame according to the order of models in model_name_mapping
-    df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(),ordered=True)
-
-    #sort model names
-    df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(), ordered=True)
-    df = df.sort_values('Model')
-    # y_label = metric.split('_')[-1]
-
-    df.to_csv(f'{out_file_prefix}_aggreagred.tsv', sep='\t')
-
+    #for one color
     # remove one-hot based model
-    df = df[df['Model'] != 'One hot']
-    #bar plot for showing average MSE/RMSE of each model, showing performance improvement over baseline with color.
-    plot_performance(df, metric=metric, y_label=y_label, title=title, yerr='std', out_file_prefix=f'{out_file_prefix}')
+    df_1hot_diff = df_1hot_diff[df_1hot_diff['Model'] != 'One hot']
+
+
+    box_plot(df_1hot_diff, x='Model', y=f'{metric}_diff', ylabel='Improvement over baseline (Pearson\'s)',
+             rotate=90, y_min=y_min, y_max=y_max, color = single_color,
+             width=0.7, dodge=False, zero_line=True,legend=False, out_file_prefix=f'{out_file_prefix}')
 
     print(title)
+
 
 
 
 def wrapper_plot_compare_rewired(result_df, rewired_result_df, metric, y_label, out_file_prefix):
 
         df = pd.concat([result_df, rewired_result_df], axis=0)
-        df = set_model_names(df)
+        # df = set_model_names(df)
 
 
         #keeps models  which I ran on rewired network
         rewired_model_names = df[df['rewired']==True]['Model'].unique()
         df = df[df['Model'].isin(rewired_model_names)]
 
-        #sort model names
-        df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(),ordered=True)
-        df = df.sort_values('Model')
+        # #sort model names
+        # df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(),ordered=True)
+        # df = df.sort_values('Model')
 
         #modify model name to look good on plot
-        df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
+        # df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
         df_1 = df.groupby(['Model','rewire_method']).agg({'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
         df_1.to_csv(f'{out_file_prefix}_aggregated.tsv', sep='\t')
         # print(df_1)
@@ -633,35 +618,39 @@ def wrapper_plot_compare_rewired(result_df, rewired_result_df, metric, y_label, 
         else:
             y_max=None
             y_min=None
-        box_plot(df, x='Model', y=metric, hue='rewire_method', ylabel=y_label,y_min=y_min, y_max=y_max, palette="Set2", out_file_prefix=out_file_prefix)
+        unique_models = df['Model'].unique()
+
+        box_plot(df, x='Model', y=metric, hue='rewire_method', ylabel=y_label,y_min=y_min, y_max=y_max, palette="Set2", rotate=90,
+                 figsize=(len(unique_models), 8), out_file_prefix=out_file_prefix)
 
 
 def wrapper_plot_compare_shuffled(result_df, shuffled_result_df, metric, y_label, out_file_prefix):
     df = pd.concat([result_df, shuffled_result_df], axis=0)
-    df = set_model_names(df)
+    # df = set_model_names(df)
 
     # keeps models  which I ran with shuffled features
     shuffled_model_names = df[df['shuffled'] == True]['Model'].unique()
     df = df[df['Model'].isin(shuffled_model_names)]
 
     # sort model names
-    df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(), ordered=True)
-    df = df.sort_values('Model')
+    # df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(), ordered=True)
+    # df = df.sort_values('Model')
 
     # modify model name to look good on plot
-    df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
+    # df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
     df_1 = df.groupby(['Model', 'shuffle_method']).agg({'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
     df_1.to_csv(f'{out_file_prefix}_aggregated.tsv', sep='\t')
 
     if (metric == 'Pearsons') | (metric == 'Spearman'):
         y_max = 1
-        y_min = min(min(df[metric]), 0)
+        y_min = min(min(df[metric]), 0.5)
     else:
         y_max = None
         y_min = None
     # modify model name to look good on plot
-    box_plot(df, x='Model', y=metric, hue='shuffle_method', ylabel=y_label, y_min=y_min, y_max=y_max,palette="Set2", hue_order = ['Original', 'Shuffled'],
-             out_file_prefix=out_file_prefix)
+    unique_models = df['Model'].unique()
+    box_plot(df, x='Model', y=metric, hue='shuffle_method', ylabel=y_label, y_min=y_min, y_max=y_max, rotate= 90 ,palette="Set2", hue_order = ['Original', 'Shuffled'],
+             figsize=(len(unique_models), 8), out_file_prefix=out_file_prefix)
 
 
 def main():
@@ -669,7 +658,7 @@ def main():
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line', 'random']
 
     metric = 'Pearsons'
-    y_label = 'Pearson\'s'
+    y_label = 'Pearson\'s Coefficient'
     # metric = 'test_RMSE'
     # y_label = 'RMSE'
 
@@ -691,9 +680,9 @@ def main():
             #compute_RMSE from MSE
             for split in ['test', 'train', 'val']:
                 result_df[f'{split}_RMSE'] = np.sqrt(result_df[f'{split}_MSE'])
+
             wrapper_plot_model_performance(copy.deepcopy(result_df),metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
             wrapper_plot_compare_with_1hot(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
-
 
 
             # plot for comparing models trained on original vs. shuffled features

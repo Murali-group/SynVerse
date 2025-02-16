@@ -331,7 +331,7 @@ def plot_performance_subplots(df_avg, metric, y_label, title, yerr ='std', out_f
     # Create subplots with dynamic widths
     fig, axes = plt.subplots(1, len(feature_filters),
                              figsize=(3.5 * len(feature_filters), 6),
-                             gridspec_kw={'width_ratios': widths})
+                             gridspec_kw={'width_ratios': widths}, sharey=True)
     if len(feature_filters) == 1:  # Ensure axes is always iterable
         axes = [axes]
 
@@ -546,7 +546,7 @@ def pair_plot(df_all, metric, out_file_prefix):
 
 
 
-def wrapper_plot_model_performance(df, metric, y_label,title, out_file_prefix=None):
+def wrapper_plot_model_performance_subplots(df, metric, y_label,title, out_file_prefix=None):
 
     df = compute_average(df)
 
@@ -572,8 +572,8 @@ def wrapper_plot_compare_with_1hot(df, metric, y_label, title, out_file_prefix):
     pair_plot(df_1hot_diff, metric, out_file_prefix=f'{out_file_prefix}')
 
     if metric =='Pearsons':
-        y_min=-0.1
-        y_max=0.1
+        y_min=min(-0.1, min(df_1hot_diff[f'{metric}_diff']))
+        y_max=max(0.1, max(df_1hot_diff[f'{metric}_diff']))
     else:
         y_min= None
         y_max = None
@@ -582,13 +582,74 @@ def wrapper_plot_compare_with_1hot(df, metric, y_label, title, out_file_prefix):
     #for one color
     # remove one-hot based model
     df_1hot_diff = df_1hot_diff[df_1hot_diff['Model'] != 'One hot']
-
-
     box_plot(df_1hot_diff, x='Model', y=f'{metric}_diff', ylabel='Improvement over baseline (Pearson\'s)',
-             rotate=90, y_min=y_min, y_max=y_max, color = single_color,
-             width=0.7, dodge=False, zero_line=True,legend=False, out_file_prefix=f'{out_file_prefix}')
+                          rotate=90, y_min=y_min, y_max=y_max, color = single_color, figsize=(len(unique_models), 8),
+                          width=0.6, dodge=False, zero_line=True, legend=False, out_file_prefix=f'{out_file_prefix}')
+
+    # # create subplots
+    # # Create subplots with dynamic widths based on the number of rows in each subset
+    # row_counts = [len(df_1hot_diff[df_1hot_diff['feature_filter'] == feature_filter]) for feature_filter in
+    #               feature_filters]
+    # total_rows = sum(row_counts)
+    # widths = [row_count / total_rows for row_count in row_counts]
+    #
+    # # Create subplots with dynamic widths
+    # fig, axes = plt.subplots(1, len(feature_filters),
+    #                          figsize=(3.5 * len(feature_filters), 6),
+    #                          gridspec_kw={'width_ratios': widths})
+    #
+    # for ax, feature_filter in zip(axes, feature_filters):
+    #     subset = df_1hot_diff[df_1hot_diff['feature_filter'] == feature_filter]
+    #     box_plot(subset, x='Model', y=f'{metric}_diff', ylabel='Improvement over baseline (Pearson\'s)',
+    #              rotate=90, y_min=y_min, y_max=y_max, color = single_color,
+    #              width=0.7, dodge=False, zero_line=True, ax=ax, legend=False, out_file_prefix=f'{out_file_prefix}')
+    #
+    # fig.text(0.05, 0.5, y_label, va='center', rotation='vertical', fontsize=16)
+    # if out_file_prefix is not None:
+    #     os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
+    #     plot_file = f"{out_file_prefix}_barplot.pdf"
+    #     plt.savefig(plot_file, bbox_inches='tight')
+    #     print(f'saved file: {plot_file}')
+    # # Show the plot
+    # plt.show()
+    # print('done')
 
     print(title)
+def wrapper_plot_compare_with_1hot_subplots(df, metric, y_label, title, out_file_prefix):
+    df_1hot_diff = compute_difference_with_1hot(df)
+    if df_1hot_diff.empty:
+        return
+
+    df_1hot_diff.to_csv(f'{out_file_prefix}_with_baseline.tsv', sep='\t')
+
+    # Pair plot for comparing each model with baseline across individual runs
+    pair_plot(df_1hot_diff, metric, out_file_prefix=f'{out_file_prefix}')
+
+    if metric == 'Pearsons':
+        y_min = min(-0.1, min(df_1hot_diff[f'{metric}_diff']))
+        y_max = max(0.1, max(df_1hot_diff[f'{metric}_diff']))
+    else:
+        y_min = None
+        y_max = None
+
+    unique_models = df_1hot_diff['Model'].unique()
+
+    # Remove one-hot based model
+    df_1hot_diff = df_1hot_diff[df_1hot_diff['Model'] != 'One hot']
+
+    # Get unique feature filters
+    feature_filters = df_1hot_diff['feature_filter'].unique()
+
+    # Call box plot with subplots
+    box_plot_subplots(
+        df_1hot_diff, x='Model', y=f'{metric}_diff',
+        ylabel='Improvement over baseline (Pearson\'s)',
+        feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
+        figsize=(3.5 * len(feature_filters), 8),
+        color=single_color,
+        width=0.6, dodge=False, zero_line=True, legend=False,
+        out_file_prefix=f'{out_file_prefix}'
+    )
 
 
 
@@ -611,7 +672,7 @@ def wrapper_plot_compare_rewired(result_df, rewired_result_df, metric, y_label, 
         # df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
         df_1 = df.groupby(['Model','rewire_method']).agg({'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
         df_1.to_csv(f'{out_file_prefix}_aggregated.tsv', sep='\t')
-        # print(df_1)
+
         if (metric == 'Pearsons') | (metric == 'Spearman'):
             y_max=1
             y_min = min(min(df[metric]), 0)
@@ -622,6 +683,49 @@ def wrapper_plot_compare_rewired(result_df, rewired_result_df, metric, y_label, 
 
         box_plot(df, x='Model', y=metric, hue='rewire_method', ylabel=y_label,y_min=y_min, y_max=y_max, palette="Set2", rotate=90,
                  figsize=(len(unique_models), 8), out_file_prefix=out_file_prefix)
+
+
+def wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, metric, y_label, out_file_prefix):
+
+        df = pd.concat([result_df, rewired_result_df], axis=0)
+        # df = set_model_names(df)
+
+
+        #keeps models  which I ran on rewired network
+        rewired_model_names = df[df['rewired']==True]['Model'].unique()
+        df = df[df['Model'].isin(rewired_model_names)]
+
+        # #sort model names
+        # df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(),ordered=True)
+        # df = df.sort_values('Model')
+
+        #modify model name to look good on plot
+        # df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
+        df_1 = df.groupby(['Model','rewire_method']).agg({'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
+        df_1.to_csv(f'{out_file_prefix}_aggregated.tsv', sep='\t')
+
+        if (metric == 'Pearsons') | (metric == 'Spearman'):
+            y_max=1
+            y_min = min(min(df[metric]), 0)
+        else:
+            y_max=None
+            y_min=None
+        unique_models = df['Model'].unique()
+        # Get unique feature filters
+        feature_filters = df['feature_filter'].unique()
+
+        # Call box plot with subplots
+        box_plot_subplots(
+            df, x='Model', y=metric,
+            ylabel=y_label,
+            hue='rewire_method',
+            feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
+            figsize=(3.5 * len(feature_filters), 8),
+            palette="Set2",
+            width=0.6, dodge=True,
+            out_file_prefix=f'{out_file_prefix}'
+        )
+
 
 
 def wrapper_plot_compare_shuffled(result_df, shuffled_result_df, metric, y_label, out_file_prefix):
@@ -651,6 +755,45 @@ def wrapper_plot_compare_shuffled(result_df, shuffled_result_df, metric, y_label
     unique_models = df['Model'].unique()
     box_plot(df, x='Model', y=metric, hue='shuffle_method', ylabel=y_label, y_min=y_min, y_max=y_max, rotate= 90 ,palette="Set2", hue_order = ['Original', 'Shuffled'],
              figsize=(len(unique_models), 8), out_file_prefix=out_file_prefix)
+def wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric, y_label, out_file_prefix):
+    df = pd.concat([result_df, shuffled_result_df], axis=0)
+    # df = set_model_names(df)
+
+    # keeps models  which I ran with shuffled features
+    shuffled_model_names = df[df['shuffled'] == True]['Model'].unique()
+    df = df[df['Model'].isin(shuffled_model_names)]
+
+    # sort model names
+    # df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(), ordered=True)
+    # df = df.sort_values('Model')
+
+    # modify model name to look good on plot
+    # df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
+    df_1 = df.groupby(['Model', 'shuffle_method']).agg({'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
+    df_1.to_csv(f'{out_file_prefix}_aggregated.tsv', sep='\t')
+
+    if (metric == 'Pearsons') | (metric == 'Spearman'):
+        y_max = 1
+        y_min = min(min(df[metric]), 0.5)
+    else:
+        y_max = None
+        y_min = None
+    # modify model name to look good on plot
+    unique_models = df['Model'].unique()
+
+    feature_filters = df['feature_filter'].unique()
+
+    # Call box plot with subplots
+    box_plot_subplots(
+        df, x='Model', y=metric,
+        ylabel=y_label,
+        hue='shuffle_method', hue_order = ['Original', 'Shuffled'],
+        feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
+        figsize=(3.5 * len(feature_filters), 8),
+        palette="Set2",
+        width=0.6, dodge=True,
+        out_file_prefix=f'{out_file_prefix}'
+    )
 
 
 def main():
@@ -681,8 +824,8 @@ def main():
             for split in ['test', 'train', 'val']:
                 result_df[f'{split}_RMSE'] = np.sqrt(result_df[f'{split}_MSE'])
 
-            wrapper_plot_model_performance(copy.deepcopy(result_df),metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
-            wrapper_plot_compare_with_1hot(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
+            wrapper_plot_model_performance_subplots(copy.deepcopy(result_df),metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
+            wrapper_plot_compare_with_1hot_subplots(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/{score_name_str}_{split_type}_{y_label}')
 
 
             # plot for comparing models trained on original vs. shuffled features
@@ -695,7 +838,7 @@ def main():
             # compute_RMSE from MSE
             for split in ['test', 'train', 'val']:
                 shuffled_result_df[f'{split}_RMSE'] = np.sqrt(shuffled_result_df[f'{split}_MSE'])
-            wrapper_plot_compare_shuffled(result_df, shuffled_result_df, metric=metric, y_label=y_label,
+            wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric=metric, y_label=y_label,
                                          out_file_prefix=f'{result_dir}/{score_name_str}_{split_type}_{y_label}_shuffled')
 
             # plot for comparing models trained on original vs. rewired networks
@@ -709,7 +852,7 @@ def main():
             for split in ['test', 'train', 'val']:
                 rewired_result_df[f'{split}_RMSE'] = np.sqrt(rewired_result_df[f'{split}_MSE'])
 
-            wrapper_plot_compare_rewired(result_df, rewired_result_df, metric=metric, y_label=y_label,
+            wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, metric=metric, y_label=y_label,
                                          out_file_prefix=f'{result_dir}/{score_name_str}_{split_type}_{y_label}_rewired')
 
 

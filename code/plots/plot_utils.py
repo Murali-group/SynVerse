@@ -36,37 +36,83 @@ def set_model_names(df):
     df = df.sort_values('Model')
     return df
 
-# def box_plot(data, x, y, hue, ylabel, y_min=None, y_max=None, rotate=0, palette="Set2", hue_order=None,out_file_prefix=None, figsize=(6, 4), width=0.5, title=''):
-#
-#     plt.figure(figsize=figsize)
-#     sns.boxplot(data=data, x=x, y=y, hue=hue, hue_order = hue_order, dodge=True, width=width, palette=palette, linewidth=0.4)
-#     # Add labels and title
-#     plt.xlabel('Models', fontsize=14)
-#     plt.ylabel(ylabel, fontsize=14)
-#     # plt.title("Test Loss Distribution by Model and Rewired Status", fontsize=14)
-#     if (y_min is not None) and (y_max is not None):
-#         plt.ylim(y_min, y_max)
-#     # Add grid lines along the y-axis
-#     plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
-#     plt.xticks(fontsize=12, rotation=rotate)
-#     plt.yticks(fontsize=12)
-#
-#
-#     if ylabel=='Pearsons':
-#         plt.legend(loc="lower left")
-#     else:
-#         plt.legend(loc="upper left")
-#     plt.title(title)
-#     plt.tight_layout()
-#     if out_file_prefix is not None:
-#         plt.savefig(f'{out_file_prefix}_boxplot.pdf', bbox_inches='tight')
-#     # Show the plot
-#     plt.show()
 
+def box_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None, y_max=None, rotate=0, palette=None,
+                      color=None, hue_order=None, out_file_prefix=None, figsize=(6, 8), width=0.5, title='',
+                      n_cols=1, dodge=True, zero_line=False, legend='auto'):
+    """
+    Creates subplots for each `feature_filter`, with each subplot containing box plots.
+    """
+
+    # Create subplots dynamically based on the number of `feature_filters`
+    # Create subplots with dynamic widths based on the number of rows in each subset
+    row_counts = [len(data[data['feature_filter'] == feature_filter]) for feature_filter in feature_filters]
+    total_rows = sum(row_counts)
+    widths = [row_count / total_rows for row_count in row_counts]
+
+    # Create subplots with dynamic widths
+    fig, axes = plt.subplots(1, len(feature_filters),
+                             figsize=(3.5 * len(feature_filters), 6),
+                             gridspec_kw={'width_ratios': widths}, sharey=True)
+
+    # fig, axes = plt.subplots(1, len(feature_filters), figsize=figsize, sharey=True)
+    if len(feature_filters) == 1:  # Ensure `axes` is iterable
+        axes = [axes]
+
+    for ax, feature_filter in zip(axes, feature_filters):
+        subset = data[data['feature_filter'] == feature_filter]
+        if subset.empty:
+            continue
+
+        # Plot box plot in subplot
+        if color:
+            box = sns.boxplot(
+                data=subset, x=x, y=y, hue=hue, hue_order=hue_order,
+                dodge=dodge, width=width, ax=ax, linewidth=0.4,
+                boxprops={'facecolor': color, 'edgecolor': 'black'},
+            )
+        else:
+            box = sns.boxplot(data=subset, x=x, y=y, hue=hue, hue_order=hue_order, dodge=dodge, width=width, palette=palette, ax=ax,
+                        linewidth=0.4, legend=legend)
+
+        # Formatting
+        # ax.set_title(f"{feature_filter}", fontsize=14)
+        ax.set_xlabel('')
+        ax.set_ylabel(ylabel, fontsize=14)
+        ax.set_xticklabels(list(subset['Model'].unique()), rotation=rotate, fontsize=12)
+        ax.yaxis.grid(True, linestyle='--', color='grey', alpha=0.6, linewidth=0.6)
+
+        # Set y-axis limits if provided
+        if (y_min is not None) and (y_max is not None):
+            ax.set_ylim(y_min, y_max)
+
+        # Add zero line if enabled
+        if zero_line:
+            ax.axhline(y=0, color='red', linestyle='--', linewidth=0.8)
+
+        # Store legend handles and labels for a shared legend
+        if legend and box.get_legend() is not None:
+            handles, labels = box.get_legend_handles_labels()
+            ax.get_legend().remove()
+    # Common y-label for all subplots
+    # fig.text(-0.01, 0.5, ylabel, va='center', rotation='vertical', fontsize=14)
+    if legend and handles:
+        fig.legend(handles, labels, loc='upper center', ncol=len(data[hue].unique()), frameon=False, title=None, fontsize=12,
+                   bbox_to_anchor=(0.5, 1.02))
+
+    plt.tight_layout()
+    if out_file_prefix is not None:
+        os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
+        plot_file = f"{out_file_prefix}_boxplot.pdf"
+        plt.savefig(plot_file, bbox_inches='tight')
+        print(f'Saved file: {plot_file}')
+
+    plt.show()
 
 def box_plot(data, x, y, ylabel, hue=None, y_min=None, y_max=None, rotate=0, palette=None, color=None,  hue_order=None,
              out_file_prefix=None,
              figsize=(6, 8), width=0.5, title='', n_cols=1, dodge=True, zero_line=False, legend='auto'):
+
     plt.figure(figsize=figsize)
 
     if color:
@@ -102,7 +148,6 @@ def box_plot(data, x, y, ylabel, hue=None, y_min=None, y_max=None, rotate=0, pal
     # Show the plot
 
     plt.show()
-#
 
 
 def confidence_interval(std_dev, n, confidence_level=0.95):

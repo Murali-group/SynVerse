@@ -1,3 +1,4 @@
+import copy
 import os
 
 import numpy as np
@@ -37,9 +38,83 @@ def set_model_names(df):
     return df
 
 
+def bar_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None, y_max=None, rotate=0, palette=None,
+    color=None, hue_order=None, out_file_prefix=None, figsize=(6, 8), width=0.5, title='', dodge=True, ft_filt_wise_1hot=None, legend='auto',
+                      edgecolor = 'black'):
+    """
+    Creates subplots for each `feature_filter`, with each subplot containing grouped bar plots.
+    """
+
+    # Create subplots dynamically based on the number of `feature_filters`
+
+    row_counts = [len(data[data['feature_filter'] == feature_filter]) for feature_filter in feature_filters]
+    total_rows = sum(row_counts)
+    widths = [row_count / total_rows for row_count in row_counts]
+
+    # Create subplots with dynamic widths
+    fig, axes = plt.subplots(1, len(feature_filters),
+                             figsize=figsize,
+                             gridspec_kw={'width_ratios': widths}, sharey=True)
+
+    if len(feature_filters) == 1:  # Ensure `axes` is iterable
+        axes = [axes]
+
+    handles, labels = None, None
+
+    for ax, feature_filter in zip(axes, feature_filters):
+        subset = data[data['feature_filter'] == feature_filter]
+        if subset.empty:
+            continue
+
+        if hue is not None:
+            # Plot grouped bar plot in subplot
+            bar = sns.barplot(
+                data=subset, x=x, y=y, hue=hue, hue_order=hue_order,
+                dodge=dodge, width=width, palette=palette, ax=ax, errorbar="sd",
+                edgecolor=edgecolor, linewidth=0.6,
+            )
+        else:
+            bar = sns.barplot(
+                data=subset, x=x, y=y,
+                dodge=dodge, width=width, color=color, ax=ax, errorbar="sd",
+                edgecolor=edgecolor, linewidth=0.6, gap=0.05
+            )
+        # Formatting
+        ax.set_xlabel('')
+        ax.set_ylabel(ylabel, fontsize=14)
+        ax.set_xticklabels(list(subset['Model'].unique()), rotation=rotate, fontsize=12)
+        ax.yaxis.grid(True, linestyle='--', color='grey', alpha=0.6, linewidth=0.6)
+
+        # Set y-axis limits if provided
+        if (y_min is not None) and (y_max is not None):
+            ax.set_ylim(y_min, y_max)
+
+        if ft_filt_wise_1hot:
+            ax.axhline(y=ft_filt_wise_1hot[feature_filter], color='red', linestyle='--', linewidth=0.8)
+
+        # Store legend handles and labels for a shared legend
+        if legend and bar.get_legend() is not None:
+            handles, labels = bar.get_legend_handles_labels()
+            ax.get_legend().remove()
+
+    # Common y-label for all subplots
+    if legend and handles:
+        fig.legend(handles, labels, loc='upper center', ncol=len(data[hue].unique()), frameon=False, title=None,
+                   fontsize=12,
+                   bbox_to_anchor=(0.5, 1.02))
+
+    plt.tight_layout()
+    if out_file_prefix is not None:
+        os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
+        plot_file = f"{out_file_prefix}_barplot.pdf"
+        plt.savefig(plot_file, bbox_inches='tight')
+        print(f'Saved file: {plot_file}')
+
+    plt.show()
+
 def box_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None, y_max=None, rotate=0, palette=None,
                       color=None, hue_order=None, out_file_prefix=None, figsize=(6, 8), width=0.5, title='',
-                      n_cols=1, dodge=True, zero_line=False, legend='auto'):
+                      dodge=True, zero_line=False, legend='auto', edgecolor='black'):
     """
     Creates subplots for each `feature_filter`, with each subplot containing box plots.
     """
@@ -52,7 +127,7 @@ def box_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None,
 
     # Create subplots with dynamic widths
     fig, axes = plt.subplots(1, len(feature_filters),
-                             figsize=(3.5 * len(feature_filters), 6),
+                             figsize=figsize,
                              gridspec_kw={'width_ratios': widths}, sharey=True)
 
     # fig, axes = plt.subplots(1, len(feature_filters), figsize=figsize, sharey=True)
@@ -67,13 +142,12 @@ def box_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None,
         # Plot box plot in subplot
         if color:
             box = sns.boxplot(
-                data=subset, x=x, y=y, hue=hue, hue_order=hue_order,
-                dodge=dodge, width=width, ax=ax, linewidth=0.4,
-                boxprops={'facecolor': color, 'edgecolor': 'black'},
+                data=subset, x=x, y=y, dodge=dodge, width=width, ax=ax, linewidth=0.8,
+                color = color, boxprops={'edgecolor':edgecolor}
             )
         else:
             box = sns.boxplot(data=subset, x=x, y=y, hue=hue, hue_order=hue_order, dodge=dodge, width=width, palette=palette, ax=ax,
-                        linewidth=0.4, legend=legend)
+                        linewidth=0.8, legend=legend, boxprops={'edgecolor':edgecolor})
 
         # Formatting
         # ax.set_title(f"{feature_filter}", fontsize=14)
@@ -111,12 +185,12 @@ def box_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None,
 
 def box_plot(data, x, y, ylabel, hue=None, y_min=None, y_max=None, rotate=0, palette=None, color=None,  hue_order=None,
              out_file_prefix=None,
-             figsize=(6, 8), width=0.5, title='', n_cols=1, dodge=True, zero_line=False, legend='auto'):
+             figsize=(6, 8), width=0.5, title='', n_cols=1, dodge=True, zero_line=False, legend='auto', edgecolor='black'):
 
     plt.figure(figsize=figsize)
 
     if color:
-        sns.boxplot(data=data, x=x, y=y, dodge=dodge, width=width, boxprops={'facecolor': color, 'edgecolor': 'black'}, linewidth=0.4, legend=legend)
+        sns.boxplot(data=data, x=x, y=y, dodge=dodge, width=width, boxprops={'facecolor': color, 'edgecolor':edgecolor}, linewidth=0.4, legend=legend)
     else:
         sns.boxplot(data=data, x=x, y=y, hue=hue, hue_order=hue_order, dodge=dodge, width=width, palette=palette,
                     linewidth=0.4, legend=legend)

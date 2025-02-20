@@ -186,7 +186,7 @@ def abundance_based_filtering(synergy_df, min_frac=0):
     return filtered_df
 
 def get_feature_comb_wrapper(dfeat_names, dfeat_dict, cfeat_names, cfeat_dict,
-                             use_feat=None, max_feat=None):
+                             use_feat, max_drug_feat, min_drug_feat, max_cell_feat, min_cell_feat):
     # if kwargs.get('feat') is not None:
     if use_feat is not None:
         use_feat = use_feat.split(' ')
@@ -200,13 +200,12 @@ def get_feature_comb_wrapper(dfeat_names, dfeat_dict, cfeat_names, cfeat_dict,
                 cfeat_dict['use'][feat_name] = [True]
             else:
                 cfeat_dict['use'][feat_name] = [False]
-        max_feat=None
 
-    drug_feat_combs = compute_feature_combination(dfeat_dict['use'], max_feat)
-    cell_feat_combs = compute_feature_combination(cfeat_dict['use'], max_feat)
+    drug_feat_combs = compute_feature_combination(dfeat_dict['use'], max_size=max_drug_feat, min_size=min_drug_feat)
+    cell_feat_combs = compute_feature_combination(cfeat_dict['use'], max_size=max_cell_feat, min_size=min_cell_feat)
     drug_cell_feat_combs = find_drug_cell_feat_combs(drug_feat_combs, cell_feat_combs)
     return drug_cell_feat_combs
-def compute_feature_combination(feature_info, max_size=None):
+def compute_feature_combination(feature_info, max_size=None, min_size=1):
     '''
     Computes valid combinations of features for training a model based on the 'use' values.
     :param feature_info: a list of dictionaries, where each dictionary has 3 keys: 'name', 'preprocess', and 'use'.
@@ -215,9 +214,9 @@ def compute_feature_combination(feature_info, max_size=None):
     :return: a list of lists, where each sublist represents a valid combination of feature names to use.
     '''
     # Filter and collect feature names that have at least one 'True' in their 'use' list
-    available_features = [feature_name for feature_name in feature_info if True in feature_info[feature_name]]
-    must_features = [feature_name for feature_name in feature_info if False not in feature_info[feature_name]]
-    optional_features = [feature_name for feature_name in available_features if feature_name not in must_features]
+    available_features = [feature_name for feature_name in feature_info if True in feature_info[feature_name]] # feature with use=[True, False] or use=[True]
+    must_features = [feature_name for feature_name in feature_info if False not in feature_info[feature_name]] # feature with use=[True]
+    optional_features = [feature_name for feature_name in available_features if feature_name not in must_features] # feature with use=[True, False]
     # Initialize an empty list to store all non-empty combinations
     all_combinations = []
     # Generate all possible non-empty combinations of available features
@@ -234,6 +233,9 @@ def compute_feature_combination(feature_info, max_size=None):
     feat_combinations = [feat_comb for feat_comb in feat_combinations if len(feat_comb)>0]
     #make sure that at least one feature comb is being chosen.
     assert len(feat_combinations)>0, print('ERROR: no feature is selected to use.')
+
+    # filter feature combs with < min_size
+    feat_combinations = [feat_comb for feat_comb in feat_combinations if len(feat_comb) >= min_size]
     return feat_combinations
 
 def find_drug_cell_feat_combs(drug_feat_combs, cell_feat_combs):

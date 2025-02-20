@@ -28,7 +28,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/rewired_cgenex.yaml",
+                       "config_files/experiment_1/debug_smiles.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
     group.add_argument('--feat', type=str,
@@ -100,9 +100,6 @@ def run_SynVerse(inputs, params, **kwargs):
         split_dir = os.path.join(split_dir, f'sample_norm_{retain_ratio}')
         out_dir = os.path.join(out_dir, f'sample_norm_{retain_ratio}')
 
-
-
-
     #******************************************* MODEL TRAINING ***********************************************
 
     #***********************************************Figure out the feature combinations to train the model on ***
@@ -110,7 +107,8 @@ def run_SynVerse(inputs, params, **kwargs):
     #given in the config
     use_feat = kwargs.get('feat')
     drug_cell_feat_combs = get_feature_comb_wrapper(dfeat_names, dfeat_dict, cfeat_names, cfeat_dict,
-                             use_feat=use_feat, max_feat=params.max_feat)
+                            use_feat=use_feat, max_drug_feat=params.max_drug_feat,
+                            min_drug_feat = params.min_drug_feat, max_cell_feat=params.max_cell_feat, min_cell_feat = params.min_cell_feat)
 
 
     start_run = kwargs.get('start_run')
@@ -330,7 +328,13 @@ def main(config_map, **kwargs):
         params.splits = config_map['input_settings']['splits']
         params.feature = config_map['input_settings']['feature']
         params.abundance = config_map['input_settings'].get('abundance',0)
-        params.max_feat=config_map['input_settings']['max_feat']
+
+        params.max_drug_feat=config_map['input_settings'].get('max_drug_feat', 1)
+        params.max_cell_feat=config_map['input_settings'].get('max_cell_feat', 1)
+
+        params.min_drug_feat=config_map['input_settings'].get('min_drug_feat', 1)
+        params.min_cell_feat=config_map['input_settings'].get('min_cell_feat', 1)
+
         params.hp_tune=config_map['input_settings']['hp_tune']
         params.train_mode = config_map['input_settings']['train_mode']
         params.rewire = config_map['input_settings'].get('rewire', False)

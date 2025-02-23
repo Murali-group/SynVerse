@@ -24,7 +24,7 @@ def barplot_model_comparison_with_deepsynergy(filename, metric, out_file):
     #                                 rot=-0.6, reverse=True, n_colors=2)
     # colors = {'Own': palette[0], 'DeepSynergy': palette[1]}
 
-    colors = {'Own': '#452c63', 'DeepSynergy':'#90EE90'}
+    colors = {'Own': '#34caec', 'DeepSynergy':'#90EE90'}
 
     # Define hatch patterns for Dataset_Score
     unique_datasets = df['Dataset_Score'].unique()
@@ -32,10 +32,10 @@ def barplot_model_comparison_with_deepsynergy(filename, metric, out_file):
     #                   zip(unique_datasets, ['/', '\\', '|', '-', '+', 'x', 'o', 'O', '.', '*'])}
 
     hatch_patterns = {dataset: pattern for dataset, pattern in
-                      zip(unique_datasets, ['////', '----', 'xxxx', 'o', 'O', '.', ])}
+                      zip(unique_datasets, ['///', '---', 'xxx', 'o', 'O', '.', ])}
 
     # Set up plot
-    fig, ax = plt.subplots(figsize=(4.5, 5))
+    fig, ax = plt.subplots(figsize=(3, 4.5))
 
     # Bar width and positions
     x = np.arange(len(df))
@@ -43,25 +43,26 @@ def barplot_model_comparison_with_deepsynergy(filename, metric, out_file):
 
     # Plot bars with hatches
     bars1 = ax.bar(x - width / 2, df[f'Own_{metric}'], width, label=f'Own', color=colors['Own'],
-                   alpha=0.4,
+                   alpha=0.8,
                    hatch=[hatch_patterns[ds] for ds in df['Dataset_Score']],
                    )
     bars2 = ax.bar(x + width / 2, df[f'DeepSynergy_{metric}'], width, label='DeepSynergy', color=colors['DeepSynergy'],
-                   alpha=0.5,
+                   alpha=0.8,
                    hatch=[hatch_patterns[ds] for ds in df['Dataset_Score']],
                    )
 
     # Plot a solid line for DeepSynergy's performance
-    ax.axhline(y=deepsynergy_performance, color='orange', linestyle='--', linewidth=1)
+    ax.axhline(y=deepsynergy_performance, color='orange', linestyle='--', linewidth=2)
     # X-axis labels and ticks
     ax.set_xticks(x)
     # ax.set_xticklabels(df['Model'].replace('(','\n('), rotation=45, ha='right')
-    ax.set_xticklabels(df['Model'].str.replace(r'\(', r'\n(', regex=True), multialignment='center')
+    ax.set_xticklabels(df['Model'].str.replace(r'\(', r'\n(', regex=True), multialignment='center', rotation=90)
 
     # Labels and title
     ax.set_ylabel(metric)
     if metric=='Pearsons':
         ax.set_ylim(0, 1)
+        ax.set_ylabel('PCC')
 
     # # ax.set_title(f'Model Comparison with DeepSynergy - {metric}')
     # custom_legend = [plt.Rectangle((0, 0), 1, 1, color=colors['Own'], alpha=0.7, label='Own'),
@@ -77,12 +78,12 @@ def barplot_model_comparison_with_deepsynergy(filename, metric, out_file):
     # legend1 = ax.legend(handles=color_legend, loc='upper right', ncol=2)
 
     # ✅ Create a legend for hatches (Dataset Scores)
-    hatch_legend = [Patch(facecolor='none', edgecolor='gray', hatch=hatch_patterns[ds], label=f'{ds}')
+    hatch_legend = [Patch(facecolor='none', edgecolor='black', hatch=hatch_patterns[ds], label=f'{ds}')
                     for ds in unique_datasets]
 
     # legend2 = ax.legend(handles=hatch_legend, loc='upper left', frameon=True, ncol=3)
     combined_legend = color_legend + hatch_legend
-    ax.legend(handles=combined_legend, loc='upper left', ncol=2, columnspacing=0.4, handletextpad=0.3)
+    ax.legend(handles=combined_legend, loc='upper left', ncol=1, columnspacing=0.4, handletextpad=0.3)
 
     # ax.add_artist(legend1)  # Ensures the first legend stays
     # ax.add_artist(legend2)  # Adds the second legend

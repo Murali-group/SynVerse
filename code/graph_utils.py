@@ -469,8 +469,12 @@ def rewire_signed(df, score_name, method='SA'):
             rewired_df_edge['edge_type'] = edge_type
             return rewired_df_edge
 
-        rewired_df_pos= randomize(df_edge_pos)
-        rewired_df_neg = randomize(df_edge_neg)
+        rewired_df_pos = pd.DataFrame()
+        rewired_df_neg = pd.DataFrame()
+        if not df_edge_pos.empty:
+            rewired_df_pos= randomize(df_edge_pos)
+        if not df_edge_neg.empty:
+            rewired_df_neg = randomize(df_edge_neg)
         rewired_df = pd.concat([rewired_df, rewired_df_pos, rewired_df_neg], axis=0)
 
 

@@ -201,7 +201,6 @@ def iterate_output_files(folder_path):
     return out_file_list
 
 
-
 def main():
     # Example usage
     # base_folder=sys.argv[1]

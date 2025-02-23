@@ -318,125 +318,6 @@ def plot_diff(df_1hot_diff_avg, metric, y_label, yerr ='std', out_file_prefix=No
     plt.show()
 
 
-# def plot_performance_subplots(df_avg, metric, y_label, title, yerr ='std',ft_filt_wise_1hot=None, out_file_prefix=None):
-#     """
-#     Plot a barplot with horizontally grouped subplots for each feature_filter with dynamic widths.
-#     The colorbar is positioned to the right of all subplots.
-#
-#     Parameters:
-#     - df_1hot_diff_avg: DataFrame containing the required metrics.
-#     - metric: The metric to plot ('test_loss' by default).
-#     - title_prefix: Optional title prefix.
-#     """
-#
-#     # Define columns of interest
-#     mean_col = f'{metric}_mean'
-#     err_col = f'{metric}_{yerr}'
-#
-#     # Get unique feature filters
-#     assert len(set(df_avg['feature_filter'].unique()).difference(set(feature_filters))) == 0, print('mismatch')
-#
-#     # Create subplots with dynamic widths based on the number of rows in each subset
-#     row_counts = [len(df_avg[df_avg['feature_filter'] == feature_filter]) for feature_filter in feature_filters]
-#     total_rows = sum(row_counts)
-#     widths = [row_count / total_rows for row_count in row_counts]
-#
-#     # Create subplots with dynamic widths
-#     fig, axes = plt.subplots(1, len(feature_filters),
-#                              figsize=(3 * len(feature_filters), 4),
-#                              gridspec_kw={'width_ratios': widths}, sharey=True)
-#     if len(feature_filters) == 1:  # Ensure axes is always iterable
-#         axes = [axes]
-#
-#     if (metric == 'Pearsons')|(metric == 'Spearman'):
-#         y_max=1
-#         y_min = min(min(df_avg[mean_col]-df_avg[err_col]), 0)
-#     else:
-#         # # Calculate global y-axis limits. Make ylims divisible by 5
-#         y_max = max(df_avg[mean_col] + df_avg[err_col])
-#         # y_min = y_min-(y_min%5)-5
-#         y_min=0
-#         y_max = y_max-(y_max%5)+5
-#
-#
-#     #model colors
-#     # unique_models = df_avg['Model'].unique()
-#     # color_palette = sns.cubehelix_palette(start=0.3, hue=1,
-#     #                                   gamma=0.4, dark=0.1, light=0.8,
-#     #                                   rot=-1, reverse=False,  n_colors=len(unique_models))
-#     # model_colors = {model: color for model, color in zip(unique_models, color_palette)}
-#
-#     # color_palette = sns.cubehelix_palette(start=0.3, hue=1,
-#     #                                   gamma=0.4, dark=0.4, light=0.8,
-#     #                                   rot=-0.7, reverse=False,  n_colors=len(feature_filters))
-#     # feature_filter_colors = {feature_filter: color for feature_filter, color in zip(feature_filters, color_palette)}
-#
-#     # hatch_patterns = ['///', 'xxx', '---', '|', '+', 'o', '*', '.']  # Add more if needed
-#     # feature_filter_hatches = {feature_filter: hatch for feature_filter, hatch in zip(feature_filters, hatch_patterns)}
-#
-#     # Plot each feature_filter's data
-#     for ax, feature_filter in zip(axes, feature_filters):
-#         subset = df_avg[df_avg['feature_filter'] == feature_filter]
-#
-#         if len(subset)==0:
-#             continue
-#
-#         # Plot bars
-#         bars = ax.bar(
-#             subset['Model'],
-#             subset[mean_col],
-#             yerr=subset[err_col],
-#             capsize=5,
-#             edgecolor=edge_color,
-#             width=0.6,
-#             # alpha=0.4,
-#             color = original_model_color,
-#             # color=[model_colors[model] for model in subset['Model']]
-#             # color=[feature_filter_colors[feature_filter]]
-#             # hatch=feature_filter_hatches[feature_filter]  # Apply different hatches
-#
-#         )
-#
-#
-#         ax.set_ylim(y_min, y_max)
-#         ax.set_xlim(-0.5, len(subset['Model']) - 0.5)
-#
-#         # Set x-tick labels for each subplot
-#         x_positions = [bar.get_x() + bar.get_width() / 2 for bar in bars]
-#         # print(x_positions)
-#         ax.set_xticks(x_positions)  # Set x-tick positions
-#         ax.set_xticklabels(subset['Model'], fontsize=12)  # Set x-tick labels
-#         ax.tick_params(axis='x', rotation=90)  # Rotate labels for better readability
-#         ax.yaxis.grid(True, linestyle='--', color='grey', alpha=0.6, linewidth=0.6)
-#
-#         if ft_filt_wise_1hot:
-#             ax.axhline(y=ft_filt_wise_1hot[feature_filter], color='red', linestyle='--', linewidth=0.8)
-#
-#         # Set y-axis label (Mean Squared Error) on the left side of each subplot
-#         # ax.set_ylabel("Mean Squared Error (MSE)", fontsize=12)
-#
-#     fig.text(0.05, 0.5, y_label, va='center', rotation='vertical', fontsize=14)
-#     # fig.text(0.5, -0.22, 'Models', ha='center', fontsize=16)
-#
-#     # fig.text(0.5, 0.95, title, ha='center', fontsize=16)
-#
-#
-#
-#     # # Adjust layout to ensure that the colorbar does not overlap the plots
-#     # plt.subplots_adjust(right=0.85, wspace=0.2)  # Adjust right margin to create space for colorbar
-#     # fig.suptitle(f'{title}_{yerr}', fontsize=16, y=0.98)
-#     # Save the figure with tight bounding box (to avoid clipping)
-#     if out_file_prefix is not None:
-#         os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
-#         spec_prefix = 'with_1hot_' if ft_filt_wise_1hot else ''
-#         plot_file = f"{out_file_prefix}_{spec_prefix}barplot.pdf"
-#         plt.savefig(plot_file, bbox_inches='tight')
-#         print(f'saved file: {plot_file}')
-#
-#     # Show the plot
-#     plt.show()
-#     print('done')
-
 
 def plot_performance(df_avg, metric, y_label, title, yerr='std', out_file_prefix=None):
     """
@@ -590,6 +471,7 @@ def pair_plot(df_all, metric, out_file_prefix):
 
 def wrapper_plot_model_performance_subplots(df, metric, y_label, title, out_file_prefix=None):
 
+
     df_avg = compute_average(df)
 
     df_avg.to_csv(f'{out_file_prefix}_aggreagred.tsv', sep='\t')
@@ -610,6 +492,29 @@ def wrapper_plot_model_performance_subplots(df, metric, y_label, title, out_file
     # Get unique feature filters
     feature_filters = df['feature_filter'].unique()
 
+    # box_plot_subplots(
+    #     df, x='Model', y=metric,
+    #     ylabel=y_label,
+    #     hue=None, hue_order=None,
+    #     feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
+    #     figsize=(2.5 * len(feature_filters), box_height),
+    #     color=original_model_color,
+    #     width=0.7,
+    #     dodge=True,
+    #     out_file_prefix=f'{out_file_prefix}',
+    #     edgecolor=edge_color
+    # )
+    #
+    # box_plot_subplots(
+    #     df_1hot_diff, x='Model', y=f'{metric}_diff',
+    #     ylabel='Improvement over baseline (Pearson\'s)',
+    #     feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
+    #     figsize=(2.5 * len(feature_filters), box_height),
+    #     color=original_model_color,
+    #     width=0.6, dodge=False, edgecolor='black', zero_line=True, legend=False,
+    #     out_file_prefix=f'{out_file_prefix}'
+    # )
+
     bar_plot_subplots(
         df, x='Model', y=metric,
         ylabel=y_label,
@@ -623,6 +528,7 @@ def wrapper_plot_model_performance_subplots(df, metric, y_label, title, out_file
         edgecolor=edge_color
     )
 
+    #plot with baseline
     bar_plot_subplots(
         df, x='Model', y=metric,
         ylabel=y_label,
@@ -683,8 +589,6 @@ def wrapper_plot_compare_with_1hot_subplots(df, metric, y_label, title, out_file
     else:
         y_min = None
         y_max = None
-
-    unique_models = df_1hot_diff['Model'].unique()
 
     # Remove one-hot based model
     df_1hot_diff = df_1hot_diff[df_1hot_diff['Model'] != 'One hot']
@@ -870,7 +774,7 @@ def main():
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line', 'random']
 
     metric = 'Pearsons'
-    y_label = 'Pearson\'s Coefficient'
+    y_label = 'PCC'
     alt= 'greater' #alternate hypothesis for sugnificance test
 
     # metric = 'test_RMSE'
@@ -892,6 +796,7 @@ def main():
                 print(f'file {result_file} does not exist. Continuing to next file.')
                 continue
             result_df = pd.read_csv(result_file_path, sep='\t', index_col=None)
+
             #compute_RMSE from MSE
             for split in ['test', 'train', 'val']:
                 result_df[f'{split}_RMSE'] = np.sqrt(result_df[f'{split}_MSE'])
@@ -900,6 +805,8 @@ def main():
             significance_df.to_csv(
                 f'{result_dir}/significance_baseline_diff_{score_name_str}_{split_type}_{metric}.tsv', sep='\t')
 
+            # if the model_name mapping is not available, we do not want to plot the model's performance.
+            result_df.dropna(subset=['Model'], inplace=True)
             wrapper_plot_model_performance_subplots(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, out_file_prefix =f'{result_dir}/{score_name_str}_{split_type}_{metric}')
             wrapper_plot_compare_with_1hot_subplots(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/baseline_{score_name_str}_{split_type}_{metric}')
 
@@ -911,6 +818,10 @@ def main():
                 print(f'file {shuffled_result_file_path} does not exist. Continuing to next file.')
                 continue
             shuffled_result_df = pd.read_csv(shuffled_result_file_path, sep='\t', index_col=None)
+
+            # if the model_name mapping is not available, we do not want to plot the model's performance.
+            shuffled_result_df.dropna(subset=['Model'], inplace=True)
+
             # compute_RMSE from MSE
             for split in ['test', 'train', 'val']:
                 shuffled_result_df[f'{split}_RMSE'] = np.sqrt(shuffled_result_df[f'{split}_MSE'])
@@ -924,6 +835,10 @@ def main():
                 print(f'file {rewired_result_file_path} does not exist. Continuing to next file.')
                 continue
             rewired_result_df = pd.read_csv(rewired_result_file_path, sep='\t', index_col=None)
+
+            # if the model_name mapping is not available, we do not want to plot the model's performance.
+            rewired_result_df.dropna(subset=['Model'], inplace=True)
+
             # compute_RMSE from MSE
             for split in ['test', 'train', 'val']:
                 rewired_result_df[f'{split}_RMSE'] = np.sqrt(rewired_result_df[f'{split}_MSE'])

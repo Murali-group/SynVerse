@@ -50,6 +50,7 @@ def setup_opts():
     return parser
 
 
+
 def run_SynVerse(inputs, params, **kwargs):
     #TODO: set default values for the params if not given in config file.
     print(device)

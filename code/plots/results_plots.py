@@ -195,286 +195,12 @@ def compute_average_and_significance(df, measure, alt='greater'):
     )
 
     return final_results
-def plot_diff(df_1hot_diff_avg, metric, y_label, yerr ='std', out_file_prefix=None):
-    """
-    Plot a barplot with horizontally grouped subplots for each feature_filter with dynamic widths.
-    The colorbar is positioned to the right of all subplots.
-
-    Parameters:
-    - df_1hot_diff_avg: DataFrame containing the required metrics.
-    - metric: The metric to plot ('test_loss' by default).
-    - title_prefix: Optional title prefix.
-    """
-
-    # Define columns of interest
-    mean_col = f'{metric}_mean'
-    err_col = f'{metric}_{yerr}'
-    diff_mean_col = f'{metric}_diff_mean'
-
-    # Create a diverging color palette based on the diff_mean_col with 0 as the center
-    abs_max_diff = max(abs(df_1hot_diff_avg[diff_mean_col].min()), abs(df_1hot_diff_avg[diff_mean_col].max()))
-    norm = TwoSlopeNorm(vmin=-abs_max_diff, vcenter=0, vmax=abs_max_diff)
-    if (metric == 'Pearsons') | (metric == 'Spearman'):
-        cmap = sns.diverging_palette(220, 15, s=85, l=65, as_cmap=True).reversed()
-    else:
-        cmap = sns.diverging_palette(220, 15, s=85, l=65, as_cmap=True)
-
-
-    # Get unique feature filters
-    assert len(set(df_1hot_diff_avg['feature_filter'].unique()).difference(set(feature_filters)))==0, print('mismatch')
-
-    # Create subplots with dynamic widths based on the number of rows in each subset
-    row_counts = [len(df_1hot_diff_avg[df_1hot_diff_avg['feature_filter'] == feature_filter]) for feature_filter in feature_filters]
-    total_rows = sum(row_counts)
-    widths = [row_count / total_rows for row_count in row_counts]
-
-    # Create subplots with dynamic widths
-    fig, axes = plt.subplots(1, len(feature_filters),
-                             figsize=(6 * len(feature_filters), 8),
-                             gridspec_kw={'width_ratios': widths})
-    if len(feature_filters) == 1:  # Ensure axes is always iterable
-        axes = [axes]
-
-    if (metric == 'Pearsons')|(metric == 'Spearman'):
-        y_max=1
-        y_min = min(min(df_1hot_diff_avg[mean_col]-df_1hot_diff_avg[err_col]), 0)
-    else:
-        # # Calculate global y-axis limits. Make ylims divisible by 5
-        y_max = max(df_1hot_diff_avg[mean_col] + df_1hot_diff_avg[err_col])
-        # y_min = y_min-(y_min%5)-5
-        y_min=0
-        y_max = y_max-(y_max%5)+5
-
-    # Optional: Adjust limits slightly for better aesthetics
-    # padding = 0.01 * (y_max - y_min)
-    # y_min -= padding
-    # y_max += padding
-
-    # Plot each feature_filter's data
-    for ax, feature_filter in zip(axes, feature_filters):
-        subset = df_1hot_diff_avg[df_1hot_diff_avg['feature_filter'] == feature_filter]
-
-        if len(subset)==0:
-            continue
-
-        # Normalize colors for the subset
-        colors = cmap(norm(subset[diff_mean_col]))
-
-
-        # Plot bars
-        bars = ax.bar(
-            subset['Model'],
-            subset[mean_col],
-            yerr=subset[err_col],
-            # yerr=subset[CI_col],
-            color=colors,
-            capsize=5,
-            edgecolor='black'
-        )
-        # Calculate global y-axis limits
-        # y_min = min(subset[mean_col] - subset[err_col])
-        # y_max = max(subset[mean_col] + subset[err_col])
-        #
-        # # Optional: Adjust limits slightly for better aesthetics
-        # padding = 0.01 * (y_max - y_min)
-        # y_min -= padding
-        # y_max += padding
-
-        ax.set_ylim(y_min, y_max)
-
-
-        # Set x-tick labels for each subplot
-        x_positions = [bar.get_x() + bar.get_width() / 2 for bar in bars]
-        # print(x_positions)
-        ax.set_xticks(x_positions)  # Set x-tick positions
-        ax.set_xticklabels(subset['Model'], fontsize=14)  # Set x-tick labels
-        ax.tick_params(axis='x', rotation=90)  # Rotate labels for better readability
-
-        # Set y-axis label (Mean Squared Error) on the left side of each subplot
-        # ax.set_ylabel("Mean Squared Error (MSE)", fontsize=12)
-
-    fig.text(0.08, 0.5, y_label, va='center', rotation='vertical', fontsize=16)
-    fig.text(0.5, -0.22, 'Models', ha='center', fontsize=16)
 
 
 
-    # # Create colorbar outside the subplots grid
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array(df_1hot_diff_avg[diff_mean_col])
-
-    # Add a vertical colorbar to the right of the subplots
-    cbar = fig.colorbar(sm, ax=axes, orientation='vertical', fraction=0.05, pad=0.04)
-    cbar.set_label(f'Difference with baseline', fontsize=14)
-
-    # # Adjust layout to ensure that the colorbar does not overlap the plots
-    plt.subplots_adjust(right=0.85, wspace=0.15)  # Adjust right margin to create space for colorbar
-    # fig.suptitle(f'{title}_{yerr}', fontsize=16, y=0.98)
-    # Save the figure with tight bounding box (to avoid clipping)
-    os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
-    plot_file = f"{out_file_prefix}_with_baseline_barplot.pdf"
-    plt.savefig(plot_file, bbox_inches='tight')
-    print(f'saved file: {plot_file}')
-    # Show the plot
-    plt.show()
+def wrapper_plot_model_performance_subplots(df, df_avg, metric, y_label, title, orientation='vertical', out_file_prefix=None):
 
 
-
-def plot_performance(df_avg, metric, y_label, title, yerr='std', out_file_prefix=None):
-    """
-    Plot a barplot for the given metric, coloring each model distinctly.
-
-    Parameters:
-    - df_avg: DataFrame containing the required metrics.
-    - metric: The metric to plot ('test_loss' by default).
-    - y_label: Label for the y-axis.
-    - title: Plot title.
-    - yerr: Column name for error values.
-    - out_file_prefix: Prefix for saving the output file.
-    """
-    mean_col = f'{metric}_mean'
-    err_col = f'{metric}_{yerr}'
-
-    assert len(
-        set(df_avg['feature_filter'].unique()).difference(set(feature_filters))) == 0, "Mismatch in feature filters"
-
-    fig, ax = plt.subplots(figsize=(len(df_avg['Model'].unique()), 8))
-
-    if metric in ['Pearsons', 'Spearman']:
-        y_max = 1
-        y_min = min(min(df_avg[mean_col] - df_avg[err_col]), 0)
-    else:
-        y_max = max(df_avg[mean_col] + df_avg[err_col])
-        y_min = 0
-        y_max = y_max - (y_max % 5) + 5
-
-    # Assign distinct colors to models
-    unique_models = df_avg['Model'].unique()
-    color_palette = sns.cubehelix_palette(start=0.3, hue=1,
-                                          gamma=0.4, dark=0.1, light=0.8,
-                                          rot=-1.5, reverse=False, n_colors=len(unique_models))
-    model_colors = {model: color for model, color in zip(unique_models, color_palette)}
-    edge_width = 0.5
-    # Plot bars
-    bars = ax.bar(
-        df_avg['Model'],
-        df_avg[mean_col],
-        yerr=df_avg[err_col],
-        capsize=5,
-        edgecolor=edge_color,
-        linewidth=edge_width,
-        color=[model_colors[model] for model in df_avg['Model']]
-    )
-    ax.set_ylabel(y_label, fontsize=16)
-
-    ax.set_ylim(y_min, y_max)
-    ax.set_xticks(range(len(df_avg['Model'])))
-    ax.set_xticklabels(df_avg['Model'], fontsize=14, rotation=90)
-
-    # fig.text(0.08, 0.5, y_label, va='center', rotation='vertical', fontsize=16)
-    # fig.text(0.5, -0.22, 'Models', ha='center', fontsize=16)
-    # fig.text(0.5, 0.95, title, ha='center', fontsize=16)
-
-    # Save the figure
-    os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
-    plot_file = f"{out_file_prefix}_barplot.pdf"
-    plt.savefig(plot_file, bbox_inches='tight')
-    print(f'Saved file: {plot_file}')
-
-    plt.show()
-    print('Done')
-
-
-def pair_plot(df_all, metric, out_file_prefix):
-
-    models = df_all['Model'].unique()
-
-
-    # Create a grid of 4x4 subplots
-    fig, axes = plt.subplots(4, 4, figsize=(8, 8))  # Adjust figure size as needed
-    axes = axes.flatten()  # Flatten to easily iterate through axes
-
-    max_loss = max(df_all[metric].max(), df_all[f'{metric}_baseline'].max())
-    min_val = min (df_all[metric].min(), df_all[f'{metric}_baseline'].min(), 5)
-
-    for (i,model) in enumerate(models):
-        df = df_all[df_all['Model'] == model]
-        ax = axes[i]
-        # Create the pair plot
-        # colors = ['red' if x > y else 'blue' for x, y in zip( df['test_loss'], df['test_loss_baseline'])]
-
-        sns.scatterplot(
-            x=metric,
-            y=f'{metric}_baseline',
-            data=df,
-            s=50,
-            # c=colors,
-            alpha=0.7,
-            ax=ax
-        )
-
-        # Add a diagonal line to represent equal test losses
-        # max_loss = max(df['test_loss'].max(), df['test_loss_baseline'].max())
-        # min_val=5
-        ax.set_xlim(min_val, max_loss)
-        ax.set_ylim(min_val, max_loss)
-
-        ax.plot([min_val, max_loss], [min_val, max_loss], linestyle='--',alpha=0.7, linewidth=0.7, color='grey' )
-
-        # Customize the plot
-        ax.set_xlabel('')
-        ax.set_ylabel('')
-
-        ax.set_title(model, fontsize=10)
-
-    # Add common x and y axis labels
-    fig.text(0.5, 0.04, f'Model\'s {metric}', ha='center', fontsize=14)
-    fig.text(0.04, 0.5, f'Baseline\'s {metric}', va='center', rotation='vertical', fontsize=14)
-
-    # Turn off empty subplots if there are any
-    for j in range(i + 1, len(axes)):
-        fig.delaxes(axes[j])
-
-    # Show and save the plot
-    plt.tight_layout(rect=[0.05, 0.05, 1, 0.97])  # Adjust space for labels and title
-
-    # plt.tight_layout()
-    out_file = f'{out_file_prefix}_with_baseline_pairplot.pdf'
-    plt.savefig(out_file, bbox_inches='tight')
-    print(f'saving file at {out_file}')
-    plt.show()
-
-
-
-# def wrapper_plot_model_performance_subplots(df, metric, y_label,title, out_file_prefix=None):
-#
-#     df = compute_average(df)
-#
-#     df.to_csv(f'{out_file_prefix}_aggreagred.tsv', sep='\t')
-#
-#     #get feature_filter wise one_hot model's  performance
-#     df_1hot = df[df['Model'] == 'One hot']
-#     ft_filt_wise_1hot = dict(zip(df_1hot['feature_filter'], df_1hot[f'{metric}_mean']))
-#     # remove one-hot based model
-#     df = df[df['Model'] != 'One hot']
-#
-#     #bar plot for showing Pearsons, RMSE or some other metric of each model, showing performance improvement over baseline with color.
-#     # plot_performance(df, metric=metric, y_label=y_label, title=title, yerr='std', out_file_prefix=f'{out_file_prefix}')
-#     #plot without 1hot result
-#     plot_performance_subplots(df, metric=metric, y_label=y_label, title=title, yerr='std', out_file_prefix=out_file_prefix)
-#
-#     #plot with 1hot result as horizontal lines
-#     plot_performance_subplots(df, metric=metric, y_label=y_label, title=title, yerr='std', ft_filt_wise_1hot = ft_filt_wise_1hot, out_file_prefix=out_file_prefix)
-#
-#
-#     print(title)
-
-
-def wrapper_plot_model_performance_subplots(df, metric, y_label, title, out_file_prefix=None):
-
-
-    df_avg = compute_average(df)
-
-    df_avg.to_csv(f'{out_file_prefix}_aggreagred.tsv', sep='\t')
 
     #get feature_filter wise one_hot model's  performance
     df_1hot = df_avg[df_avg['Model'] == 'One hot']
@@ -485,19 +211,52 @@ def wrapper_plot_model_performance_subplots(df, metric, y_label, title, out_file
 
     if (metric == 'Pearsons') | (metric == 'Spearman'):
         y_max = 1
-        y_min = min(min(df[metric]), 0)
+        y_min = min(min(df[metric]), 0.7)
     else:
         y_max = None
         y_min = None
     # Get unique feature filters
     feature_filters = df['feature_filter'].unique()
 
-    # box_plot_subplots(
+    if orientation =='vertical':
+        figsize = (2.5 * len(feature_filters), box_height)
+        rotation = 90
+    elif orientation=='horizontal':
+        figsize = (box_height, 2.5 * len(feature_filters))
+        rotation = 0
+
+    #without baseline
+    box_plot_subplots(
+        df, x='Model', y=metric,
+        ylabel=y_label,
+        hue=None, hue_order=None,
+        feature_filters=feature_filters, rotate=rotation, y_min=y_min, y_max=y_max,
+        figsize= figsize,
+        color=original_model_color,
+        width=0.7,
+        dodge=True, edgecolor=edge_color, legend=False, orientation=orientation,
+        out_file_prefix=f'{out_file_prefix}',
+    )
+
+    # with baseline
+    box_plot_subplots(
+        df, x='Model', y=metric,
+        ylabel=y_label,
+        hue=None, hue_order=None,
+        feature_filters=feature_filters, rotate=rotation, y_min=y_min, y_max=y_max,
+        figsize=figsize,
+        color=original_model_color,
+        width=0.7, ft_filt_wise_1hot=ft_filt_wise_1hot,
+        dodge=True, edgecolor=edge_color, legend=False, orientation=orientation,
+        out_file_prefix=f'{out_file_prefix}_baseline',
+    )
+
+    # bar_plot_subplots(
     #     df, x='Model', y=metric,
     #     ylabel=y_label,
     #     hue=None, hue_order=None,
     #     feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
-    #     figsize=(2.5 * len(feature_filters), box_height),
+    #     figsize=(2.5 * len(feature_filters), bar_height),
     #     color=original_model_color,
     #     width=0.7,
     #     dodge=True,
@@ -505,80 +264,31 @@ def wrapper_plot_model_performance_subplots(df, metric, y_label, title, out_file
     #     edgecolor=edge_color
     # )
     #
-    # box_plot_subplots(
-    #     df_1hot_diff, x='Model', y=f'{metric}_diff',
-    #     ylabel='Improvement over baseline (Pearson\'s)',
+    # #plot with baseline
+    # bar_plot_subplots(
+    #     df, x='Model', y=metric,
+    #     ylabel=y_label,
+    #     hue=None, hue_order=None,
     #     feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
-    #     figsize=(2.5 * len(feature_filters), box_height),
+    #     figsize=(2.5 * len(feature_filters), bar_height),
     #     color=original_model_color,
-    #     width=0.6, dodge=False, edgecolor='black', zero_line=True, legend=False,
-    #     out_file_prefix=f'{out_file_prefix}'
+    #     width=0.7,
+    #     dodge=True,
+    #     ft_filt_wise_1hot=ft_filt_wise_1hot,
+    #     out_file_prefix=f'{out_file_prefix}_baseline',
+    #     edgecolor=edge_color
+    #
     # )
 
-    bar_plot_subplots(
-        df, x='Model', y=metric,
-        ylabel=y_label,
-        hue=None, hue_order=None,
-        feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
-        figsize=(2.5 * len(feature_filters), bar_height),
-        color=original_model_color,
-        width=0.7,
-        dodge=True,
-        out_file_prefix=f'{out_file_prefix}',
-        edgecolor=edge_color
-    )
-
-    #plot with baseline
-    bar_plot_subplots(
-        df, x='Model', y=metric,
-        ylabel=y_label,
-        hue=None, hue_order=None,
-        feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
-        figsize=(2.5 * len(feature_filters), bar_height),
-        color=original_model_color,
-        width=0.7,
-        dodge=True,
-        ft_filt_wise_1hot=ft_filt_wise_1hot,
-        out_file_prefix=f'{out_file_prefix}_baseline',
-        edgecolor=edge_color
-
-    )
-
     print(title)
 
 
-def wrapper_plot_compare_with_1hot(df, metric, y_label, title, out_file_prefix):
+def wrapper_plot_compare_with_1hot_subplots(df, metric, y_label, title, orientation='vertical', out_file_prefix=None):
     df_1hot_diff = compute_difference_with_1hot(df)
     if df_1hot_diff.empty:
         return
 
-    df_1hot_diff.to_csv(f'{out_file_prefix}_with_baseline.tsv', sep='\t')
-
-    #pair plot for comparing each modelw ith baseline across each individual run
-    # pair_plot(df_1hot_diff, metric, out_file_prefix=f'{out_file_prefix}')
-
-    if metric =='Pearsons':
-        y_min=min(-0.1, min(df_1hot_diff[f'{metric}_diff']))
-        y_max=max(0.1, max(df_1hot_diff[f'{metric}_diff']))
-    else:
-        y_min= None
-        y_max = None
-    unique_models = df_1hot_diff['Model'].unique()
-
-    #for one color
-    # remove one-hot based model
-    df_1hot_diff = df_1hot_diff[df_1hot_diff['Model'] != 'One hot']
-    box_plot(df_1hot_diff, x='Model', y=f'{metric}_diff', ylabel='Improvement over baseline (Pearson\'s)',
-             rotate=90, y_min=y_min, y_max=y_max, color = original_model_color, figsize=(len(unique_models), 8),
-             width=0.6, dodge=False, zero_line=True, legend=False, edgecolor='black', out_file_prefix=f'{out_file_prefix}_baseline')
-
-    print(title)
-def wrapper_plot_compare_with_1hot_subplots(df, metric, y_label, title, out_file_prefix):
-    df_1hot_diff = compute_difference_with_1hot(df)
-    if df_1hot_diff.empty:
-        return
-
-    df_1hot_diff.to_csv(f'{out_file_prefix}_with_baseline.tsv', sep='\t')
+    # df_1hot_diff.to_csv(f'{out_file_prefix}_with_baseline.tsv', sep='\t')
 
     # Pair plot for comparing each model with baseline across individual runs
     # pair_plot(df_1hot_diff, metric, out_file_prefix=f'{out_file_prefix}')
@@ -596,21 +306,28 @@ def wrapper_plot_compare_with_1hot_subplots(df, metric, y_label, title, out_file
     # Get unique feature filters
     feature_filters = df_1hot_diff['feature_filter'].unique()
 
+
+
+    if orientation =='vertical':
+        figsize = (2.5 * len(feature_filters), box_height)
+        rotation = 90
+    elif orientation=='horizontal':
+        figsize = (box_height, 2.5 * len(feature_filters))
+        rotation = 0
+
     # Call box plot with subplots
     box_plot_subplots(
         df_1hot_diff, x='Model', y=f'{metric}_diff',
         ylabel='Improvement over baseline (Pearson\'s)',
-        feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
-        figsize=(2.5 * len(feature_filters), box_height),
+        feature_filters=feature_filters, rotate=rotation, y_min=y_min, y_max=y_max,
+        figsize=figsize,
         color=original_model_color,
-        width=0.6, dodge=False, edgecolor='black',zero_line=True, legend=False,
+        width=0.7, dodge=False, edgecolor='black',zero_line=True, legend=False, orientation=orientation,
         out_file_prefix=f'{out_file_prefix}'
     )
 
 
-
-
-def wrapper_plot_compare_rewired(result_df, rewired_result_df, metric, y_label, out_file_prefix):
+def wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, metric, y_label, orientation='vertical', out_file_prefix=None):
 
         df = pd.concat([result_df, rewired_result_df], axis=0)
         # df = set_model_names(df)
@@ -619,46 +336,6 @@ def wrapper_plot_compare_rewired(result_df, rewired_result_df, metric, y_label, 
         #keeps models  which I ran on rewired network
         rewired_model_names = df[df['rewired']==True]['Model'].unique()
         df = df[df['Model'].isin(rewired_model_names)]
-
-        # #sort model names
-        # df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(),ordered=True)
-        # df = df.sort_values('Model')
-
-        #modify model name to look good on plot
-        # df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
-        df_1 = df.groupby(['Model','rewire_method']).agg({'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
-        df_1.to_csv(f'{out_file_prefix}_aggregated.tsv', sep='\t')
-
-        if (metric == 'Pearsons') | (metric == 'Spearman'):
-            y_max=1
-            y_min = min(min(df[metric]), 0)
-        else:
-            y_max=None
-            y_min=None
-        unique_models = df['Model'].unique()
-
-        box_plot(df, x='Model', y=metric, hue='rewire_method', hue_order = ['Original', 'SA', 'SM'], ylabel=y_label,y_min=y_min, y_max=y_max, palette="Set2", rotate=90,
-                 figsize=(len(unique_models), 8), edgecolor='black',out_file_prefix=out_file_prefix)
-
-
-def wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, metric, y_label, out_file_prefix):
-
-        df = pd.concat([result_df, rewired_result_df], axis=0)
-        # df = set_model_names(df)
-
-
-        #keeps models  which I ran on rewired network
-        rewired_model_names = df[df['rewired']==True]['Model'].unique()
-        df = df[df['Model'].isin(rewired_model_names)]
-
-        # #sort model names
-        # df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(),ordered=True)
-        # df = df.sort_values('Model')
-
-        #modify model name to look good on plot
-        # df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
-        df_1 = df.groupby(['Model','rewire_method']).agg({'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
-        df_1.to_csv(f'{out_file_prefix}_aggregated.tsv', sep='\t')
 
         if (metric == 'Pearsons') | (metric == 'Spearman'):
             y_max=1
@@ -668,40 +345,43 @@ def wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, metric, 
             y_min=None
         # Get unique feature filters
         feature_filters = df['feature_filter'].unique()
+
+        if orientation == 'vertical':
+            figsize = (2.5 * len(feature_filters), box_height)
+            rotation = 90
+        elif orientation == 'horizontal':
+            figsize = (box_height, 2.5 * len(feature_filters))
+            rotation = 0
+
         # Call box plot with subplots
         box_plot_subplots(
             df, x='Model', y=metric,
             ylabel=y_label,
             hue='rewire_method', hue_order = ['Original', 'SA', 'SM'],
-            feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
-            figsize=(3.5 * len(feature_filters), box_height),
+            feature_filters=feature_filters, rotate=rotation, y_min=y_min, y_max=y_max,
+            figsize=figsize,
             # palette="Set2",
             palette=rewire_palette,
-            width=0.6, dodge=True, edgecolor='black',
+            width=0.9, dodge=True, edgecolor='black', bg_colors = ["#A9A9A9", "white" ], orientation=orientation,
             out_file_prefix=f'{out_file_prefix}'
         )
 
-        bar_plot_subplots(
-            df, x='Model', y=metric,
-            ylabel=y_label,
-            hue='rewire_method', hue_order=['Original', 'SA', 'SM'],
-            feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
-            figsize=(3.5 * len(feature_filters), bar_height),
-            # palette="Set2",
-            palette=rewire_palette,
-            width=0.6, dodge=True,
-            out_file_prefix=f'{out_file_prefix}_grouped_barplot_',
-            edgecolor=edge_color
 
-        )
+        # bar_plot_subplots(
+        #     df, x='Model', y=metric,
+        #     ylabel=y_label,
+        #     hue='rewire_method', hue_order=['Original', 'SA', 'SM'],
+        #     feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
+        #     figsize=(2.5 * len(feature_filters), bar_height),
+        #     # palette="Set2",
+        #     palette=rewire_palette,
+        #     width=0.6, dodge=True,
+        #     out_file_prefix=f'{out_file_prefix}_grouped_barplot_',
+        #     edgecolor=edge_color
+        #
+        # )
 
-        # bar_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None, y_max=None, rotate=0, palette=None,
-        #                   color=None, hue_order=None, out_file_prefix=None, figsize=(6, 8), width=0.5, title='',
-        #                   dodge=True, zero_line=False, legend='auto'):
-
-
-
-def wrapper_plot_compare_shuffled(result_df, shuffled_result_df, metric, y_label, out_file_prefix):
+def wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric, y_label, out_file_prefix=None, orientation='vertical'):
     df = pd.concat([result_df, shuffled_result_df], axis=0)
     # df = set_model_names(df)
 
@@ -709,41 +389,8 @@ def wrapper_plot_compare_shuffled(result_df, shuffled_result_df, metric, y_label
     shuffled_model_names = df[df['shuffled'] == True]['Model'].unique()
     df = df[df['Model'].isin(shuffled_model_names)]
 
-    # sort model names
-    # df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(), ordered=True)
-    # df = df.sort_values('Model')
-
     # modify model name to look good on plot
     # df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
-    df_1 = df.groupby(['Model', 'shuffle_method']).agg({'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
-    df_1.to_csv(f'{out_file_prefix}_aggregated.tsv', sep='\t')
-
-    if (metric == 'Pearsons') | (metric == 'Spearman'):
-        y_max = 1
-        y_min = min(min(df[metric]), 0.5)
-    else:
-        y_max = None
-        y_min = None
-    # modify model name to look good on plot
-    unique_models = df['Model'].unique()
-    box_plot(df, x='Model', y=metric, hue='shuffle_method', ylabel=y_label, y_min=y_min, y_max=y_max, rotate= 90 ,palette=shuffle_palette, hue_order = ['Original', 'Shuffled'],
-             figsize=(len(unique_models), 8),edgecolor='black', out_file_prefix=out_file_prefix)
-def wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric, y_label, out_file_prefix):
-    df = pd.concat([result_df, shuffled_result_df], axis=0)
-    # df = set_model_names(df)
-
-    # keeps models  which I ran with shuffled features
-    shuffled_model_names = df[df['shuffled'] == True]['Model'].unique()
-    df = df[df['Model'].isin(shuffled_model_names)]
-
-    # sort model names
-    # df['Model'] = pd.Categorical(df['Model'], categories=model_name_mapping.values(), ordered=True)
-    # df = df.sort_values('Model')
-
-    # modify model name to look good on plot
-    # df['Model'] = df['Model'].str.replace(r'\(', r'\n(', regex=True)
-    df_1 = df.groupby(['Model', 'shuffle_method']).agg({'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
-    df_1.to_csv(f'{out_file_prefix}_aggregated.tsv', sep='\t')
 
     if (metric == 'Pearsons') | (metric == 'Spearman'):
         y_max = 1
@@ -752,19 +399,24 @@ def wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric
         y_max = None
         y_min = None
     # modify model name to look good on plot
-    unique_models = df['Model'].unique()
-
     feature_filters = df['feature_filter'].unique()
 
+
+    if orientation =='vertical':
+        figsize = (2.5 * len(feature_filters), box_height)
+        rotation = 90
+    elif orientation=='horizontal':
+        figsize = (box_height, 2.5 * len(feature_filters))
+        rotation = 0
     # Call box plot with subplots
     box_plot_subplots(
         df, x='Model', y=metric,
         ylabel=y_label,
         hue='shuffle_method', hue_order = ['Original', 'Shuffled'],
-        feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
-        figsize=(3.5 * len(feature_filters), box_height),
+        feature_filters=feature_filters, rotate=rotation, y_min=y_min, y_max=y_max,
+        figsize=figsize,
         palette=shuffle_palette,
-        width=0.6, dodge=True, edgecolor='black',
+        width=0.8, dodge=True, edgecolor='black', bg_colors = ["#A9A9A9", "white" ], orientation=orientation,
         out_file_prefix=f'{out_file_prefix}'
     )
 
@@ -773,80 +425,97 @@ def main():
     score_names = {'S_mean_mean':'S', 'synergy_loewe_mean':'Loewe'}
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line', 'random']
 
-    metric = 'Pearsons'
-    y_label = 'PCC'
-    alt= 'greater' #alternate hypothesis for sugnificance test
+    # metric = 'Pearsons'
+    # y_label = 'PCC'
+    # alt= 'greater' #alternate hypothesis for sugnificance test
 
-    # metric = 'test_RMSE'
-    # y_label = 'RMSE'
-    #alt='less'
+    metric = 'test_RMSE'
+    y_label = 'RMSE'
+    alt='less'
 
-    for score_name in score_names:
-        result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_{score_name}'
-        # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/MARSY_data/k_0.05_{score_name}'
-        score_name_str = score_names[score_name]
-
-        # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_{score_name}'
-
-        for split_type in split_types:
-            # plot for comparing models with each other. Also compare with one hot based model i.e., basleine
-            result_file = f'output_{split_type}.tsv'
-            result_file_path = os.path.join(result_dir, result_file)
-            if not os.path.exists(result_file_path):
-                print(f'file {result_file} does not exist. Continuing to next file.')
-                continue
-            result_df = pd.read_csv(result_file_path, sep='\t', index_col=None)
-
-            #compute_RMSE from MSE
-            for split in ['test', 'train', 'val']:
-                result_df[f'{split}_RMSE'] = np.sqrt(result_df[f'{split}_MSE'])
-
-            significance_df = compute_average_and_significance(copy.deepcopy(result_df), metric, alt=alt)
-            significance_df.to_csv(
-                f'{result_dir}/significance_baseline_diff_{score_name_str}_{split_type}_{metric}.tsv', sep='\t')
-
-            # if the model_name mapping is not available, we do not want to plot the model's performance.
-            result_df.dropna(subset=['Model'], inplace=True)
-            wrapper_plot_model_performance_subplots(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, out_file_prefix =f'{result_dir}/{score_name_str}_{split_type}_{metric}')
-            wrapper_plot_compare_with_1hot_subplots(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, out_file_prefix = f'{result_dir}/baseline_{score_name_str}_{split_type}_{metric}')
+    orientations= [ 'vertical']
 
 
-            # plot for comparing models trained on original vs. shuffled features
-            shuffled_result_file = f'output_{split_type}_shuffled.tsv'
-            shuffled_result_file_path = os.path.join(result_dir, shuffled_result_file)
-            if not os.path.exists(shuffled_result_file_path):
-                print(f'file {shuffled_result_file_path} does not exist. Continuing to next file.')
-                continue
-            shuffled_result_df = pd.read_csv(shuffled_result_file_path, sep='\t', index_col=None)
+    for orientation in orientations:
+        for score_name in score_names:
+            result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_{score_name}'
+            # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/MARSY_data/k_0.05_{score_name}'
+            score_name_str = score_names[score_name]
 
-            # if the model_name mapping is not available, we do not want to plot the model's performance.
-            shuffled_result_df.dropna(subset=['Model'], inplace=True)
+            # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_{score_name}'
 
-            # compute_RMSE from MSE
-            for split in ['test', 'train', 'val']:
-                shuffled_result_df[f'{split}_RMSE'] = np.sqrt(shuffled_result_df[f'{split}_MSE'])
-            wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric=metric, y_label=y_label,
-                                         out_file_prefix=f'{result_dir}/shuffled_{score_name_str}_{split_type}_{metric}')
+            for split_type in split_types:
+                # plot for comparing models with each other. Also compare with one hot based model i.e., basleine
+                result_file = f'output_{split_type}.tsv'
+                result_file_path = os.path.join(result_dir, result_file)
+                if not os.path.exists(result_file_path):
+                    print(f'file {result_file} does not exist. Continuing to next file.')
+                    continue
+                result_df = pd.read_csv(result_file_path, sep='\t', index_col=None)
+                # if the model_name mapping is not available, we do not want to plot the model's performance.
+                result_df.dropna(subset=['Model'], inplace=True)
 
-            # plot for comparing models trained on original vs. rewired networks
-            rewired_net_result_file = f'output_{split_type}_rewired.tsv'
-            rewired_result_file_path = os.path.join(result_dir, rewired_net_result_file)
-            if not os.path.exists(rewired_result_file_path):
-                print(f'file {rewired_result_file_path} does not exist. Continuing to next file.')
-                continue
-            rewired_result_df = pd.read_csv(rewired_result_file_path, sep='\t', index_col=None)
+                #compute_RMSE from MSE
+                for split in ['test', 'train', 'val']:
+                    result_df[f'{split}_RMSE'] = np.sqrt(result_df[f'{split}_MSE'])
 
-            # if the model_name mapping is not available, we do not want to plot the model's performance.
-            rewired_result_df.dropna(subset=['Model'], inplace=True)
+                significance_df = compute_average_and_significance(copy.deepcopy(result_df), metric, alt=alt)
+                significance_df.to_csv(
+                    f'{result_dir}/significance_baseline_diff_{score_name_str}_{split_type}_{metric}.tsv', sep='\t')
 
-            # compute_RMSE from MSE
-            for split in ['test', 'train', 'val']:
-                rewired_result_df[f'{split}_RMSE'] = np.sqrt(rewired_result_df[f'{split}_MSE'])
+                df_avg = compute_average(result_df)
+                df_avg.to_csv(f'{result_dir}/{score_name_str}_{split_type}_{metric}_aggreagred.tsv', sep='\t')
 
-            wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, metric=metric, y_label=y_label,
-                                         out_file_prefix=f'{result_dir}/rewired_{score_name_str}_{split_type}_{metric}')
+                wrapper_plot_model_performance_subplots(copy.deepcopy(result_df),df_avg, metric=metric, y_label=y_label, title=split_type, orientation=orientation, out_file_prefix =f'{result_dir}/plot/{orientation}/{score_name_str}_{split_type}_{metric}')
+                wrapper_plot_compare_with_1hot_subplots(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, orientation=orientation, out_file_prefix = f'{result_dir}/plot/{orientation}/baseline_{score_name_str}_{split_type}_{metric}')
 
-            print(f'done {split_type}')
+
+                # plot for comparing models trained on original vs. shuffled features
+                shuffled_result_file = f'output_{split_type}_shuffled.tsv'
+                shuffled_result_file_path = os.path.join(result_dir, shuffled_result_file)
+                if not os.path.exists(shuffled_result_file_path):
+                    print(f'file {shuffled_result_file_path} does not exist. Continuing to next file.')
+                    continue
+                shuffled_result_df = pd.read_csv(shuffled_result_file_path, sep='\t', index_col=None)
+                # if the model_name mapping is not available, we do not want to plot the model's performance.
+                shuffled_result_df.dropna(subset=['Model'], inplace=True)
+
+                # compute_RMSE from MSE
+                for split in ['test', 'train', 'val']:
+                    shuffled_result_df[f'{split}_RMSE'] = np.sqrt(shuffled_result_df[f'{split}_MSE'])
+
+                #save aggregated file
+                shuffled_result_df_agg = shuffled_result_df.groupby(['Model', 'shuffle_method']).agg(
+                    {'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
+                shuffled_result_df_agg.to_csv(f'{result_dir}/shuffled_{score_name_str}_{split_type}_{metric}_aggregated.tsv', sep='\t')
+
+                wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric=metric, y_label=y_label, orientation=orientation,
+                                             out_file_prefix=f'{result_dir}/plot/{orientation}/shuffled_{score_name_str}_{split_type}_{metric}')
+
+
+
+                # plot for comparing models trained on original vs. rewired networks
+                rewired_net_result_file = f'output_{split_type}_rewired.tsv'
+                rewired_result_file_path = os.path.join(result_dir, rewired_net_result_file)
+                if not os.path.exists(rewired_result_file_path):
+                    print(f'file {rewired_result_file_path} does not exist. Continuing to next file.')
+                    continue
+                rewired_result_df = pd.read_csv(rewired_result_file_path, sep='\t', index_col=None)
+                # if the model_name mapping is not available, we do not want to plot the model's performance.
+                rewired_result_df.dropna(subset=['Model'], inplace=True)
+
+                # compute_RMSE from MSE
+                for split in ['test', 'train', 'val']:
+                    rewired_result_df[f'{split}_RMSE'] = np.sqrt(rewired_result_df[f'{split}_MSE'])
+                #save aggregated results
+                rewired_result_df_agg = rewired_result_df.groupby(['Model', 'rewire_method']).agg(
+                    {'test_RMSE': 'mean', 'Pearsons': 'mean', 'Spearman': 'mean'})
+                rewired_result_df_agg.to_csv(f'{result_dir}/rewired_{score_name_str}_{split_type}_{metric}_aggregated.tsv', sep='\t')
+
+                wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, metric=metric, y_label=y_label, orientation=orientation,
+                                             out_file_prefix=f'{result_dir}/plot/{orientation}/rewired_{score_name_str}_{split_type}_{metric}')
+
+                print(f'done {split_type}')
 
 if __name__ == '__main__':
     main()

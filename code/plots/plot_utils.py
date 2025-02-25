@@ -62,7 +62,7 @@ def bar_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None,
     handles, labels = None, None
 
     for ax, feature_filter in zip(axes, feature_filters):
-        subset = data[data['feature_filter'] == feature_filter]
+        subset = data[data['feature_filter'] == feature_filter].reset_index(drop=True)
         if subset.empty:
             continue
 
@@ -82,7 +82,13 @@ def bar_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None,
         # Formatting
         ax.set_xlabel('')
         ax.set_ylabel(ylabel, fontsize=14)
-        ax.set_xticklabels(list(subset['Model'].unique()), rotation=rotate, fontsize=12)
+
+        # Get the unique model names
+        models = list(subset['Model'].unique())
+        # Set the tick positions corresponding to each model label
+        ax.set_xticks(range(len(models)))
+        ax.set_xticklabels(models, rotation=rotate, fontsize=12)
+
         ax.yaxis.grid(True, linestyle='--', color='grey', alpha=0.6, linewidth=0.6)
 
         # Set y-axis limits if provided
@@ -112,67 +118,206 @@ def bar_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None,
 
     plt.show()
 
+# def box_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None, y_max=None, rotate=0, palette=None,
+#                       color=None, hue_order=None, out_file_prefix=None, figsize=(6, 8), width=0.5, title='',
+#                       dodge=True, zero_line=False, legend='auto', edgecolor='black', ft_filt_wise_1hot=None, bg_colors=None):
+#     """
+#     Creates subplots for each `feature_filter`, with each subplot containing box plots.
+#     """
+#
+#     # Create subplots dynamically based on the number of `feature_filters`
+#     # Create subplots with dynamic widths based on the number of rows in each subset
+#     row_counts = [len(data[data['feature_filter'] == feature_filter]) for feature_filter in feature_filters]
+#     total_rows = sum(row_counts)
+#     widths = [row_count / total_rows for row_count in row_counts]
+#
+#     # Create subplots with dynamic widths
+#     fig, axes = plt.subplots(1, len(feature_filters),
+#                              figsize=figsize,
+#                              gridspec_kw={'width_ratios': widths}, sharey=True)
+#
+#     # fig, axes = plt.subplots(1, len(feature_filters), figsize=figsize, sharey=True)
+#     if len(feature_filters) == 1:  # Ensure `axes` is iterable
+#         axes = [axes]
+#
+#     for ax, feature_filter in zip(axes, feature_filters):
+#         subset = data[data['feature_filter'] == feature_filter].reset_index(drop=True)
+#         if subset.empty:
+#             continue
+#
+#         if bg_colors:
+#             # Determine unique models for the x-axis and add alternating background colors.
+#             models = list(subset['Model'].unique())
+#             ax.set_axisbelow(True)  # Ensure the background spans remain behind other plot elements.
+#             for i, model in enumerate(models):
+#                 bg_color = bg_colors[0] if i % 2 == 0 else bg_colors[1]
+#                 # Draw a background rectangle spanning from i-0.5 to i+0.5 on the x-axis.
+#                 ax.axvspan(i - 0.5, i + 0.5, facecolor=bg_color, alpha=0.3, zorder=0)
+#
+#         # Plot box plot in subplot
+#         if color:
+#             box = sns.boxplot(
+#                 data=subset, x=x, y=y, dodge=dodge, width=width, ax=ax, linewidth=0.8,
+#                 color = color, boxprops={'edgecolor':edgecolor}
+#             )
+#         else:
+#             box = sns.boxplot(data=subset, x=x, y=y, hue=hue, hue_order=hue_order, dodge=dodge, width=width, palette=palette, ax=ax,
+#                         linewidth=0.8, legend=legend, boxprops={'edgecolor':edgecolor})
+#
+#         # Formatting
+#         # ax.set_title(f"{feature_filter}", fontsize=14)
+#         ax.set_xlabel('')
+#         ax.set_ylabel(ylabel, fontsize=14)
+#
+#         # Get the unique model names
+#         # models = list(subset['Model'].unique())
+#         # Set the tick positions corresponding to each model label
+#         ax.set_xticks(range(len(models)))
+#         ax.set_xticklabels(models, rotation=rotate, fontsize=12)
+#
+#         ax.yaxis.grid(True, linestyle='--', color='grey', alpha=0.6, linewidth=0.6)
+#
+#         # Set y-axis limits if provided
+#         if (y_min is not None) and (y_max is not None):
+#             ax.set_ylim(y_min, y_max)
+#
+#         if ft_filt_wise_1hot:
+#             ax.axhline(y=ft_filt_wise_1hot[feature_filter], color='red', linestyle='--', linewidth=0.8)
+#
+#         # Add zero line if enabled
+#         if zero_line:
+#             ax.axhline(y=0, color='red', linestyle='--', linewidth=0.8)
+#
+#         # Store legend handles and labels for a shared legend
+#         if legend and box.get_legend() is not None:
+#             handles, labels = box.get_legend_handles_labels()
+#             ax.get_legend().remove()
+#     # Common y-label for all subplots
+#     # fig.text(-0.01, 0.5, ylabel, va='center', rotation='vertical', fontsize=14)
+#     if legend and handles:
+#         fig.legend(handles, labels, loc='upper center', ncol=len(data[hue].unique()), frameon=False, title=None, fontsize=12,
+#                    bbox_to_anchor=(0.5, 1.02))
+#
+#     plt.tight_layout()
+#     if out_file_prefix is not None:
+#         os.makedirs(os.path.dirname(out_file_prefix), exist_ok=True)
+#         plot_file = f"{out_file_prefix}_boxplot.pdf"
+#         plt.savefig(plot_file, bbox_inches='tight')
+#         print(f'Saved file: {plot_file}')
+#
+#     plt.show()
+
+
 def box_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None, y_max=None, rotate=0, palette=None,
                       color=None, hue_order=None, out_file_prefix=None, figsize=(6, 8), width=0.5, title='',
-                      dodge=True, zero_line=False, legend='auto', edgecolor='black'):
+                      dodge=True, zero_line=False, legend='auto', edgecolor='black',
+                      ft_filt_wise_1hot=None, bg_colors=None, orientation='vertical'):
     """
     Creates subplots for each `feature_filter`, with each subplot containing box plots.
+
+    Parameters:
+      - orientation: 'vertical' (default) or 'horizontal'. When 'horizontal', the boxplots are
+                     drawn with numeric data on the x-axis and the subplots are arranged vertically,
+                     sharing a common x-axis.
     """
 
-    # Create subplots dynamically based on the number of `feature_filters`
-    # Create subplots with dynamic widths based on the number of rows in each subset
+    # Calculate counts for each feature_filter
     row_counts = [len(data[data['feature_filter'] == feature_filter]) for feature_filter in feature_filters]
     total_rows = sum(row_counts)
-    widths = [row_count / total_rows for row_count in row_counts]
 
-    # Create subplots with dynamic widths
-    fig, axes = plt.subplots(1, len(feature_filters),
-                             figsize=figsize,
-                             gridspec_kw={'width_ratios': widths}, sharey=True)
-
-    # fig, axes = plt.subplots(1, len(feature_filters), figsize=figsize, sharey=True)
-    if len(feature_filters) == 1:  # Ensure `axes` is iterable
-        axes = [axes]
+    if orientation == 'vertical':
+        # For vertical boxplots: one row, multiple columns sharing the y-axis.
+        ratios = [row_count / total_rows for row_count in row_counts]
+        fig, axes = plt.subplots(1, len(feature_filters),
+                                 figsize=figsize,
+                                 gridspec_kw={'width_ratios': ratios}, sharey=True)
+    else:
+        # For horizontal boxplots: one column, multiple rows sharing the x-axis.
+        ratios = [row_count / total_rows for row_count in row_counts]
+        fig, axes = plt.subplots(len(feature_filters), 1,
+                                 figsize=figsize,
+                                 gridspec_kw={'height_ratios': ratios}, sharex=True)
+        # Ensure axes is always iterable.
+        if len(feature_filters) == 1:
+            axes = [axes]
 
     for ax, feature_filter in zip(axes, feature_filters):
-        subset = data[data['feature_filter'] == feature_filter]
+        subset = data[data['feature_filter'] == feature_filter].reset_index(drop=True)
         if subset.empty:
             continue
 
-        # Plot box plot in subplot
-        if color:
-            box = sns.boxplot(
-                data=subset, x=x, y=y, dodge=dodge, width=width, ax=ax, linewidth=0.8,
-                color = color, boxprops={'edgecolor':edgecolor}
-            )
+        # Determine unique models for the categorical axis (assumed to be in column 'Model')
+        models = list(subset['Model'].unique())
+        ax.set_axisbelow(True)  # Put background elements behind plot elements.
+        if bg_colors:
+            for i, model in enumerate(models):
+                bg_color = bg_colors[0] if i % 2 == 0 else bg_colors[1]
+                if orientation == 'vertical':
+                    ax.axvspan(i - 0.5, i + 0.5, facecolor=bg_color, alpha=0.3, zorder=0)
+                else:
+                    ax.axhspan(i - 0.5, i + 0.5, facecolor=bg_color, alpha=0.3, zorder=0)
+
+        # Plot boxplot. Swap x and y for horizontal orientation.
+        if orientation == 'vertical':
+            if color:
+                box = sns.boxplot(
+                    data=subset, x=x, y=y, dodge=dodge, width=width, ax=ax, linewidth=0.8,
+                    color=color, boxprops={'edgecolor': edgecolor}
+                )
+            else:
+                box = sns.boxplot(
+                    data=subset, x=x, y=y, hue=hue, hue_order=hue_order, dodge=dodge,
+                    width=width, palette=palette, ax=ax, linewidth=0.8, legend=legend,
+                    boxprops={'edgecolor': edgecolor}
+                )
         else:
-            box = sns.boxplot(data=subset, x=x, y=y, hue=hue, hue_order=hue_order, dodge=dodge, width=width, palette=palette, ax=ax,
-                        linewidth=0.8, legend=legend, boxprops={'edgecolor':edgecolor})
+            if color:
+                box = sns.boxplot(
+                    data=subset, x=y, y=x, dodge=dodge, width=width, ax=ax, linewidth=0.8,
+                    color=color, boxprops={'edgecolor': edgecolor}
+                )
+            else:
+                box = sns.boxplot(
+                    data=subset, x=y, y=x, hue=hue, hue_order=hue_order, dodge=dodge,
+                    width=width, palette=palette, ax=ax, linewidth=0.8, legend=legend,
+                    boxprops={'edgecolor': edgecolor}
+                )
 
-        # Formatting
-        # ax.set_title(f"{feature_filter}", fontsize=14)
-        ax.set_xlabel('')
-        ax.set_ylabel(ylabel, fontsize=14)
-        ax.set_xticklabels(list(subset['Model'].unique()), rotation=rotate, fontsize=12)
-        ax.yaxis.grid(True, linestyle='--', color='grey', alpha=0.6, linewidth=0.6)
+        # Formatting adjustments based on orientation.
+        if orientation == 'vertical':
+            ax.set_xlabel('')
+            ax.set_ylabel(ylabel, fontsize=14)
+            ax.set_xticks(range(len(models)))
+            ax.set_xticklabels(models, rotation=rotate, fontsize=12)
+            ax.yaxis.grid(True, linestyle='--', color='grey', alpha=0.6, linewidth=0.6)
+            if (y_min is not None) and (y_max is not None):
+                ax.set_ylim(y_min, y_max)
+            if ft_filt_wise_1hot:
+                ax.axhline(y=ft_filt_wise_1hot[feature_filter], color='red', linestyle='--', linewidth=0.8, zorder=10)
+            if zero_line:
+                ax.axhline(y=0, color='red', linestyle='--', linewidth=0.8, zorder=10)
+        else:
+            ax.set_xlabel(ylabel, fontsize=14)  # Shared common x-axis label.
+            ax.set_ylabel('')
+            ax.set_yticks(range(len(models)))
+            ax.set_yticklabels(models, rotation=rotate, fontsize=12)
+            ax.xaxis.grid(True, linestyle='--', color='grey', alpha=0.6, linewidth=0.6)
+            if (y_min is not None) and (y_max is not None):
+                ax.set_xlim(y_min, y_max)
+            if ft_filt_wise_1hot:
+                ax.axvline(x=ft_filt_wise_1hot[feature_filter], color='red', linestyle='--', linewidth=0.8, zorder=10)
+            if zero_line:
+                ax.axvline(x=0, color='red', linestyle='--', linewidth=0.8, zorder=10)
 
-        # Set y-axis limits if provided
-        if (y_min is not None) and (y_max is not None):
-            ax.set_ylim(y_min, y_max)
-
-        # Add zero line if enabled
-        if zero_line:
-            ax.axhline(y=0, color='red', linestyle='--', linewidth=0.8)
-
-        # Store legend handles and labels for a shared legend
+        # Remove subplot legends and store handles if needed.
         if legend and box.get_legend() is not None:
             handles, labels = box.get_legend_handles_labels()
             ax.get_legend().remove()
-    # Common y-label for all subplots
-    # fig.text(-0.01, 0.5, ylabel, va='center', rotation='vertical', fontsize=14)
+
+    # Add a common legend if available.
     if legend and handles:
-        fig.legend(handles, labels, loc='upper center', ncol=len(data[hue].unique()), frameon=False, title=None, fontsize=12,
-                   bbox_to_anchor=(0.5, 1.02))
+        fig.legend(handles, labels, loc='upper center', ncol=len(data[hue].unique()),
+                   frameon=False, title=None, fontsize=12, bbox_to_anchor=(0.5, 1.02))
 
     plt.tight_layout()
     if out_file_prefix is not None:
@@ -182,6 +327,7 @@ def box_plot_subplots(data, x, y, ylabel, feature_filters, hue=None, y_min=None,
         print(f'Saved file: {plot_file}')
 
     plt.show()
+
 
 def box_plot(data, x, y, ylabel, hue=None, y_min=None, y_max=None, rotate=0, palette=None, color=None,  hue_order=None,
              out_file_prefix=None,

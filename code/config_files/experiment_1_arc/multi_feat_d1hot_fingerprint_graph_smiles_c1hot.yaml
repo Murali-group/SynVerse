@@ -101,7 +101,7 @@ input_settings:
   feature: 'must'
   abundance: 0.05
 
-  max_drug_feat: 2
+  max_drug_feat: 3
   min_drug_feat: 2
 
   max_cell_feat: 1

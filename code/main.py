@@ -188,12 +188,6 @@ def run_SynVerse(inputs, params, **kwargs):
 
             all_train_df = all_train_df[['source', 'target','edge_type', score_name]]
 
-            # #randomize input features
-            # if params.shuffle:
-            #     cur_dfeat_dict['value'] = shuffle_features(cur_dfeat_dict['value'])
-            #     cur_cfeat_dict['value'] = shuffle_features(cur_cfeat_dict['value'])
-
-
             for (select_drug_feat, select_cell_feat) in drug_cell_feat_combs:
                 print('drug and cell line features in use: ', select_drug_feat, select_cell_feat)
 

@@ -118,6 +118,8 @@ def get_kpgt_embedding(smiles, input_dir, device=None):
         # Construct the docker run command to generate embedding
         command = [
             "docker", "run", "--rm",
+            "--gpus", "all",
+            "--runtime", "nvidia",
             "-v", f"{host_data_path}:{container_data_path}",
             "-w", "/workspace/KPGT/scripts",
             docker_image,
@@ -127,7 +129,6 @@ def get_kpgt_embedding(smiles, input_dir, device=None):
             "--dataset", smiles_file_name,
             "--model_path", model_path
         ]
-
         # Run the command
         try:
             subprocess.run(command, check=True)

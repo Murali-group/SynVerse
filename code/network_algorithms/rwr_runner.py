@@ -88,14 +88,9 @@ def rwr_wrapper(drug_target_df, net_file=None, prot_info_file=None, alpha=0.5, o
         rwr_score_df = pd.read_csv(out_file,dtype={'pid':str}, sep='\t', index_col=None)
     else:
         drug_target_df.set_index('pid', inplace=True)
-
-        #TODO: remove the exact filepath and use the param instead.
-        net_file = '/home/grads/tasnina/Projects/SynVerse/datasets/network/STRING/9606.protein.links.v12.0.txt.gz'
-        prot_info_file = '/home/grads/tasnina/Projects/SynVerse/datasets/network/STRING/9606.protein.info.v12.0.txt.gz'
         W, gene_to_idx = prepare_network(net_file, prot_info_file, drug_target_df,
                                          confidence_threshold=900, force_run=force_run)
 
-        #TODO: get ssed nodes from drug_target_df
         rwr_score={}
         for i, row in drug_target_df.iterrows():
             positive_weights = {gene_to_idx[col]:

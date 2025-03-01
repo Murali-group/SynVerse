@@ -28,7 +28,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/debug_smiles.yaml",
+                       "config_files/experiment_1/finetuned_model.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--score_name', type=str, default='S_mean_mean', help="Name of the score to predict.")
     group.add_argument('--feat', type=str,
@@ -304,7 +304,9 @@ def main(config_map, **kwargs):
 
         inputs.smean_processed_syn_file = input_dir + 'synergy/synergy_scores_S_mean_mean.tsv' #manually renamed previous synergy_scores.tsv (on which I had all the runs till Decemeber 11, 2024) to synergy_scores_S_mean_mean.tsv It is the same as new S_mean_synergy_zip_std_threshold_0.1.tsv.
         inputs.loewe_processed_syn_file = input_dir + 'synergy/synergy_loewe_S_mean_std_threshold_0.1.tsv'
-        # inputs.processed_syn_file = input_dir + 'synergy/merged.tsv'
+
+        inputs.net_file = '/home/grads/tasnina/Projects/SynVerse/datasets/network/STRING/9606.protein.links.v12.0.txt.gz'
+        inputs.prot_info_file = '/home/grads/tasnina/Projects/SynVerse/datasets/network/STRING/9606.protein.info.v12.0.txt.gz'
 
         inputs.drug_smiles_file = input_dir + 'drug/smiles.tsv'
         inputs.drug_graph_file = input_dir + 'drug/molecular_graph.pickle'

@@ -29,7 +29,6 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
         maccs_file = chem_prop_dir + 'MACCS.tsv'
         maccs_df = pd.read_csv(maccs_file,dtype={'pid':str}, sep='\t', index_col=None)
 
-        #TODO: if any preprocessing step is mentioned for 'MACCS' feature, do that here.
         dfeat_dict['value']['MACCS'] = maccs_df
         dfeat_dict['dim']['MACCS'] = maccs_df.shape[1]-1
 
@@ -37,7 +36,6 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
         chem_prop_dir = params.drug_chemprop_dir
         mfp_file = chem_prop_dir + 'Morgan_fingerprint.tsv'
         mfp_df = pd.read_csv(mfp_file,dtype={'pid':str}, sep='\t', index_col=None)
-        #TODO: if any preprocessing step is mentioned for 'MACCS' feature, do that here.
         dfeat_dict['value']['MFP'] = mfp_df
         dfeat_dict['dim']['MFP'] = mfp_df.shape[1]-1
 
@@ -45,7 +43,6 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
         chem_prop_dir = params.drug_chemprop_dir
         ecfp_file = chem_prop_dir + 'ECFP_4.tsv'
         ecfp_df = pd.read_csv(ecfp_file,dtype={'pid':str}, sep='\t', index_col=None)
-        #TODO: if any preprocessing step is mentioned for 'MACCS' feature, do that here.
         dfeat_dict['value']['ECFP_4'] = ecfp_df
         dfeat_dict['dim']['ECFP_4'] = ecfp_df.shape[1]-1
 
@@ -75,6 +72,8 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
             dfeat_dict['value']['smiles'] = df
             dfeat_dict['dim']['smiles'] = embed_dim
 
+        #TODO write code for finetuned models. Put only smiles.
+
 
 
 
@@ -89,7 +88,7 @@ def prepare_drug_features(drug_features, drug_pids, params, inputs, device):
 
         if dfeat_dict['preprocess'].get('target')=='rwr':
             rwr_out_file = os.path.dirname(target_file) + '/rwr_target.tsv'
-            rwr_target_feat_df = rwr_wrapper(target_feat_df, alpha=0.5, out_file=rwr_out_file, force_run=False)
+            rwr_target_feat_df = rwr_wrapper(target_feat_df, alpha=0.5, net_file=inputs.net_file, prot_info_file=inputs.prot_info_file, out_file=rwr_out_file, force_run=False)
             dfeat_dict['value']['target']= rwr_target_feat_df
             dfeat_dict['dim']['target']= rwr_target_feat_df.shape[1] - 1
 

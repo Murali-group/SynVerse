@@ -14,7 +14,6 @@ def get_sinusoidal_positional_encoding(seq_len, d_model, device):
 
     return pe.unsqueeze(0)  # Add a batch dimension
 
-
 def pad_or_truncate(seq, max_len):
 
     if len(seq) < max_len:

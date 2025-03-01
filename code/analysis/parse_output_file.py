@@ -247,6 +247,10 @@ def main():
         splitwise_df_dict[split_type] = df
         print(df.head(5))
 
+        # compute_RMSE from MSE
+        # for split in ['test', 'train', 'val']:
+        #     df[f'{split}_RMSE'] = np.sqrt(df[f'{split}_MSE'])
+
 
 
         # remove model 'One hot (AE)'

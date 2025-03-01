@@ -245,7 +245,6 @@ def run_SynVerse(inputs, params, **kwargs):
                         runner = Encode_MLP_runner(all_train_df, train_idx, val_idx, shuffled_dfeat_dict,
                                                    shuffled_cfeat_dict,
                                                    out_file_prefix_shuffle, params, select_model_info, device, **kwargs)
-
                         if params.train_mode['use_best_hyperparam']:
                             # find the best hyperparam saved in a file for the given features and architecture
                             hyperparam, _ = extract_best_hyperparam(out_file_prefix + '_best_hyperparam.txt')

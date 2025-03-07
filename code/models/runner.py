@@ -3,7 +3,7 @@ import torch
 import pytz
 import datetime
 from abc import ABC, abstractmethod
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset, Subset
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from datetime import datetime
 
@@ -16,7 +16,6 @@ import pickle
 import os
 import time
 import copy
-from torch.utils.data import DataLoader, Subset
 
 import torch
 torch.set_default_dtype(torch.float32)

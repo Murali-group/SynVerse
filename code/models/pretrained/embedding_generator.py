@@ -10,6 +10,14 @@ def get_pretrained_embedding(smiles, input_dir,encoder_name, device):
     embedding, embed_dim = prtrained_model_map[encoder_name](smiles, input_dir, device)
     return embedding, embed_dim
 
+"""Helper function to run a docker command and handle errors."""
+def run_docker_command(command, success_message):
+    try:
+        subprocess.run(command, check=True)
+        print(success_message)
+    except subprocess.CalledProcessError as e:
+        print(f"Error during execution: {e}")
+
 def get_SPMM_embedding(smiles, input_dir, device):
     from models.pretrained.SPMM.encoder import SPMM_Encoder
 
@@ -76,47 +84,59 @@ def get_mole_embedding(smiles, input_dir, device=None):
     mole_embed = np.load(mole_embed_file)
     return mole_embed, mole_embed.shape[1]
 
-def get_kpgt_embedding(smiles, input_dir, device=None):
-
+# Preprocess SMILES and get molecular graph
+def kpgt_process_smiles(smiles, input_dir):
+    # prepare the SMILES CSV file
+    host_data_path = os.path.join(input_dir, "drug", "pretrain")
     kpgt_prefix = "kpgt_smiles"
-    kpgt_embed_file_path = f"{input_dir}/drug/pretrain/{kpgt_prefix}/kpgt_base.npz"
+    smiles_dir = os.path.join(host_data_path, kpgt_prefix)
+    os.makedirs(smiles_dir, exist_ok=True)
+    smiles_file_path = os.path.join(smiles_dir, f"{kpgt_prefix}.csv")
+    pd.DataFrame({'smiles': smiles}).to_csv(smiles_file_path, index=False)
+    pretrain_dir = os.path.join(host_data_path, kpgt_prefix)
+    docker_image = "kpgt:base"
+    container_data_path = "/app/datasets"  # path inside the container
 
-    if not os.path.exists(kpgt_embed_file_path):
-        #save smile to a .csv file which is an acceptable form by KPGT
-        host_data_path = f"{input_dir}/drug/pretrain/" # Absolute path to your dataset directory on the host
-        smiles_file_name =kpgt_prefix
-        smiles_file_path = host_data_path + smiles_file_name+'/'+ smiles_file_name+'.csv'
-        os.makedirs(os.path.dirname(smiles_file_path), exist_ok=True)
-        pd.DataFrame({'smiles':smiles}).to_csv(smiles_file_path, index=False)
-
-
-        docker_image = "kpgt:base"
-        container_data_path = "/app/datasets"  # Path inside the container
+    preprocessed_smiles_file_path = os.path.join(pretrain_dir, "molecular_descriptors.npz")
+    if not os.path.exists(preprocessed_smiles_file_path):
         preprocess_script = "preprocess_downstream_dataset.py"
-        embed_script = "extract_features.py"
-        model_file = "pretrained_kpgt.pth"
-        model_path=f"{container_data_path}/{model_file}"
-
-        # # Construct the docker run command to preprocess SMILES and gte molecular graph data
-        command = [
+        preprocess_command = [
             "docker", "run", "--rm",
             "-v", f"{host_data_path}:{container_data_path}",
             "-w", "/workspace/KPGT/scripts",
             docker_image,
             "python", preprocess_script,
             "--data_path", container_data_path,
-            "--dataset", smiles_file_name
+            "--dataset", kpgt_prefix
         ]
-        #
-        # # Run the command
-        try:
-            subprocess.run(command, check=True)
-            print("Data preprocessing finished successfully.")
-        except subprocess.CalledProcessError as e:
-            print(f"Error during execution: {e}")
+        run_docker_command(preprocess_command, "Data preprocessing finished successfully.")
 
-        # Construct the docker run command to generate embedding
-        command = [
+    # # Load molecular_descriptor npz file which includes 'md' key (a 200 dimension representation for each SMILES)
+    # mds = np.load(preprocessed_smiles_file_path)['md'].astype(np.float32)
+    # mds = torch.from_numpy(np.where(np.isnan(mds), 0, mds))
+
+    # ecfp_path = os.path.join(pretrain_dir, "rdkfp1-7_512.npz")
+    # fps = torch.from_numpy(sps.load_npz(ecfp_path).todense().astype(np.float32))
+
+    # return mds, fps,  mds.shape[1], fps.shape[1]
+
+
+# Generate embedding
+def get_kpgt_embedding(smiles, input_dir, device=None):
+    kpgt_process_smiles(smiles, input_dir)
+
+    host_data_path = os.path.join(input_dir, "drug", "pretrain")  # path to dataset directory on the host
+    kpgt_prefix = "kpgt_smiles"
+    config = "base"
+    pretrain_dir = os.path.join(host_data_path, kpgt_prefix)
+    docker_image = f"kpgt:{config}"
+    container_data_path = "/app/datasets"  # path inside the container
+    kpgt_embed_file_path = os.path.join(pretrain_dir, f"kpgt_{config}.npz")
+
+    if not os.path.exists(kpgt_embed_file_path):
+        embed_script = "extract_features.py"
+        model_path = os.path.join(container_data_path, "pretrained_kpgt.pth")
+        embed_command = [
             "docker", "run", "--rm",
             "--gpus", "all",
             "--runtime", "nvidia",
@@ -126,15 +146,10 @@ def get_kpgt_embedding(smiles, input_dir, device=None):
             "python", embed_script,
             "--config", "base",
             "--data_path", container_data_path,
-            "--dataset", smiles_file_name,
+            "--dataset", kpgt_prefix,
             "--model_path", model_path
         ]
-        # Run the command
-        try:
-            subprocess.run(command, check=True)
-            print("Embedding generation finished successfully.")
-        except subprocess.CalledProcessError as e:
-            print(f"Error during execution: {e}")
+        run_docker_command(embed_command, f"Embedding generation finished successfully.")
 
     kpgt_embed = np.load(kpgt_embed_file_path)['fps']
     return kpgt_embed, kpgt_embed.shape[1]

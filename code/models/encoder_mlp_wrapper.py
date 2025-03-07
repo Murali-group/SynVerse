@@ -8,8 +8,10 @@ torch.set_default_dtype(torch.float32)
 
 from models.encoders.drug.gcn_encoder import GCN_Encoder
 from models.encoders.drug.transformer_encoder import Transformer_Encoder
+from models.encoders.drug.kpgt_encoder import KPGT_Encoder
 
 from models.decoders.mlp import MLP
+from models.pretrained.kpgt.src.data.finetune_dataset import MoleculeDataset
 
 class Encoder_MLP_wrapper(nn.Module):
     def __init__(self, drug_encoder_list, cell_encoder_list, dfeat_dim_dict, cfeat_dim_dict,
@@ -45,7 +47,11 @@ class Encoder_MLP_wrapper(nn.Module):
                         self.transformer_encoder = Transformer_Encoder(self.dfeat_dim_dict[feat_name], config, self.device)
                         # update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.transformer_encoder.out_dim
-                    #TODO Maryam: kpgt_finetuned. Create drug->kpgt_encoder
+
+                    if encoder_name == 'kpgt_finetuned':
+                        self.kpgt_encoder = KPGT_Encoder(config, self.device)
+                        self.dfeat_out_dim[feat_name] = self.kpgt_encoder.out_dim
+
                     # if encoder_name == 'SPMM':
                     #     # print(self.chosen_config)
                     #     self.SPMM_encoder = SPMM_Encoder(drug_encoder['params']['vocab'], drug_encoder['params']['checkpoint'],config, self.device)
@@ -95,7 +101,12 @@ class Encoder_MLP_wrapper(nn.Module):
                         drug_represenatation.append(self.transformer_encoder(source))
                         embedded_feat.append(feat_name)
 
-                    #TODO Maryam add code for getting embedding from kpgt_finetued_encoder
+                    if encoder_name=='kpgt_finetuned':
+                        dataset = MoleculeDataset(root_path=self.kpgt_encoder.root_path,
+                                                  dataset=self.kpgt_encoder.dataset,
+                                                  use_idxs=batch_drugs)
+                        drug_represenatation.append(self.kpgt_encoder(dataset))
+                        embedded_feat.append(feat_name)
 
                     # if encoder_name=='SPMM':
                     #     drug_smiles = drug_feat[feat_name][batch_drugs,0]

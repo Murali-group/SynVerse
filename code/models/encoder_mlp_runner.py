@@ -35,10 +35,10 @@ class Encode_MLP_runner (Runner):
         if config is not None:
             if config['optimizer'] == 'Adam':
 
-                optimizer = optim.Adam(model.parameters(), lr=config['lr'])
+                optimizer = optim.Adam(model.parameters(), lr=float(config['lr']))
                 # optimizer = optim.Adam(model.parameters(), lr=config['lr'], weight_decay=1e-4)
             else:
-                optimizer = optim.SGD(model.parameters(), lr=config['lr'], momentum=config['sgd_momentum'])
+                optimizer = optim.SGD(model.parameters(), lr=float(config['lr']), momentum=config['sgd_momentum'])
         else:
             optimizer = optim.Adam(model.parameters(), lr=0.00001)
 

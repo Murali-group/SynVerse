@@ -1,152 +1,14 @@
 import yaml
 import pandas as pd
-import numpy as np
-import random
 from itertools import combinations
 from itertools import product
-from torch_geometric import data as DATA
-import torch
-
 
 def load_yaml_file(filepath):
     with open(filepath, 'r') as file:
         data = yaml.safe_load(file)
     return data
 
-
-def filter_normal_conforming_data(df, column, retain_ratio=0.8):
-    """
-    Filters rows of a pandas DataFrame to retain a specified percentage of rows where
-    the values in the given column conform best to a normal distribution.
-
-    Parameters:
-    - df (pd.DataFrame): The input DataFrame to filter.
-    - column (str): The column to use for normal distribution filtering.
-    - retain_ratio (float): The percentage of rows to retain (default is 0.8).
-    - plot (bool): Whether to plot the filtered data and fitted normal distribution (default is False).
-
-    Returns:
-    - filtered_df (pd.DataFrame): The filtered DataFrame containing the retained rows.
-    """
-    # Step 1: Fit a normal distribution to the column
-    values = df[column].to_numpy()
-    mean, std = np.mean(values), np.std(values)
-
-    # Step 2: Calculate z-scores
-    z_scores = np.abs((values - mean) / std)
-
-    # Step 3: Sort the DataFrame based on z-scores
-    df['z_score'] = z_scores  # Add z-scores to the DataFrame for sorting
-    sorted_df = df.sort_values(by='z_score')
-
-    # Step 4: Retain the top percentage of rows
-    num_to_keep = int(retain_ratio * len(df))
-    filtered_df = sorted_df.head(num_to_keep).drop(columns=['z_score'])  # Drop z-score after filtering
-
-
-    return filtered_df
-
-def shuffle_features(feat_dict):
-    '''
-    Shuffles the features in the feature dictionary. If the values are numpy arrays, rows are shuffled.
-    If the values are dictionaries, the order of the molecular graph data is shuffled.
-
-    :param feat_dict: dict, where:
-        - key = feature name
-        - value = either a numpy array (each row represents feature values of a drug/cell line)
-                  or a dict (key = drug_idx, value = molecular graph data)
-
-    :return: dict with shuffled features
-    '''
-    shuffled_feat_dict = {}
-
-    for feat_name, feat_value in feat_dict.items():
-        if isinstance(feat_value, np.ndarray):
-            # Shuffle rows of the numpy array
-            indices = np.arange(feat_value.shape[0])
-            np.random.shuffle(indices)
-            shuffled_feat_dict[feat_name] = feat_value[indices]
-        elif isinstance(feat_value, dict):
-            # Shuffle dictionary entries by shuffling keys
-            values = list(feat_value.values())
-            random.shuffle(values)
-            shuffled_feat_dict[feat_name] = dict(zip(list(feat_value.keys()), values))
-        else:
-            raise TypeError(f"Unsupported value type for key '{feat_name}': {type(feat_value)}")
-
-    return shuffled_feat_dict
-
-
-
-
-def extract_best_hyperparam(hyperparam_file):
-    best_config = {}
-    best_epochs = None
-
-    with open(hyperparam_file, 'r') as f:
-        for line in f:
-            if line.startswith('best_config'):
-                # Extract the dictionary string and convert it back to a dictionary
-                best_config = eval(line.replace('best_config: ', '').strip())
-            elif line.startswith('best_epochs'):
-                # Extract the number and convert it to an integer
-                best_epochs = int(line.replace('best_epochs: ', '').strip())
-
-    print("Best Config:", best_config)
-    print("Best Epochs:", best_epochs)
-    return best_config, best_epochs
-
 #********************************** SYNERGY TRIPLETS ***********************************
-def feature_based_filtering(synergy_df, dfeat_dict, cfeat_dict, feature='must'):
-    '''
-    If none of the features are optional, then we need to filter out the triplets such that only drugs and cell lines
-    with all feature information available are in the final synergy triplets.
-    '''
-    drug_pids = set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid']))
-    cell_line_names = set(synergy_df['cell_line_name'])
-    print('Before feature based fitering: ')
-    print_synergy_stat(synergy_df)
-
-    if feature=='must':
-        # find drugs with all features available
-        for feat_name in dfeat_dict:
-            if isinstance(dfeat_dict[feat_name],pd.DataFrame):
-                drugs = set(dfeat_dict[feat_name]['pid'])
-            elif isinstance(dfeat_dict[feat_name],dict):
-                drugs = set(dfeat_dict[feat_name].keys())
-            drug_pids = drug_pids.intersection(drugs)
-            print(f'filtering for {feat_name}')
-
-
-        # find cell lines with all features available
-        for feat_name in cfeat_dict:
-            cells = set(cfeat_dict[feat_name]['cell_line_name'])
-            cell_line_names = cell_line_names.intersection(cells)
-
-            print(f'filtering for {feat_name}')
-
-        #filter synergy triplets
-        synergy_df = synergy_df[(synergy_df['drug_1_pid'].isin(drug_pids)) & (synergy_df['drug_2_pid'].isin(drug_pids))
-                                & (synergy_df['cell_line_name'].isin(cell_line_names)) ]
-
-    # n_after_feat_filt =len(synergy_df)
-    # if k>0: #keep only top k cell lines having the most synergy triplets.
-    #     top_cell_lines = synergy_df['cell_line_name'].value_counts().nlargest(k).index
-    #     print('top cell lines:' , top_cell_lines)
-    #     synergy_df = synergy_df[synergy_df['cell_line_name'].isin(top_cell_lines)]
-    #
-    #     print(f'keeping top {k} cell lines, retrieved frac:{len(synergy_df)/n_after_feat_filt}')
-    #assert that there is no duplicate triplets in synergy_df
-    triplets = list(zip(synergy_df['drug_1_pid'],synergy_df['drug_2_pid'],synergy_df['cell_line_name']))
-    assert len(set(triplets))==len(triplets), print('still some duplicates remaining')
-
-    print('After feature based filtering: ')
-    print_synergy_stat(synergy_df)
-
-    #TODO: remove later
-    # synergy_df.to_csv('synergy_test.tsv', sep='\t', index=False)
-    return synergy_df
-
 
 def print_synergy_stat(synergy_df):
     drug_pids = set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid']))
@@ -160,97 +22,63 @@ def print_synergy_stat(synergy_df):
     return drug_pairs, drug_pids, cell_line_names
 
 
-def abundance_based_filtering(synergy_df, min_frac=0):
-    # Initialize the filtered_df as empty
-    filtered_df = pd.DataFrame()
 
-    # Sort cell lines by their count in descending order
-    cell_line_counts = synergy_df['cell_line_name'].value_counts()
+def get_feature_comb_wrapper(dfeat_dict, cfeat_dict, max_drug_feat, min_drug_feat, max_cell_feat, min_cell_feat):
+    def compute_feature_combination(feature_info, max_size=None, min_size=1):
+        '''
+        Computes valid combinations of features for training a model based on the 'use' values.
+        :param feature_info: a list of dictionaries, where each dictionary has 3 keys: 'name', 'preprocess', and 'use'.
+            'name' is a string representing the feature name.
+            'use' is a list of boolean values indicating whether a feature can be used.
+        :return: a list of lists, where each sublist represents a valid combination of feature names to use.
+        '''
+        # Filter and collect feature names that have at least one 'True' in their 'use' list
+        available_features = [feature_name for feature_name in feature_info if
+                              True in feature_info[feature_name]]  # feature with use=[True, False] or use=[True]
+        must_features = [feature_name for feature_name in feature_info if
+                         False not in feature_info[feature_name]]  # feature with use=[True]
+        optional_features = [feature_name for feature_name in available_features if
+                             feature_name not in must_features]  # feature with use=[True, False]
+        # Initialize an empty list to store all non-empty combinations
+        all_combinations = []
+        # Generate all possible non-empty combinations of available features
+        if max_size is None:  # in this case generate combination of all possible sizes
+            max_size = len(optional_features)
+        else:
+            max_size = (max_size - len(must_features))
+            assert max_size >= 0, print('Please increase max_drug_feat and/or max_cell_feat')
+        for i in range(max_size + 1):
+            all_combinations.extend(combinations(optional_features, i))
+        # Add the must have features. Convert tuples in the list to lists.
+        feat_combinations = [list(combo) + must_features for combo in all_combinations]
+        # filter empty feature combs
+        feat_combinations = [feat_comb for feat_comb in feat_combinations if len(feat_comb) > 0]
+        # make sure that at least one feature comb is being chosen.
+        assert len(feat_combinations) > 0, print('ERROR: no feature is selected to use.')
 
-    #option 1: min frac samples present from each cell line in the final dataset. More balanced data.
-    for cell_line, count in cell_line_counts.items():
-        # Calculate the potential new total rows if this cell line is added
-        new_total_rows = len(filtered_df) + count
-        new_fraction = count / new_total_rows
+        # filter feature combs with < min_size
+        feat_combinations = [feat_comb for feat_comb in feat_combinations if len(feat_comb) >= min_size]
+        return feat_combinations
 
-        # If adding this cell line meets the threshold, add it to filtered_df
-        if new_fraction >= min_frac:
-            filtered_df = pd.concat([filtered_df, synergy_df[synergy_df['cell_line_name'] == cell_line]])
+    def find_drug_cell_feat_combs(drug_feat_combs, cell_feat_combs):
+        '''
+            Generates all possible combinations of drug features with cell features.
+        :param drug_feat_combs: a list of lists, each sublist containing names of drug features.
+        :param cell_feat_combs: a list of lists, each sublist containing names of cell features.
+        :return: a list of tuples, where each tuple contains a list from drug_feat_combs and a list from cell_feat_combs.
 
-
-    print('After abundance based filtering: ')
-    print('frac triplets retrieved: ', len(filtered_df)/len(synergy_df))
-    print('selected cell lines: ', filtered_df['cell_line_name'].unique())
-    print_synergy_stat(filtered_df)
-
-    return filtered_df
-
-def get_feature_comb_wrapper(dfeat_names, dfeat_dict, cfeat_names, cfeat_dict,
-                             use_feat, max_drug_feat, min_drug_feat, max_cell_feat, min_cell_feat):
-    # if kwargs.get('feat') is not None:
-    if use_feat is not None:
-        use_feat = use_feat.split(' ')
-        for feat_name in dfeat_names:
-            if feat_name in use_feat:
-                dfeat_dict['use'][feat_name] = [True]
-            else:
-                dfeat_dict['use'][feat_name] = [False]
-        for feat_name in cfeat_names:
-            if feat_name in use_feat:
-                cfeat_dict['use'][feat_name] = [True]
-            else:
-                cfeat_dict['use'][feat_name] = [False]
+        '''
+        return list(product(drug_feat_combs, cell_feat_combs))
 
     drug_feat_combs = compute_feature_combination(dfeat_dict['use'], max_size=max_drug_feat, min_size=min_drug_feat)
     cell_feat_combs = compute_feature_combination(cfeat_dict['use'], max_size=max_cell_feat, min_size=min_cell_feat)
     drug_cell_feat_combs = find_drug_cell_feat_combs(drug_feat_combs, cell_feat_combs)
     return drug_cell_feat_combs
-def compute_feature_combination(feature_info, max_size=None, min_size=1):
-    '''
-    Computes valid combinations of features for training a model based on the 'use' values.
-    :param feature_info: a list of dictionaries, where each dictionary has 3 keys: 'name', 'preprocess', and 'use'.
-        'name' is a string representing the feature name.
-        'use' is a list of boolean values indicating whether a feature can be used.
-    :return: a list of lists, where each sublist represents a valid combination of feature names to use.
-    '''
-    # Filter and collect feature names that have at least one 'True' in their 'use' list
-    available_features = [feature_name for feature_name in feature_info if True in feature_info[feature_name]] # feature with use=[True, False] or use=[True]
-    must_features = [feature_name for feature_name in feature_info if False not in feature_info[feature_name]] # feature with use=[True]
-    optional_features = [feature_name for feature_name in available_features if feature_name not in must_features] # feature with use=[True, False]
-    # Initialize an empty list to store all non-empty combinations
-    all_combinations = []
-    # Generate all possible non-empty combinations of available features
-    if max_size is None: # in this case generate combination of all possible sizes
-        max_size = len(optional_features)
-    else:
-        max_size = (max_size-len(must_features))
-        assert max_size>=0, print('#of must present features exceeds allowed #of features.')
-    for i in range(max_size+1):
-        all_combinations.extend(combinations(optional_features, i))
-    # Add the must have features. Convert tuples in the list to lists.
-    feat_combinations = [list(combo)+must_features for combo in all_combinations]
-    #filter empty feature combs
-    feat_combinations = [feat_comb for feat_comb in feat_combinations if len(feat_comb)>0]
-    #make sure that at least one feature comb is being chosen.
-    assert len(feat_combinations)>0, print('ERROR: no feature is selected to use.')
 
-    # filter feature combs with < min_size
-    feat_combinations = [feat_comb for feat_comb in feat_combinations if len(feat_comb) >= min_size]
-    return feat_combinations
-
-def find_drug_cell_feat_combs(drug_feat_combs, cell_feat_combs):
-    '''
-        Generates all possible combinations of drug features with cell features.
-    :param drug_feat_combs: a list of lists, each sublist containing names of drug features.
-    :param cell_feat_combs: a list of lists, each sublist containing names of cell features.
-    :return: a list of tuples, where each tuple contains a list from drug_feat_combs and a list from cell_feat_combs.
-
-    '''
-    return list(product(drug_feat_combs, cell_feat_combs))
 
 
 def keep_selected_feat(feat_dict, selected_feat):
-    fields = ['norm', 'preprocess', 'filter', 'encoder', 'value', 'dim', 'use','compress']  # for each feature we can have these fields.
+    fields = ['norm', 'preprocess', 'encoder', 'value', 'dim', 'use','compress']  # for each feature we can have these fields.
     select_feat_dict = {field: {} for field in fields}
 
     for field in fields:
@@ -260,98 +88,39 @@ def keep_selected_feat(feat_dict, selected_feat):
     return select_feat_dict
 
 
-# def check_config_compeleteness(entity, features_info, models_info):
-#     # make sure that whatever features you preprocess they are checked out, as in, if any feature
-#     # needs encoder and the encoder is not mentioned then raise an error message.
-#     for feat_info in features_info:
-#         if feat_info['encoder']:
-#             feat_needing_encoder = feat_info['name']
-#             flag = 0
-#             for model_info in models_info:
-#                 encoders = model_info.get(f'{entity}_encoder', [])
-#                 for encoder in encoders:
-#                     if encoder['feat'] == feat_needing_encoder:
-#                         flag = 1
-#                 assert flag == 1, print(f'encoder information missing for feature:'
-#                                         f'{feat_needing_encoder}')
+def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=False, mention_preprocess=False,
+                    mention_compress=False):
+    def format_feat(feat_dict, feat_names):
+        parts = []
+        for feat_name in feat_names:
+            details = [feat_name]  # Start with the feature name
+
+            if mention_norm and feat_dict['norm'].get(feat_name):
+                details.append(f"_{feat_dict['norm'][feat_name]}")
+            if mention_preprocess and feat_dict['preprocess'].get(feat_name):
+                details.append(f"_{feat_dict['preprocess'][feat_name]}")
+            if mention_compress and feat_dict['compress'].get(feat_name):
+                details.append(f"_comp_{feat_dict['compress'][feat_name]}")
+            if mention_encoder and feat_dict['encoder'].get(feat_name):
+                details.append(f"_{feat_dict['encoder'][feat_name]}")
+
+            parts.append(''.join(details))
+
+        return '_'.join(parts)
+
+    dfeat_names = sorted(dfeat_dict['value'].keys())
+    cfeat_names = sorted(cfeat_dict['value'].keys())
+
+    dfeat_str = f"D_{format_feat(dfeat_dict, dfeat_names)}"
+    cfeat_str = f"C_{format_feat(cfeat_dict, cfeat_names)}"
+
+    return f"{dfeat_str}_{cfeat_str}".strip('_')
 
 
-
-def get_feat_prefix(dfeat_dict, cfeat_dict, mention_norm=False, mention_encoder=False, mention_preprocess=False, mention_compress=False):
-    dfeat_names = list(dfeat_dict['value'].keys())
-    dfeat_names.sort() #sorting so that irrespective of the order of features in the config, the prefix remains same.
-
-    cfeat_names = list(cfeat_dict['value'].keys())
-    cfeat_names.sort()#sorting so that irrespective of the order of features in the config, the prefix remains same.
-
-    dfeat_str = 'D_'
-    cfeat_str = 'C_'
-
-    for feat_name in dfeat_names:
-        filter_str = dfeat_dict['filter'].get(feat_name, '')
-        filter_str = f"_{filter_str}" if filter_str else filter_str
-
-        if mention_preprocess:
-            pp_str = dfeat_dict['preprocess'].get(feat_name, '')
-            pp_str = f"_{pp_str}" if pp_str else pp_str
-        else:
-            pp_str = ''
-
-        if mention_encoder:
-            encoder_str = dfeat_dict['encoder'].get(feat_name, '')
-            encoder_str = f"_{encoder_str}" if encoder_str else encoder_str
-        else:
-            encoder_str = ''
-
-        if mention_norm:
-            norm_str = dfeat_dict['norm'].get(feat_name, '')
-            norm_str = f"_{norm_str}" if norm_str else norm_str
-        else:
-            norm_str=''
-
-        if mention_compress:
-            comp_str = dfeat_dict['compress'].get(feat_name)
-            comp_str = f"_comp_{comp_str}" if comp_str else ''
-        else:
-            comp_str = ''
-        dfeat_str = dfeat_str + f'{feat_name}{filter_str}{norm_str}{pp_str}{comp_str}{encoder_str}_'
-
-    for feat_name in cfeat_names:
-
-        filter_str = cfeat_dict['filter'].get(feat_name, '')
-        filter_str = f"_{filter_str}" if filter_str else filter_str
-
-        if mention_preprocess:
-            pp_str = cfeat_dict['preprocess'].get(feat_name, '')
-            pp_str = f"_{pp_str}" if pp_str else pp_str
-        else:
-            pp_str = ''
-
-        if mention_encoder:
-            encoder_str = cfeat_dict['encoder'].get(feat_name, '')
-            encoder_str = f"_{encoder_str}" if encoder_str else encoder_str
-        else:
-            encoder_str = ''
-        if mention_norm:
-            norm_str = cfeat_dict['norm'].get(feat_name, '')
-            norm_str = f"_{norm_str}" if norm_str else norm_str
-        else:
-            norm_str=''
-        if mention_compress:
-            comp_str = cfeat_dict['compress'].get(feat_name)
-            comp_str = f"_comp_{comp_str}" if comp_str else ''
-        else:
-            comp_str = ''
-
-        cfeat_str = cfeat_str + f'{feat_name}{filter_str}{norm_str}{pp_str}{comp_str}{encoder_str}_'
-
-    feat_model_prefix = (dfeat_str + cfeat_str).strip('_')
-    return feat_model_prefix
-
-def create_file_prefix(out_dir, abundance, select_dfeat_dict, select_cfeat_dict, split_type,score_name, split_feat_str='', run_no=None):
-    dir_prefix = f"{out_dir}/k_{abundance}_{score_name}/{split_type}/"
+def create_file_prefix(params, select_dfeat_dict, select_cfeat_dict, split_type, split_feat_str='', run_no=None, seed=None):
+    dir_prefix = f"{params.out_dir}/k_{params.abundance}_{params.score_name}/{split_type}/"
     if run_no is not None:
-        dir_prefix=dir_prefix+'/run_'+str(run_no)+'/'
+        dir_prefix=f'{dir_prefix}/run_{run_no}_{seed}/'
     feat_model_prefix = get_feat_prefix(select_dfeat_dict, select_cfeat_dict, mention_norm=True, mention_encoder=True, mention_preprocess=True,
                                         mention_compress=True)
 
@@ -449,53 +218,28 @@ def get_index_sorted_feature_matrix(dfeat_mtx_dict, drug_2_idx, cfeat_mtx_dict, 
     return dfeat_mtx_dict, cfeat_mtx_dict
 
 
-def normalization_wrapper(dfeat_mtx_dict, cfeat_mtx_dict, dfeat_norm_dict, cfeat_norm_dict, train_df):
-    train_drug_idx = list(set(train_df['source']).union(set(train_df['target'])))
-    train_cell_idx = list(set(train_df['edge_type']).union(set(train_df['edge_type'])))
 
-    for feat_name in dfeat_norm_dict: #if feature name is present in norm dict.
-        dfeat_mtx_train = dfeat_mtx_dict[feat_name][train_drug_idx, :] #keep the training data only
-        if dfeat_norm_dict[feat_name] == 'std': #if norm type='std'
-            mean = np.mean(dfeat_mtx_train, axis=0)
-            std = np.std(dfeat_mtx_train, axis=0)
-            ##normalize both train and test data with mean and std computed from train data only
-            dfeat_mtx_dict[feat_name] = (dfeat_mtx_dict[feat_name]-mean)/std
+def extract_best_hyperparam(hyperparam_file):
+    best_config = {}
+    best_epochs = None
 
-    for feat_name in cfeat_norm_dict:  # if feature name is present in norm dict.
-        cfeat_mtx_train = cfeat_mtx_dict[feat_name][train_cell_idx, :]  # keep the training data only
-        if cfeat_norm_dict[feat_name] == 'std':  # if norm type='std'
-            mean = np.mean(cfeat_mtx_train, axis=0)
-            std = np.std(cfeat_mtx_train, axis=0)
-            ##normalize both train and test data with mean and std computed from train data only
-            cfeat_mtx_dict[feat_name] = (cfeat_mtx_dict[feat_name] - mean) / std
-    return dfeat_mtx_dict, cfeat_mtx_dict
+    with open(hyperparam_file, 'r') as f:
+        for line in f:
+            if line.startswith('best_config'):
+                # Extract the dictionary string and convert it back to a dictionary
+                best_config = eval(line.replace('best_config: ', '').strip())
+            elif line.startswith('best_epochs'):
+                # Extract the number and convert it to an integer
+                best_epochs = int(line.replace('best_epochs: ', '').strip())
+
+    print("Best Config:", best_config)
+    print("Best Epochs:", best_epochs)
+    return best_config, best_epochs
 
 
 
-def mol_graph_to_GCN_data(mol_graph_dict):
-    '''convert atom features and adjacency list of each drug molecule into a data compatible with
-    training pytorch geometric models'''
-    mol_gcn_data_dict={}
-    for pid in mol_graph_dict:
-        mol_feat = mol_graph_dict[pid][0]
-        mol_feat_dim = mol_feat.shape[1]
-        c_size = mol_feat.shape[0]
-        adj_list = mol_graph_dict[pid][1]
-
-        edges = adjacency_list_to_edges(adj_list)
-        GCNData = DATA.Data(x=torch.Tensor(mol_feat),
-                    edge_index=torch.LongTensor(edges).transpose(1, 0)
-                    if len(edges)>0 else torch.empty((2, 0), dtype=torch.long))
-        GCNData.__setitem__('c_size', torch.LongTensor([c_size]))
-        mol_gcn_data_dict[str(pid)] = GCNData
-    return mol_gcn_data_dict, mol_feat_dim
 
 
 
-def adjacency_list_to_edges(adj_list):
-    edges = []
-    for node, neighbors in enumerate(adj_list):
-        for neighbor in neighbors:
-            edges.append([node, neighbor])
-    return edges
+
 

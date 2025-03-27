@@ -17,7 +17,6 @@ else
 fi
 
 
-
 # You may remove the -q flag if you want to see the docker build status
 cd $BASEDIR/models/pretrained/kpgt
 docker build -t kpgt:base .

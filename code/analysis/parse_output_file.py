@@ -212,7 +212,7 @@ def main():
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/MARSY_data/k_0.05_S_mean_mean/"
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/MatchMaker_data/k_0.05_synergy_loewe_mean/"
 
-    split_types = ['random','leave_comb', 'leave_drug', 'leave_cell_line']
+    split_types = ['leave_comb','random', 'leave_drug', 'leave_cell_line']
     outfile_detailed = base_folder + f'combined_output.xlsx'
 
     #extract output for features other than where both drug and cell lines have one-hot encoding
@@ -233,6 +233,7 @@ def main():
             all_info = out_info
             loss_info = read_loss_file_content(out_info['loss_file'])
             # precision_dict, recall_dict, f1_dict = compute_cls_performance(out_info['pred_file'], thresholds = [0, 10, 30])
+            # print(out_info['pred_file'])
             correlations_dict  = compute_corr(out_info['pred_file'])
             all_info.update(loss_info)
             all_info.update(correlations_dict)
@@ -280,4 +281,4 @@ def main():
             splitwise_df_dict[split_type].to_excel(writer, sheet_name=split_type, index=False)
 
 
-main() #expect a terminal argument, the base output folder, .e.g., /home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean
+main()

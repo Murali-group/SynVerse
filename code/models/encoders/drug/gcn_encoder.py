@@ -3,8 +3,63 @@ import torch.nn as nn
 from torch_geometric.nn import GCNConv
 import torch.nn.functional as F
 from torch_geometric.nn import global_max_pool as gmp
-from models.GNN_data import GNN_data
+
+import os
+from torch_geometric.data import InMemoryDataset
+import torch
 torch.set_default_dtype(torch.float32)
+
+
+class GNN_data(InMemoryDataset):
+    def __init__(self, root='/tmp', dataset='_drug',
+                 data_list=None, transform=None,
+                 pre_transform=None):
+
+        #root is required for save preprocessed data, default is '/tmp'
+        super(GNN_data, self).__init__(root, transform, pre_transform)
+        self.dataset = dataset
+        self.data_list = data_list
+        self.data, self.slices, self.batch = self.process()
+
+
+    @property
+    def raw_file_names(self):
+        pass
+        #return ['some_file_1', 'some_file_2', ...]
+
+    @property
+    def processed_file_names(self):
+        return [self.dataset + '.pt']
+
+    def download(self):
+        # Download to `self.raw_dir`.
+        pass
+
+    def _download(self):
+        pass
+
+    def _process(self):
+        if not os.path.exists(self.processed_dir):
+            os.makedirs(self.processed_dir)
+
+    # Return: PyTorch-Geometric format processed data
+    def process(self):
+        if self.pre_filter is not None:
+            self.data_list = [data for data in self.data_list if self.pre_filter(data)]
+
+        if self.pre_transform is not None:
+            self.data_list = [self.pre_transform(data) for data in self.data_list]
+        data, slices = self.collate(self.data_list)
+
+        batch = [] #create batch to keep track of which atom belongs to which drug
+        slice_drug = list(slices['x'].numpy())
+        for i in range(len(slice_drug) - 1):
+            # Append the current value (i) for the range between two start indices
+            batch.extend([i] * (slice_drug[i + 1] - slice_drug[i]))
+        batch = torch.LongTensor(batch)
+        return data, slices, batch
+
+
 
 class GCN_Encoder(nn.Module):
     def __init__(self, input_size, config):

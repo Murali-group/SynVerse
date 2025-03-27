@@ -1,26 +1,26 @@
+from models.synversemodel import *
+from models.HP_worker import HP_Worker
 from models.model_utils import *
+from abc import ABC
+
 import torch
-import pytz
-import datetime
-from abc import ABC, abstractmethod
-from torch.utils.data import DataLoader, TensorDataset
+import torch.optim as optim
+from torch.utils.data import DataLoader, Subset, TensorDataset
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from datetime import datetime
+torch.set_default_dtype(torch.float32)
+
 
 import hpbandster.core.nameserver as hpns
 from hpbandster.optimizers import BOHB as BOHB
 import hpbandster.core.result as hpres
-import wandb
 
+import pytz
+from datetime import datetime
+import wandb
 import pickle
 import os
 import time
 import copy
-from torch.utils.data import DataLoader, Subset
-
-import torch
-torch.set_default_dtype(torch.float32)
-
 import logging
 
 class Runner(ABC):
@@ -28,10 +28,16 @@ class Runner(ABC):
                  cfeat_dict, out_file_prefix,
                  params, model_info, device, **kwargs):
 
+        self.worker_cls = HP_Worker
+        self.drug_encoder_info = model_info.get('drug_encoder')
+        self.cell_encoder_info = model_info.get('cell_encoder')
+        self.drug_feat_encoder_mapping = dfeat_dict['encoder']
+        self.cell_feat_encoder_mapping = cfeat_dict['encoder']
+
         out_file = out_file_prefix + '.txt'
         os.makedirs(os.path.dirname(out_file), exist_ok=True)
-        self.split_type = kwargs.get('split_type')
-        self.score_name = kwargs.get('score_name')
+        self.split_type = kwargs.get('split_type', '')
+        self.score_name = params.score_name
         self.triplets_scores_dataset = self.get_triplets_score_dataset(train_val_triplets_df, score_name=self.score_name)
 
         self.drug_feat = dfeat_dict['value']
@@ -45,7 +51,7 @@ class Runner(ABC):
         self.out_file = out_file
         self.out_file_prefix = out_file_prefix
         self.wandb = params.wandb
-        self.is_wandb = self.wandb.enabled
+        self.is_wandb = self.wandb.get('enabled', False)
         self.bohb_params = params.bohb
         self.device = device
         self.params=params
@@ -57,9 +63,31 @@ class Runner(ABC):
 
         self.log_file = self.out_file_prefix + '_training.log'
 
-    @abstractmethod
     def init_model(self, config):
-       pass
+        model = SynVerseModel(self.drug_encoder_info, self.cell_encoder_info,
+                              self.dfeat_dim_dict, self.cfeat_dim_dict,
+                              self.drug_feat_encoder_mapping, self.cell_feat_encoder_mapping,
+                              config, self.device).to(self.device)
+        ## Wrap the model for parallel processing if multiple gpus are available
+        # if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+        #     print(f"Using {torch.cuda.device_count()} GPUs!")
+        #     model = nn.DataParallel(model)
+        #setup loss
+        criterion = nn.MSELoss()
+        #setup optimizer
+        if config is not None:
+            if config['optimizer'] == 'Adam':
+
+                optimizer = optim.Adam(model.parameters(), lr=config['lr'])
+                # optimizer = optim.Adam(model.parameters(), lr=config['lr'], weight_decay=1e-4)
+            else:
+                optimizer = optim.SGD(model.parameters(), lr=config['lr'], momentum=config['sgd_momentum'])
+        else:
+            optimizer = optim.Adam(model.parameters(), lr=0.00001)
+
+
+        print('Model initialization done')
+        return model, optimizer, criterion
 
     @staticmethod
     def get_triplets_score_dataset(triplets_df, score_name):
@@ -87,13 +115,7 @@ class Runner(ABC):
 
             name_server = '127.0.0.1'
 
-            # import socket
-            # def find_free_port(nameserver=name_server):
-            #     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            #         s.bind((nameserver, 0))  # Bind to the specified nameserver and any free port
-            #         return s.getsockname()[1]
-
-                    # Step 1: Start a nameserver
+            # Step 1: Start a nameserver
             NS = hpns.NameServer(run_id=run_id, host=name_server, port=None)
             NS.start()
 
@@ -139,7 +161,6 @@ class Runner(ABC):
             # Most optimizers are so computationally inexpensive that we can affort to run a
             # worker in parallel to it. Note that this one has to run in the background to
             # not plock!
-            #TODO: make sure worker_cls is functioning properly.
             w = self.worker_cls(self, sleep_interval=0.5, run_id=run_id, host=host, nameserver=ns_host,
                           nameserver_port=ns_port)
             w.run(background=True)
@@ -260,12 +281,12 @@ class Runner(ABC):
         return best_model_state, train_loss
 
     def _init_wandb(self, model, fold):
-        wandb.login(key=self.wandb.token)
+        wandb.login(key=self.wandb['token'])
 
         # Generate a dynamic run name
-        eastern = pytz.timezone(self.wandb.timezone)
-        run_name = f"run-{self.split_type}-{fold}-{datetime.now(eastern).strftime(self.wandb.timezone_format)}"
-        wandb.init(project=self.wandb.project_name, entity=self.wandb.entity_name, name=run_name)
+        eastern = pytz.timezone(self.wandb.get('timezone', 'US/Eastern' ))
+        run_name = f"run-{self.split_type}-{fold}-{datetime.now(eastern).strftime(self.wandb.get('timezone_format', '%Y-%m-%d_%H-%M-%S'))}"
+        wandb.init(project=self.wandb.get('project_name','Synverse'), entity=self.wandb['entity_name'], name=run_name)
         wandb.watch(model, log="all")
 
     def train_model(self, model, optimizer, criterion, train_loader, n_epochs, check_freq, tolerance, is_wandb, device,
@@ -310,14 +331,6 @@ class Runner(ABC):
                 train_loss += (loss.detach().cpu().numpy())
                 loss.backward()
 
-                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-
-                #check if gradients are being computed.
-                # for name, param in model.named_parameters():
-                #     if param.grad is None:
-                #         print(f"No gradient for {name}")
-                #     else:
-                #         print(name)
                 if is_wandb:
                     for name, param in model.named_parameters():
                         if param.grad is not None:

@@ -544,13 +544,13 @@ def main():
     score_names = {'S_mean_mean':'S', 'synergy_loewe_mean':'Loewe'}
     split_types = ['leave_comb', 'leave_drug', 'leave_cell_line', 'random']
 
-    metric = 'Pearsons'
-    y_label = 'PCC'
-    alt= 'greater' #alternate hypothesis for sugnificance test
+    # metric = 'Pearsons'
+    # y_label = 'PCC'
+    # alt= 'greater' #alternate hypothesis for significance test
 
-    # metric = 'test_RMSE'
-    # y_label = 'RMSE'
-    # alt='less'
+    metric = 'test_RMSE'
+    y_label = 'RMSE'
+    alt='less'
 
     orientations= [ 'vertical']
 
@@ -578,46 +578,46 @@ def main():
                 for split in ['test', 'train', 'val']:
                     result_df[f'{split}_RMSE'] = np.sqrt(result_df[f'{split}_MSE'])
 
-                # significance_df = compute_average_and_significance(copy.deepcopy(result_df), metric, alt=alt)
-                # significance_df.to_csv(
-                #     f'{result_dir}/significance_baseline_diff_{score_name_str}_{split_type}_{metric}.tsv', sep='\t')
-                #
-                # df_avg = compute_average(result_df)
-                # df_avg.to_csv(f'{result_dir}/{score_name_str}_{split_type}_{metric}_aggreagred.tsv', sep='\t')
-                #
-                # wrapper_plot_model_performance_subplots(copy.deepcopy(result_df),df_avg, metric=metric, y_label=y_label, title=split_type, orientation=orientation, out_file_prefix =f'{result_dir}/plot/{orientation}/{score_name_str}_{split_type}_{metric}')
-                ## wrapper_plot_compare_with_1hot_subplots(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, orientation=orientation, out_file_prefix = f'{result_dir}/plot/{orientation}/baseline_{score_name_str}_{split_type}_{metric}')
+                significance_df = compute_average_and_significance(copy.deepcopy(result_df), metric, alt=alt)
+                significance_df.to_csv(
+                    f'{result_dir}/significance_baseline_diff_{score_name_str}_{split_type}_{metric}.tsv', sep='\t')
+
+                df_avg = compute_average(result_df)
+                df_avg.to_csv(f'{result_dir}/{score_name_str}_{split_type}_{metric}_aggreagred.tsv', sep='\t')
+
+                wrapper_plot_model_performance_subplots(copy.deepcopy(result_df),df_avg, metric=metric, y_label=y_label, title=split_type, orientation=orientation, out_file_prefix =f'{result_dir}/plot/{orientation}/{score_name_str}_{split_type}_{metric}')
+                # wrapper_plot_compare_with_1hot_subplots(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, orientation=orientation, out_file_prefix = f'{result_dir}/plot/{orientation}/baseline_{score_name_str}_{split_type}_{metric}')
 
 
                 # plot for comparing models trained on original vs. shuffled features
-                # shuffled_result_file = f'output_{split_type}_shuffled.tsv'
-                # shuffled_result_file_path = os.path.join(result_dir, shuffled_result_file)
-                # if not os.path.exists(shuffled_result_file_path):
-                #     print(f'file {shuffled_result_file_path} does not exist. Continuing to next file.')
-                #     continue
-                # shuffled_result_df = pd.read_csv(shuffled_result_file_path, sep='\t', index_col=None)
-                # # if the model_name mapping is not available, we do not want to plot the model's performance.
-                # shuffled_result_df.dropna(subset=['Model'], inplace=True)
-                #
-                # # compute_RMSE from MSE
-                # for split in ['test', 'train', 'val']:
-                #     shuffled_result_df[f'{split}_RMSE'] = np.sqrt(shuffled_result_df[f'{split}_MSE'])
-                #
-                # #save aggregated file
-                # shuffled_result_df_agg = shuffled_result_df.groupby(['Model', 'shuffle_method']).agg(
-                #     test_RMSE_mean=('test_RMSE', 'mean'),
-                #     test_RMSE_median=('test_RMSE', 'median'),
-                #     Pearsons_mean=('Pearsons', 'mean'),
-                #     Pearsons_median=('Pearsons', 'median'),
-                #     Spearman_mean=('Spearman', 'mean'),
-                #     Spearman_median=('Spearman', 'median')
-                # )
-                # shuffled_result_df_agg.to_csv(f'{result_dir}/shuffled_{score_name_str}_{split_type}_{metric}_aggregated.tsv', sep='\t')
-                #
-                # significance_test_wrapper(pd.concat([result_df, shuffled_result_df], axis=0), group_by_cols=['Model', 'feature_filter'],
-                #     compare_based_on='shuffle_method', measure=metric, out_file_prefix=f'{result_dir}/significance_shuffled_{score_name_str}_{split_type}_{metric}')
-                # wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric=metric, y_label=y_label, orientation=orientation,
-                #                              out_file_prefix=f'{result_dir}/plot/{orientation}/shuffled_{score_name_str}_{split_type}_{metric}')
+                shuffled_result_file = f'output_{split_type}_shuffled.tsv'
+                shuffled_result_file_path = os.path.join(result_dir, shuffled_result_file)
+                if not os.path.exists(shuffled_result_file_path):
+                    print(f'file {shuffled_result_file_path} does not exist. Continuing to next file.')
+                    continue
+                shuffled_result_df = pd.read_csv(shuffled_result_file_path, sep='\t', index_col=None)
+                # if the model_name mapping is not available, we do not want to plot the model's performance.
+                shuffled_result_df.dropna(subset=['Model'], inplace=True)
+
+                # compute_RMSE from MSE
+                for split in ['test', 'train', 'val']:
+                    shuffled_result_df[f'{split}_RMSE'] = np.sqrt(shuffled_result_df[f'{split}_MSE'])
+
+                #save aggregated file
+                shuffled_result_df_agg = shuffled_result_df.groupby(['Model', 'shuffle_method']).agg(
+                    test_RMSE_mean=('test_RMSE', 'mean'),
+                    test_RMSE_median=('test_RMSE', 'median'),
+                    Pearsons_mean=('Pearsons', 'mean'),
+                    Pearsons_median=('Pearsons', 'median'),
+                    Spearman_mean=('Spearman', 'mean'),
+                    Spearman_median=('Spearman', 'median')
+                )
+                shuffled_result_df_agg.to_csv(f'{result_dir}/shuffled_{score_name_str}_{split_type}_{metric}_aggregated.tsv', sep='\t')
+
+                significance_test_wrapper(pd.concat([result_df, shuffled_result_df], axis=0), group_by_cols=['Model', 'feature_filter'],
+                    compare_based_on='shuffle_method', measure=metric, out_file_prefix=f'{result_dir}/significance_shuffled_{score_name_str}_{split_type}_{metric}')
+                wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric=metric, y_label=y_label, orientation=orientation,
+                                             out_file_prefix=f'{result_dir}/plot/{orientation}/shuffled_{score_name_str}_{split_type}_{metric}')
 
                 # plot for comparing models trained on original vs. rewired networks
                 rewired_net_result_file = f'output_{split_type}_rewired.tsv'

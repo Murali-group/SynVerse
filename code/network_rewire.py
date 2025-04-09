@@ -497,7 +497,7 @@ def get_rewired_train_val (all_train_df, score_name, method, split_type, val_fra
         rewired_train_df = pd.read_csv(rewired_train_file, sep='\t')
 
     split_type_map = {'random': 'random', 'leave_comb': 'edge', 'leave_drug': 'node', 'leave_cell_line': 'edge_type'}
-    train_idx, val_idx = split_train_test(rewired_train_df, split_type_map[split_type], val_frac, seed=seed)
+    train_idx, val_idx = split_train_test(rewired_train_df, split_type_map[split_type], val_frac, seed=0)
 
     orig_triplets = set(zip(all_train_df['source'], all_train_df['target'], all_train_df['edge_type']))
     rewired_triplet = set(zip(rewired_train_df['source'], rewired_train_df['target'], rewired_train_df['edge_type']))

@@ -33,8 +33,8 @@ class Params:
     min_cell_feat: int
     hp_tune: bool
     train_mode: Any
+    train_type: str
     rewire_method: str
-    shuffle: bool
     batch_size: int
     wandb: Any
     bohb: Any
@@ -72,8 +72,8 @@ def parse_config(config_map, **kwargs):
 
         hp_tune=input_settings['hp_tune'],
         train_mode=input_settings['train_mode'],
+        train_type=input_settings.get('train_type', 'regular'),
         rewire_method=input_settings.get('rewire_method', None),
-        shuffle=input_settings.get('shuffle', False),
         wandb = input_settings.get('wandb', {}),
         bohb=input_settings.get('bohb',{}),
 

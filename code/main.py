@@ -23,7 +23,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/debug_smiles.yaml",
+                       "config_files/experiment_1/refactored_config.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--seed', type=int, default=0,
                        help="Seed value used for train test splitting. Using different seed value will result in different train and test splits.")
@@ -92,7 +92,7 @@ def run_SynVerse(inputs, params, **kwargs):
                                                       split_feat_str=feat_str, run_no=run_no, seed=seed)
 
                 #**************************** Run the pipeline to train and test model **********************************************************
-                train_type = "rewire" if params.rewire_method else "shuffle" if params.shuffle else "regular"
+                train_type = params.train_type
                 run_manager = RunManagerFactory.get_run_manager(train_type, params, select_model_info, given_epochs, all_train_df,
                             train_idx, val_idx, select_dfeat_dict, select_cfeat_dict, test_df, out_file_prefix, '_val_true_', device, **kwargs)
                 run_manager.run_wrapper()

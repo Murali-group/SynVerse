@@ -64,8 +64,8 @@ class RewireRunManager(BaseRunManager):
                 out_file_prefix_rewire = f'{self.out_file_prefix}_rewired_{rand_net}_{rewire_method}'
                 rewired_df, rewired_train_idx, rewired_val_idx = get_rewired_train_val(
                     self.train_df, self.params.score_name, rewire_method,
-                    self.params.split['type'], self.params.split['val_frac'], self.kwargs.get('seed')+rand_net,
-                    out_dir=f'{split_file_path}{rand_net}')
+                    self.params.split['type'], self.params.split['val_frac'], seed=None,
+                    out_dir=f'{split_file_path}{rand_net}', force_run=False)
                 self.execute_run(rewired_df, rewired_train_idx, rewired_val_idx, self.dfeat_dict, self.cfeat_dict, out_file_prefix_rewire)
 
 class RunManagerFactory:

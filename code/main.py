@@ -70,7 +70,8 @@ def run_SynVerse(inputs, params, **kwargs):
             kwargs['split_file_path'] = split_file_path
 
             #split into train test val
-            test_df, all_train_df, train_idx, val_idx = wrapper_test_train_val(copy.deepcopy(synergy_df), split_type, test_frac, val_frac, split_file_path, seed=seed+run_no)
+            test_df, all_train_df, train_idx, val_idx = wrapper_test_train_val(copy.deepcopy(synergy_df), split_type, test_frac, val_frac, split_file_path, seed=seed+run_no,
+                                                                               force_run=kwargs.get('force_split'))
             all_train_df = all_train_df[['source', 'target','edge_type', params.score_name]]
 
             #************************** POST split processing of features ******************************************

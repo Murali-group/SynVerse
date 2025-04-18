@@ -211,6 +211,7 @@ def main():
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.95/k_0.05_S_mean_mean/"
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/MARSY_data/k_0.05_S_mean_mean/"
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/MatchMaker_data/k_0.05_synergy_loewe_mean/"
+    # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/SynergyX_data/k_0.05_S_mean_mean/"
 
     split_types = ['leave_comb','random', 'leave_drug', 'leave_cell_line']
     outfile_detailed = base_folder + f'combined_output.xlsx'
@@ -251,7 +252,6 @@ def main():
         # compute_RMSE from MSE
         # for split in ['test', 'train', 'val']:
         #     df[f'{split}_RMSE'] = np.sqrt(df[f'{split}_MSE'])
-
 
 
         # remove model 'One hot (AE)'

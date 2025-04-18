@@ -481,8 +481,7 @@ def rewire_signed(df, score_name, seed, method='SA'):
     return rewired_df
 
 
-def get_rewired_train_val (all_train_df, score_name, method, split_type, val_frac, seed, out_dir, force_run=False):
-    rewired_train_file = out_dir + f'all_train_rewired_{method}.tsv'
+def get_rewired_train_val (all_train_df, score_name, method, split_type, val_frac, seed, rewired_train_file, force_run=False):
 
     if (not os.path.exists(rewired_train_file))|force_run:
         rewired_train_df = rewire_signed(all_train_df, score_name, seed, method=method)
@@ -496,6 +495,11 @@ def get_rewired_train_val (all_train_df, score_name, method, split_type, val_fra
         print('Loading rewired network')
         rewired_train_df = pd.read_csv(rewired_train_file, sep='\t')
 
+
+    #check for edges like (a,b) and (b, a)
+    # rev_pairs= set(zip(rewired_train_df['source'], rewired_train_df['target'])).intersection(set(zip(rewired_train_df['target'], rewired_train_df['source'])))
+    # print(f'#duplicated pairs in rewired: {len(rev_pairs)}')
+
     split_type_map = {'random': 'random', 'leave_comb': 'edge', 'leave_drug': 'node', 'leave_cell_line': 'edge_type'}
     train_idx, val_idx = split_train_test(rewired_train_df, split_type_map[split_type], val_frac, seed=0)
 
@@ -505,7 +509,8 @@ def get_rewired_train_val (all_train_df, score_name, method, split_type, val_fra
     common_triplets = orig_triplets.intersection(rewired_triplet)
     total_triplets = orig_triplets.union(rewired_triplet)
 
-    print(f'frac common triplets: {len(common_triplets)/len(total_triplets)}, total : {len(total_triplets)}')
+    print(f'frac common triplets: {len(common_triplets)/len(total_triplets)} among total of: {len(total_triplets)}')
+
     return rewired_train_df, {0:train_idx}, {0:val_idx}
 
 

@@ -152,7 +152,7 @@ def compute_average_with_1hot_diff(df):
     return aggregated_results
 
 
-def compute_average(df):
+def aggregate_scores(df):
     aggregated_results = df.groupby(['drug_features', 'cell_features', 'feature_filter','Model']).agg(
         test_MSE_median=('test_MSE', 'median'),
         test_MSE_mean=('test_MSE', 'mean'),
@@ -238,11 +238,7 @@ def compute_average_and_significance(df, measure, alt='greater'):
 
 
 
-def wrapper_plot_model_performance_subplots(df, df_avg, metric, y_label, title, orientation='vertical', out_file_prefix=None):
-
-    #get feature_filter wise one_hot model's  performance
-    df_1hot = df_avg[df_avg['Model'] == 'One hot']
-    ft_filt_wise_1hot = dict(zip(df_1hot['feature_filter'], df_1hot[f'{metric}_median']))
+def wrapper_plot_model_performance_subplots(df, ft_filt_wise_1hot, metric, y_label, title, orientation='vertical', out_file_prefix=None):
 
     # remove one-hot based model
     df = df[df['Model'] != 'One hot']
@@ -336,7 +332,7 @@ def wrapper_plot_compare_with_1hot_subplots(df, metric, y_label, title, orientat
     )
 
 
-def wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, metric, y_label, orientation='vertical', out_file_prefix=None):
+def wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df,ft_filt_wise_1hot, metric, y_label, orientation='vertical', out_file_prefix=None):
 
         df = pd.concat([result_df, rewired_result_df], axis=0)
         # df = set_model_names(df)
@@ -362,13 +358,14 @@ def wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, metric, 
             figsize = (box_height, 2.5 * len(feature_filters))
             rotation = 0
 
-        # Call box plot with subplots
+        # box plot with subplots with baseline
         box_plot_subplots(
             df, x='Model', y=metric,
             ylabel=y_label,
             hue='rewire_method', hue_order = ['Original', 'SA', 'SM'],
             feature_filters=feature_filters, rotate=rotation, y_min=y_min, y_max=y_max,
             figsize=figsize,
+            ft_filt_wise_1hot=ft_filt_wise_1hot,
             # palette="Set2",
             palette=rewire_palette,
             width=0.9, dodge=True, edgecolor='black', bg_colors = ["#A9A9A9", "white" ], orientation=orientation,
@@ -376,21 +373,7 @@ def wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, metric, 
         )
 
 
-        # bar_plot_subplots(
-        #     df, x='Model', y=metric,
-        #     ylabel=y_label,
-        #     hue='rewire_method', hue_order=['Original', 'SA', 'SM'],
-        #     feature_filters=feature_filters, rotate=90, y_min=y_min, y_max=y_max,
-        #     figsize=(2.5 * len(feature_filters), bar_height),
-        #     # palette="Set2",
-        #     palette=rewire_palette,
-        #     width=0.6, dodge=True,
-        #     out_file_prefix=f'{out_file_prefix}_grouped_barplot_',
-        #     edgecolor=edge_color
-        #
-        # )
-
-def wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric, y_label, out_file_prefix=None, orientation='vertical'):
+def wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, ft_filt_wise_1hot, metric, y_label, out_file_prefix=None, orientation='vertical'):
     df = pd.concat([result_df, shuffled_result_df], axis=0)
     # df = set_model_names(df)
 
@@ -417,13 +400,14 @@ def wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric
     elif orientation=='horizontal':
         figsize = (box_height, 2.5 * len(feature_filters))
         rotation = 0
-    # Call box plot with subplots
+    # box plot with subplots with baseline
     box_plot_subplots(
         df, x='Model', y=metric,
         ylabel=y_label,
         hue='shuffle_method', hue_order = ['Original', 'Shuffled'],
         feature_filters=feature_filters, rotate=rotation, y_min=y_min, y_max=y_max,
         figsize=figsize,
+        ft_filt_wise_1hot=ft_filt_wise_1hot,
         palette=shuffle_palette,
         width=0.8, dodge=True, edgecolor='black', bg_colors = ["#A9A9A9", "white" ], orientation=orientation,
         out_file_prefix=f'{out_file_prefix}'
@@ -515,8 +499,8 @@ def compute_performance_retained_wrapper(df, group_by_cols, compare_based_on,
             data1 = group_df[group_df[compare_based_on] == cat1][measure]
             data2 = group_df[group_df[compare_based_on] == cat2][measure]
 
-            data1.dropna(inplace=True) #if a few runs were not complete.
-            data2.dropna(inplace=True) #if a few runs were not complete.
+            # data1.dropna(inplace=True) #if a few runs were not complete.
+            # data2.dropna(inplace=True) #if a few runs were not complete.
 
             median_1 = data1.median()
             median_2 = data2.median()
@@ -554,14 +538,14 @@ def main():
 
     orientations= [ 'vertical']
 
-
     for orientation in orientations:
         for score_name in score_names:
-            result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_{score_name}'
+            # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_{score_name}'
             # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/MARSY_data/k_0.05_{score_name}'
+            result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/SynergyX_data/k_0.05_{score_name}'
+
             score_name_str = score_names[score_name]
 
-            # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_{score_name}'
 
             for split_type in split_types:
                 # plot for comparing models with each other. Also compare with one hot based model i.e., basleine
@@ -578,15 +562,20 @@ def main():
                 for split in ['test', 'train', 'val']:
                     result_df[f'{split}_RMSE'] = np.sqrt(result_df[f'{split}_MSE'])
 
+                # compute average, median, min, max of scores across runs.
+                df_avg = aggregate_scores(result_df)
+                df_avg.to_csv(f'{result_dir}/{score_name_str}_{split_type}_aggreagred.tsv', sep='\t')
+
                 significance_df = compute_average_and_significance(copy.deepcopy(result_df), metric, alt=alt)
                 significance_df.to_csv(
                     f'{result_dir}/significance_baseline_diff_{score_name_str}_{split_type}_{metric}.tsv', sep='\t')
 
-                df_avg = compute_average(result_df)
-                df_avg.to_csv(f'{result_dir}/{score_name_str}_{split_type}_{metric}_aggreagred.tsv', sep='\t')
 
-                wrapper_plot_model_performance_subplots(copy.deepcopy(result_df),df_avg, metric=metric, y_label=y_label, title=split_type, orientation=orientation, out_file_prefix =f'{result_dir}/plot/{orientation}/{score_name_str}_{split_type}_{metric}')
-                # wrapper_plot_compare_with_1hot_subplots(copy.deepcopy(result_df), metric=metric, y_label=y_label, title=split_type, orientation=orientation, out_file_prefix = f'{result_dir}/plot/{orientation}/baseline_{score_name_str}_{split_type}_{metric}')
+                # get feature_filter wise one_hot model's  performance
+                df_1hot = df_avg[df_avg['Model'] == 'One hot']
+                ft_filt_wise_1hot = dict(zip(df_1hot['feature_filter'], df_1hot[f'{metric}_median']))
+
+                wrapper_plot_model_performance_subplots(copy.deepcopy(result_df),ft_filt_wise_1hot, metric=metric, y_label=y_label, title=split_type, orientation=orientation, out_file_prefix =f'{result_dir}/plot/{orientation}/{score_name_str}_{split_type}_{metric}')
 
 
                 # plot for comparing models trained on original vs. shuffled features
@@ -616,7 +605,7 @@ def main():
 
                 significance_test_wrapper(pd.concat([result_df, shuffled_result_df], axis=0), group_by_cols=['Model', 'feature_filter'],
                     compare_based_on='shuffle_method', measure=metric, out_file_prefix=f'{result_dir}/significance_shuffled_{score_name_str}_{split_type}_{metric}')
-                wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, metric=metric, y_label=y_label, orientation=orientation,
+                wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, ft_filt_wise_1hot, metric=metric, y_label=y_label, orientation=orientation,
                                              out_file_prefix=f'{result_dir}/plot/{orientation}/shuffled_{score_name_str}_{split_type}_{metric}')
 
                 # plot for comparing models trained on original vs. rewired networks
@@ -653,7 +642,7 @@ def main():
                                           group_by_cols=['Model'],
                                           compare_based_on='rewire_method', measure=metric,
                                           out_file_prefix=f'{result_dir}/retained_rewired_{score_name_str}_{split_type}_{metric}')
-                wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, metric=metric, y_label=y_label, orientation=orientation,
+                wrapper_plot_compare_rewired_subplots(result_df, rewired_result_df, ft_filt_wise_1hot, metric=metric, y_label=y_label, orientation=orientation,
                                              out_file_prefix=f'{result_dir}/plot/{orientation}/rewired_{score_name_str}_{split_type}_{metric}')
 
                 print(f'done {split_type}')

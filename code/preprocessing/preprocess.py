@@ -8,12 +8,7 @@ from utils import *
 from split import *
 import pandas as pd
 
-def load_filter_triplets_features(inputs, params,device):
-    '''Read synergy triplets'''
-    synergy_df = pd.read_csv(inputs.synergy_file, sep='\t',
-                             dtype={'drug_1_pid': str, 'drug_2_pid': str, 'cell_line_name': str, params.score_name: float})
-    drug_pids = sorted(list(set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid']))))
-    cell_line_names = sorted(synergy_df['cell_line_name'].unique())
+def load_filter_triplets_features(synergy_df, drug_pids, cell_line_names,inputs, params,device, feat_filt=True, abundance_based_filt=True):
 
     # ********************************** GET FEATURES READY *******************************************************
     ''' Read parsed drug features and do user-chosen filtering and preprocessing.'''
@@ -22,11 +17,13 @@ def load_filter_triplets_features(inputs, params,device):
     ''' Read parsed cell line features and do user-chosen filtering and preprocessing.'''
     cfeat_dict, cfeat_names = prepare_cell_line_features(cell_line_names, params, inputs, device)
 
-    '''Filter out the triplets based on the availability of drug and cell line features'''
-    synergy_df = feature_based_filtering(synergy_df, dfeat_dict['value'], cfeat_dict['value'])
+    if feat_filt:
+        '''Filter out the triplets based on the availability of drug and cell line features'''
+        synergy_df = feature_based_filtering(synergy_df, dfeat_dict['value'], cfeat_dict['value'])
 
-    '''keep the cell lines consisting of at least abundance% of the total #triplets in the final dataset.'''
-    synergy_df = abundance_based_filtering(synergy_df, min_frac=params.abundance)
+    if abundance_based_filt:
+        '''keep the cell lines consisting of at least abundance% of the total #triplets in the final dataset.'''
+        synergy_df = abundance_based_filtering(synergy_df, min_frac=params.abundance)
 
     '''get drug_pid to index and cell_line_name to index mapping'''
     feat_str = get_feat_prefix(dfeat_dict, cfeat_dict)

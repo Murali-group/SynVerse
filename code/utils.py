@@ -2,13 +2,29 @@ import yaml
 import pandas as pd
 from itertools import combinations
 from itertools import product
-
+import copy
 def load_yaml_file(filepath):
     with open(filepath, 'r') as file:
         data = yaml.safe_load(file)
     return data
 
 #********************************** SYNERGY TRIPLETS ***********************************
+def sort_paired_cols(df, col1, col2, inplace, relation='greater'):
+    '''
+    Given a pandas dataframe,df and two column names, this function will return a
+    dataframe where col1>col2.
+    '''
+    if relation=='greater':
+        mask = df[col1] < df[col2]
+    elif relation=='less':
+        mask = df[col1] > df[col2]
+
+    if inplace:
+        df.loc[mask, [col1, col2]] = df.loc[mask, [col2, col1]].values
+    else:
+        df_new = copy.deepcopy(df)
+        df_new.loc[mask, [col1, col2]] = df_new.loc[mask, [col2, col1]].values
+        return df_new
 
 def print_synergy_stat(synergy_df):
     drug_pids = set(synergy_df['drug_1_pid']).union(set(synergy_df['drug_2_pid']))

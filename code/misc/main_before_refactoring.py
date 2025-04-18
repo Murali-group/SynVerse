@@ -213,7 +213,7 @@ def run_SynVerse(inputs, params, **kwargs):
                             rewired_all_train_df, rewired_train_idx, rewired_val_idx = get_rewired_train_val(all_train_df, score_name, rewire_method,
                                                                 split_type, val_frac, out_dir=f'{split_file_path}{rand_net}',
                                                                 force_run=force_split)
-                            wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix = f'{split_file_path}/{rand_net}_{rewire_method}'  )
+                            wrapper_network_rewiring_joint_plot(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix =f'{split_file_path}/{rand_net}_{rewire_method}')
 
                             out_file_prefix_rand = f'{out_file_prefix}_rewired_{rand_net}_{rewire_method}'
                             runner = Encode_MLP_runner(rewired_all_train_df, rewired_train_idx, rewired_val_idx, select_dfeat_dict,

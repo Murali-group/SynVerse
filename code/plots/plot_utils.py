@@ -1,10 +1,13 @@
 import copy
 import os
+import io
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from matplotlib.ticker import MaxNLocator, FuncFormatter
+from PIL import Image
 from scipy.stats import skew
 
 
@@ -380,6 +383,20 @@ def confidence_interval(std_dev, n, confidence_level=0.95):
 
 
 def compute_node_signed_strength(df, score_name):
+    #compute: for each node the sum of positive scores and sum of negative scores separately
+    nodes = list(set(df['source'].unique()).union(set(df['target'].unique())))
+    nodes.sort()
+    positive_strength = {}
+    negative_strength = {}
+
+    for node in nodes:
+        df_node = df[(df['source'] == node) | (df['target'] == node)]
+        positive_strength[node] = df_node[df_node[score_name] > 0][score_name].sum()
+        negative_strength[node] = df_node[df_node[score_name] < 0][score_name].sum()
+    return positive_strength, negative_strength
+
+def compute_node_signed_degree(df, score_name):
+    #compute: for each node how many positive edges and how many negative edges seperately.
     nodes = list(set(df['source'].unique()).union(set(df['target'].unique())))
     nodes.sort()
     positive_degree = {}
@@ -387,12 +404,13 @@ def compute_node_signed_strength(df, score_name):
 
     for node in nodes:
         df_node = df[(df['source'] == node) | (df['target'] == node)]
-        positive_degree[node] = df_node[df_node[score_name] > 0][score_name].sum()
-        negative_degree[node] = df_node[df_node[score_name] < 0][score_name].sum()
+        positive_degree[node] = len(df_node[df_node[score_name] > 0])
+        negative_degree[node] = len(df_node[df_node[score_name] < 0])
     return positive_degree, negative_degree
 
 
 def compute_node_strength(df, score_name):
+    #compute: for each node the total sum of scores.
     nodes = list(set(df['source'].unique()).union(set(df['target'].unique())))
     nodes.sort()
     degree = {}
@@ -402,25 +420,43 @@ def compute_node_strength(df, score_name):
         degree[node] = df_node[score_name].sum()
     return degree, nodes
 
+def compute_node_degree(df, score_name):
+    #compute: for each node the total sum of degrees.
+    nodes = list(set(df['source'].unique()).union(set(df['target'].unique())))
+    nodes.sort()
+    degree = {}
 
-def wrapper_violin_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix=None):
-    # for each node compute its positive and negative weighted degree separately i.e., postive strength and negative strength resepectively.
+    for node in nodes:
+        df_node = df[(df['source'] == node) | (df['target'] == node)]
+        degree[node] = len(df_node[score_name])
+    return degree, nodes
+
+
+def wrapper_network_rewiring_box_plot(rewired_df, orig_df, score_name, cell_line_2_idx, weighted=True, plot_file_prefix=None):
+    # for each cell line, for each node compute its positive and negative weighted(strength)/unweighted degree(degree) separately.
     # Now for each node compute the difference between its positive strength in original vs randmoized network.
+    # Now for each node also compute the difference between its negative strength in original vs randmoized network.
 
-    edge_types = set(rewired_all_train_df['edge_type'].unique())
+
+    edge_types = list(set(rewired_df['edge_type'].unique()))
+    edge_types.sort()
     plot_data = []
     for edge_type in edge_types:
-        df1 = rewired_all_train_df[rewired_all_train_df['edge_type'] == edge_type]
-        df2 = all_train_df[all_train_df['edge_type'] == edge_type]
-        positive_degree_1, negative_degree_1 = compute_node_signed_strength(df1, score_name)
-        positive_degree_2, negative_degree_2 = compute_node_signed_strength(df2, score_name)
+        edge_wise_rewired_df = rewired_df[rewired_df['edge_type'] == edge_type]
+        edge_wise_orig_df = orig_df[orig_df['edge_type'] == edge_type]
+        if weighted:
+            pos_deg_rewired, neg_deg_rewired = compute_node_signed_strength(edge_wise_rewired_df, score_name)
+            pos_deg_orig, neg_deg_orig = compute_node_signed_strength(edge_wise_orig_df, score_name)
+        else:
+            pos_deg_rewired, neg_deg_rewired = compute_node_signed_degree(edge_wise_rewired_df, score_name)
+            pos_deg_orig, neg_deg_orig = compute_node_signed_degree(edge_wise_orig_df, score_name)
 
-        pos_diff = list({key: positive_degree_1[key] - positive_degree_2[key] for key in positive_degree_1.keys()}.values())
-        neg_diff = list({key: negative_degree_1[key] - negative_degree_2[key] for key in negative_degree_1.keys()}.values())
+        pos_diff = list({key: pos_deg_rewired[key] - pos_deg_orig[key] for key in pos_deg_rewired.keys()}.values())
+        neg_diff = list({key: neg_deg_rewired[key] - neg_deg_orig[key] for key in neg_deg_rewired.keys()}.values())
 
         # Add data to the plot_data list
-        plot_data.extend([{'edge_type': edge_type, 'degree_type': 'Positive Degree', 'diff': diff} for diff in pos_diff])
-        plot_data.extend([{'edge_type': edge_type, 'degree_type': 'Negative Degree', 'diff': diff} for diff in neg_diff])
+        plot_data.extend([{'edge_type': edge_type, 'degree_type': 'Positive', 'diff': diff} for diff in pos_diff])
+        plot_data.extend([{'edge_type': edge_type, 'degree_type': 'Negative', 'diff': diff} for diff in neg_diff])
 
     # Convert the plot data to a DataFrame
     plot_df = pd.DataFrame(plot_data)
@@ -430,36 +466,55 @@ def wrapper_violin_plot_difference_in_degree_distribution(rewired_all_train_df, 
     plot_df['cell_line_name'] =  plot_df['edge_type'].map(idx_2_cell_line)
 
     # Create the violin plot
-    plt.figure(figsize=(6, 4))
-    sns.violinplot(x='cell_line_name', y='diff', hue='degree_type', data=plot_df, split=True, inner='quart', density_norm='count', linewidth=0.4)
-
-    plt.ylim(-10, 10)
+    plt.figure(figsize=(8, 6))
+    # sns.violinplot(x='cell_line_name', y='diff', hue='degree_type', data=plot_df, split=True, inner='quart', density_norm='count', linewidth=0.4)
+    sns.boxplot( x='cell_line_name', y='diff', hue='degree_type',
+        data=plot_df,
+        linewidth=0.4)
+    plt.ylim(plot_df['diff'].min(), plot_df['diff'].max())
     # Customize the plot
     plt.xlabel('Cell lines', fontsize=12)
-    plt.ylabel('Difference in Weighted Degree', fontsize=12)
+    if weighted:
+        plt.ylabel('Difference in Strength', fontsize=12)
+    else:
+        plt.ylabel('Difference in Degree', fontsize=12)
+
     # plt.title('Distribution of Differences in Degree by Cell line')
     plt.legend(loc='upper right')
 
     # Show and save the plot
-    plt.xticks(rotation=45, ha='right')
+    plt.xticks(rotation=90, ha='right')
     plt.tight_layout()
     plt.grid(axis='y', linestyle='--', linewidth=0.4, alpha=0.7)
     os.makedirs(os.path.dirname(plot_file_prefix), exist_ok=True)
-    plt.savefig(f'{plot_file_prefix}_difference_in_degree_dist_with_rewired_plot.pdf', bbox_inches='tight')
+
+    if weighted:
+        out_file = f'{plot_file_prefix}_difference_in_strength_dist_with_rewired_plot.pdf'
+    else:
+        out_file = f'{plot_file_prefix}_difference_in_degree_dist_with_rewired_plot.pdf'
+
+    plt.savefig(out_file, bbox_inches='tight')
 
     plt.show()
     plt.close()
 
 
-def joint_plot(rewired, orig, score_name, idx_2_cell_line, min=None, max=None, plot_file_prefix=None):
-    edge_types = set(rewired['edge_type'].unique())
+def joint_plot(rewired, orig, score_name, idx_2_cell_line, weighted=True, plot_file_prefix=None):
 
-    node_strength_dict={'node':[],'rewired_strength': [], 'orig_strength':[],'edge_type':[]}
+    edge_types = list(set(rewired['edge_type'].unique()))
+    edge_types.sort()
+
+    node_strength_dict={'node':[],'rewired': [], 'orig':[],'edge_type':[]}
     for i, edge_type in enumerate(edge_types):
-        rewired_df = rewired[rewired['edge_type'] == edge_type]
-        orig_df = orig[orig['edge_type'] == edge_type]
-        rewired_deg, rewired_nodes = compute_node_strength(rewired_df, score_name)
-        orig_deg, orig_nodes = compute_node_strength(orig_df, score_name)
+        rewired_df_edge_wise = rewired[rewired['edge_type'] == edge_type]
+        orig_df_edge_wise = orig[orig['edge_type'] == edge_type]
+
+        if weighted:
+            rewired_deg, rewired_nodes = compute_node_strength(rewired_df_edge_wise, score_name)
+            orig_deg, orig_nodes = compute_node_strength(orig_df_edge_wise, score_name)
+        else:
+            rewired_deg, rewired_nodes = compute_node_degree(rewired_df_edge_wise, score_name)
+            orig_deg, orig_nodes = compute_node_degree(orig_df_edge_wise, score_name)
 
         #keep the common nodes
         uncommon_nodes = set(orig_nodes).difference(set(rewired_nodes))
@@ -470,66 +525,128 @@ def joint_plot(rewired, orig, score_name, idx_2_cell_line, min=None, max=None, p
         assert rewired_deg.keys() == orig_deg.keys()
 
         node_strength_dict['node'].extend(list(rewired_deg.keys()))
-        node_strength_dict['rewired_strength'].extend(list(rewired_deg.values()))
-        node_strength_dict['orig_strength'].extend(list(orig_deg.values()))
+        node_strength_dict['rewired'].extend(list(rewired_deg.values()))
+        node_strength_dict['orig'].extend(list(orig_deg.values()))
         node_strength_dict['edge_type'].extend([idx_2_cell_line[edge_type]]*len(orig_deg.keys()))
-    #remove dipg_25 pick of hist is too high for this, which makes other edge type invisible
     node_strength_df = pd.DataFrame(node_strength_dict)
-
-    # node_strength_df=node_strength_df[node_strength_df['edge_type']!='dipg25']
-    # sns.jointplot(data=node_strength_df, x='orig_strength', y='rewired_strength', hue='edge_type', kind='scatter',
-    #               ratio=10, height=4, marginal_kws={'bw_adjust': 0.5})
-
 
     def symmetric_log_transform(x):
         epsilon = 1e-6  # Small constant
-        return np.sign(x) * np.log10(abs(x)+epsilon)
+        return np.sign(x) * np.log(abs(x)+epsilon)
 
-    node_strength_df['scaled_orig_strength'] = node_strength_df['orig_strength'].apply(symmetric_log_transform)
-    node_strength_df['scaled_rewired_strength'] = node_strength_df['rewired_strength'].apply(symmetric_log_transform)
-
-    sns.jointplot(
+    if weighted:
+        node_strength_df['scaled_orig'] = node_strength_df['orig'].apply(symmetric_log_transform)
+        node_strength_df['scaled_rewired'] = node_strength_df['rewired'].apply(symmetric_log_transform)
+    else:
+        node_strength_df['scaled_orig'] = node_strength_df['orig']
+        node_strength_df['scaled_rewired'] = node_strength_df['rewired']
+    g = sns.jointplot(
         data=node_strength_df,
-        x='scaled_orig_strength',
-        y='scaled_rewired_strength',
+        x='scaled_orig',
+        y='scaled_rewired',
         hue='edge_type',
         kind='scatter',
         marginal_kws={'bw_adjust': 0.5},
         height=4,
         ratio=4
     )
+    #make sure that the ticks are symmetrical along x and y-axis
+    # Get the original limits for both axes
+    x_min, x_max = g.ax_joint.get_xlim()
+    y_min, y_max = g.ax_joint.get_ylim()
 
-    plt.xlabel('Node Strength in Original', fontsize=12)
-    plt.ylabel('Node Strength in Randomized', fontsize=12)
+    # Determine a common limit that covers both ranges
+    common_min, common_max = min(x_min, y_min), max(x_max, y_max)
+
+    # Set both x and y axis limits to this common range
+    g.ax_joint.set_xlim(common_min, common_max)
+    g.ax_joint.set_ylim(common_min, common_max)
+
+    # Use MaxNLocator to generate a common set of ticks (e.g., 5 ticks)
+    locator = MaxNLocator(nbins=5, steps=[1, 2, 5, 10])
+    ticks = locator.tick_values(common_min, common_max)
+
+    # Set the same ticks for both axes
+    g.ax_joint.set_xticks(ticks)
+    g.ax_joint.set_xticklabels(ticks, rotation=90)
+
+    g.ax_joint.set_yticks(ticks)
+
+    # Create a formatter that displays integers without the .0 if possible
+    formatter = FuncFormatter(lambda x, pos: f'{int(x)}' if x.is_integer() else f'{x}')
+    g.ax_joint.xaxis.set_major_formatter(formatter)
+    g.ax_joint.yaxis.set_major_formatter(formatter)
+
+    if weighted:
+        plt.xlabel('Node Strength in Original', fontsize=12)
+        plt.ylabel('Node Strength in Rewired', fontsize=12)
+    else:
+        plt.xlabel('Node Degree in Original', fontsize=12)
+        plt.ylabel('Node Degree in Rewired', fontsize=12)
     plt.legend(loc='upper left', fontsize="small" )
     plt.tight_layout()
 
-    #
+
     # # Save the final figure
     os.makedirs(os.path.dirname(plot_file_prefix), exist_ok=True)
-    plt.savefig(f'{plot_file_prefix}_difference_in_dist_with_rewired_plot.pdf', bbox_inches='tight')
+    if weighted:
+        out_file = f'{plot_file_prefix}_strength_dist.pdf'
+    else:
+        out_file=f'{plot_file_prefix}_degree_dist.pdf'
+    plt.savefig(out_file, bbox_inches='tight')
     plt.show()
     plt.close()
 
 
-def wrapper_plot_difference_in_degree_distribution(rewired_all_train_df, all_train_df, score_name, cell_line_2_idx, plot_file_prefix=None):
-    # for each node compute its positive and negative weighted degree separately i.e., postive strength and negative strength resepectively.
-    # Now for each node compute the difference between its positive strength in original vs randmoized network.
-    # map cell line idx to name
+def wrapper_network_rewiring_joint_plot(rewired_df, orig_df, score_name, cell_line_2_idx, weighted=True, plot_file_prefix=None):
+    # in each cell line, for each node compute its positive weighted (strength) or unweighted degree(degree) separately. For each cell line, for each node plot this value for original vs. rewired network.
+    # in each cell line, for each node compute its negative weighted (strength) or unweighted degree(degree) separately. For each cell line, for each node plot this value for original vs. rewired network.
+
     idx_2_cell_line = {idx: cell_line for (cell_line, idx) in cell_line_2_idx.items()}
 
+    rewired_pos = rewired_df[rewired_df[score_name] >= 0]
+    rewired_neg = rewired_df[rewired_df[score_name] < 0]
 
-    rewired_pos = rewired_all_train_df[rewired_all_train_df[score_name]>=0]
-    rewired_neg = rewired_all_train_df[rewired_all_train_df[score_name]<0]
+    orig_pos = orig_df[orig_df[score_name] >= 0]
+    orig_neg = orig_df[orig_df[score_name] < 0]
 
-    orig_pos = all_train_df[all_train_df[score_name] >= 0]
-    orig_neg = all_train_df[all_train_df[score_name] < 0]
-
-    joint_plot(rewired_pos, orig_pos, score_name, idx_2_cell_line, min=0, plot_file_prefix = plot_file_prefix+'_pos_')
-    joint_plot(rewired_neg, orig_neg, score_name, idx_2_cell_line, max=0, plot_file_prefix = plot_file_prefix+'_neg_')
-
+    joint_plot(rewired_pos, orig_pos, score_name, idx_2_cell_line, weighted = weighted,plot_file_prefix = plot_file_prefix+'_pos')
+    joint_plot(rewired_neg, orig_neg, score_name, idx_2_cell_line, weighted=weighted, plot_file_prefix = plot_file_prefix+'_neg')
 
 
+
+# def wrapper_network_rewiring_degree_joint_plot(rewired_df, orig_df, score_name, cell_line_2_idx, weighted=False, plot_file_prefix=None):
+#     # in each cell line, for each node compute its positive weighted (strength) or unweighted degree(degree) separately. For each cell line, for each node plot this value for original vs. rewired network.
+#     # in each cell line, for each node compute its negative weighted (strength) or unweighted degree(degree) separately. For each cell line, for each node plot this value for original vs. rewired network.
+#
+#     idx_2_cell_line = {idx: cell_line for (cell_line, idx) in cell_line_2_idx.items()}
+#     g = joint_plot(rewired_df, orig_df, score_name, idx_2_cell_line, weighted = weighted,plot_file_prefix = plot_file_prefix+'_pos')
+#
+#     # Convert each JointGrid's figure to an image using a buffer
+#     buf = io.BytesIO()
+#     g.fig.savefig(buf, format='png', bbox_inches='tight')
+#     buf.seek(0)
+#     img_pos = Image.open(buf)
+#
+#
+#     # Create a new figure with two subplots and display the images
+#     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 4))
+#     ax.imshow(img_pos)
+#     ax.axis('off')
+#
+#     plt.tight_layout()
+#
+#     # Optionally save the combined figure
+#     if plot_file_prefix is not None:
+#         os.makedirs(os.path.dirname(plot_file_prefix), exist_ok=True)
+#         if weighted:
+#             out_file = f'{plot_file_prefix}_combined_strength_dist_jointplot.pdf'
+#         else:
+#             out_file = f'{plot_file_prefix}_combined_degree_dist_jointplot.pdf'
+#         plt.savefig(out_file, bbox_inches='tight')
+#
+#     plt.show()
+#     plt.close()
 
 
 def plot_dist(values, prefix='', out_dir=None):
@@ -691,4 +808,34 @@ def plot_nodewise_train_test_score_dist(train_df, test_df, score_name, out_dir=N
 
 
     return stats_df
+
+
+def plot_synergy_data_dist(df, score_name, out_file):
+    # 1. Count plot for the number of rows per edge_type
+    df_sorted = df.sort_values(by=['edge_type'])
+
+    # Create a figure with two subplots (vertical layout)
+    fig, axes = plt.subplots(1, 2, figsize=(8, 6))  # (width, height)
+
+    sns.countplot(ax=axes[0], x='cell_line_name', data=df_sorted, facecolor='#048815', edgecolor='grey', linewidth=0.2, alpha=0.4)
+    axes[0].set_xlabel('Cell Lines')
+    axes[0].set_ylabel('Number of Triplets')
+    axes[0].tick_params(axis='x', rotation=90)
+    axes[0].grid(axis='y', linestyle='--', color='grey', linewidth=0.5)
+    # axes[0].text(-0.1, 1.1, "A", transform=axes[0].transAxes,
+    #              fontsize=16, fontweight='bold', va='top')
+    # 2. Distribution plot for scores (histogram with KDE)
+    sns.histplot(ax=axes[1], data=df_sorted, x=score_name, bins=50,  edgecolor='grey', linewidth=0.1)
+    axes[1].set_xlabel('Score')
+    axes[1].set_ylabel('Number of Triplets')
+    axes[1].grid(axis='y', linestyle='--', color='grey', linewidth=0.5)
+    # Add the subplot tag "B"
+    # axes[1].text(-0.1, 1.1, "B", transform=axes[1].transAxes,
+    #              fontsize=16, fontweight='bold', va='top')
+
+    # Adjust subplots for neat layout
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out_file), exist_ok=True)
+    plt.savefig(out_file)
+    plt.show()
 

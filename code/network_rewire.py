@@ -480,11 +480,48 @@ def rewire_signed(df, score_name, seed, method='SA'):
     rewired_df = rewired_df.sample(frac=1)
     return rewired_df
 
+def rewire_unsigned(df, score_name, seed, method='SM_unsigned'):
+    '''keeping the node degree intact, rewire the edges. We are shuffling pairs of edges. However, as we have to consider the score
+    of the new edges, we  pair up two synergistic
+    edges or two nonsynergistic edges when we shuffle. '''
+    print(df.head(5))
+    edge_types = set(df['edge_type'].unique())
 
+    rewired_df = pd.DataFrame()
+
+    for edge_type in edge_types:
+        df_edge = df[(df['edge_type'] == edge_type)][['source', 'target', score_name]]
+
+        def randomize(df_edge):
+            A, node_2_idx = dataframe_to_numpy(df_edge, score_name)
+
+            if method == 'SA': #simmulated annealing
+                B, _ = strength_preserving_rand_sa(A, seed=seed)
+            elif method =='RS': #rubinov and sporns
+                B = strength_preserving_rand_rs(A, seed=seed)
+            elif method =='SM': #snepen-maslov method
+                B = degree_preserving_rand_sm(A, seed=seed)
+            elif method =='SM_unsigned': #snepen-maslov method
+                B = degree_preserving_rand_sm(A, seed=seed)
+
+            rewired_df_edge = numpy_to_dataframe(B, node_2_idx, score_name)
+            rewired_df_edge['edge_type'] = edge_type
+            return rewired_df_edge
+
+        if not df_edge.empty:
+            rewired_df_edge= randomize(df_edge)
+
+        rewired_df = pd.concat([rewired_df, rewired_df_edge], axis=0)
+
+    rewired_df = rewired_df.sample(frac=1)
+    return rewired_df
 def get_rewired_train_val (all_train_df, score_name, method, split_type, val_frac, seed, rewired_train_file, force_run=False):
 
     if (not os.path.exists(rewired_train_file))|force_run:
-        rewired_train_df = rewire_signed(all_train_df, score_name, seed, method=method)
+        if 'unsigned' in method:
+            rewired_train_df = rewire_unsigned(all_train_df, score_name, seed, method=method)
+        else:
+            rewired_train_df = rewire_signed(all_train_df, score_name, seed, method=method)
         # sort the df so that if the rewired network are same for the same seed, it will be saved as the same. and then
         # while splitting into train-val, we will get the same split.
         sort_cols = ['source', 'target', 'edge_type', score_name]
@@ -495,10 +532,12 @@ def get_rewired_train_val (all_train_df, score_name, method, split_type, val_fra
         print('Loading rewired network')
         rewired_train_df = pd.read_csv(rewired_train_file, sep='\t')
 
+    rewired_train_df_pos = rewired_train_df[rewired_train_df[score_name]>=0]
+    rewired_train_df_neg = rewired_train_df[rewired_train_df[score_name]<0]
 
-    #check for edges like (a,b) and (b, a)
-    # rev_pairs= set(zip(rewired_train_df['source'], rewired_train_df['target'])).intersection(set(zip(rewired_train_df['target'], rewired_train_df['source'])))
-    # print(f'#duplicated pairs in rewired: {len(rev_pairs)}')
+    check_dups(rewired_train_df_pos)
+    check_dups(rewired_train_df_neg)
+    check_dups(rewired_train_df)
 
     split_type_map = {'random': 'random', 'leave_comb': 'edge', 'leave_drug': 'node', 'leave_cell_line': 'edge_type'}
     train_idx, val_idx = split_train_test(rewired_train_df, split_type_map[split_type], val_frac, seed=0)
@@ -513,7 +552,14 @@ def get_rewired_train_val (all_train_df, score_name, method, split_type, val_fra
 
     return rewired_train_df, {0:train_idx}, {0:val_idx}
 
+def check_dups(rewired_train_df):
+    # check for edges like (a,b) and (b, a)
+    rev_pairs = set(zip(rewired_train_df['source'], rewired_train_df['target'])).intersection(
+        set(zip(rewired_train_df['target'], rewired_train_df['source'])))
+    print(f'#duplicated pairs in rewired: {len(rev_pairs)}')
 
+    dup_triplets = rewired_train_df.duplicated(subset=['source', 'target', 'edge_type']).sum()
+    print(f'#duplicated triplets in rewired: {dup_triplets}')
 def check_rewire_signed():
     """
     Test that rewire_signed() produces the same rewired network

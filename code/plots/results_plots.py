@@ -414,8 +414,8 @@ def wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, ft_fil
     )
 
 
-def significance_test_wrapper(df, group_by_cols, compare_based_on,
-                             measure, alt='two-sided', test="mannwhitney", out_file_prefix=None):
+def pairwise_significance_test_wrapper(df, group_by_cols, compare_based_on,
+                                       measure, alt='two-sided', test="mannwhitney", out_file_prefix=None):
     """
     Performs pairwise statistical tests within groups defined by `group_by_cols`.
 
@@ -441,8 +441,8 @@ def significance_test_wrapper(df, group_by_cols, compare_based_on,
             data1 = group_df[group_df[compare_based_on] == cat1][measure]
             data2 = group_df[group_df[compare_based_on] == cat2][measure]
 
-            data1.dropna(inplace=True) #if a few runs were not complete.
-            data2.dropna(inplace=True) #if a few runs were not complete.
+            # data1.dropna(inplace=True) #if a few runs were not complete.
+            # data2.dropna(inplace=True) #if a few runs were not complete.
             # Choose test
             if test == "mannwhitney":
                 p_value = stats.mannwhitneyu(data1, data2, alternative=alt).pvalue
@@ -470,6 +470,14 @@ def significance_test_wrapper(df, group_by_cols, compare_based_on,
 
     # Convert results to DataFrame
     return sig_df
+
+
+# def Kruskal_significance_test(df, group_by_cols, measure, alt='two-sided', out_file_prefix=None):
+
+
+
+
+
 
 
 def compute_performance_retained_wrapper(df, group_by_cols, compare_based_on,
@@ -603,8 +611,8 @@ def main():
                 )
                 shuffled_result_df_agg.to_csv(f'{result_dir}/shuffled_{score_name_str}_{split_type}_{metric}_aggregated.tsv', sep='\t')
 
-                significance_test_wrapper(pd.concat([result_df, shuffled_result_df], axis=0), group_by_cols=['Model', 'feature_filter'],
-                    compare_based_on='shuffle_method', measure=metric, out_file_prefix=f'{result_dir}/significance_shuffled_{score_name_str}_{split_type}_{metric}')
+                pairwise_significance_test_wrapper(pd.concat([result_df, shuffled_result_df], axis=0), group_by_cols=['Model', 'feature_filter'],
+                                                   compare_based_on='shuffle_method', measure=metric, out_file_prefix=f'{result_dir}/significance_shuffled_{score_name_str}_{split_type}_{metric}')
                 wrapper_plot_compare_shuffled_subplots(result_df, shuffled_result_df, ft_filt_wise_1hot, metric=metric, y_label=y_label, orientation=orientation,
                                              out_file_prefix=f'{result_dir}/plot/{orientation}/shuffled_{score_name_str}_{split_type}_{metric}')
 
@@ -632,10 +640,10 @@ def main():
                 )
                 rewired_result_df_agg.to_csv(f'{result_dir}/rewired_{score_name_str}_{split_type}_{metric}_aggregated.tsv', sep='\t')
 
-                significance_test_wrapper(pd.concat([result_df, rewired_result_df], axis=0),
-                                          group_by_cols=['Model', 'feature_filter'],
-                                          compare_based_on='rewire_method', measure=metric, alt = alt,
-                                          out_file_prefix=f'{result_dir}/significance_rewired_{score_name_str}_{split_type}_{metric}')
+                pairwise_significance_test_wrapper(pd.concat([result_df, rewired_result_df], axis=0),
+                                                   group_by_cols=['Model', 'feature_filter'],
+                                                   compare_based_on='rewire_method', measure=metric, alt = alt,
+                                                   out_file_prefix=f'{result_dir}/significance_rewired_{score_name_str}_{split_type}_{metric}')
 
                 if metric=='Pearsons': #computed retained performance by rewired models
                     compute_performance_retained_wrapper(pd.concat([result_df, rewired_result_df], axis=0),

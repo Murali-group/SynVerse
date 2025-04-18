@@ -14,13 +14,15 @@ source activate synergy
 echo "hello world"
 echo $PWD
 
+
 # Process named arguments using a loop
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --config) config="$2"; shift ;;           # Capture value for --config
-        --score_name) score_name="$2"; shift ;;           # Capture value for --score_name
+        --seed) seed="$2"; shift ;;           # Capture value for --seed
         --feat) feat="$2"; shift ;;               # Capture value for --feat
         --split) split="$2"; shift ;;             # Capture value for --split
+        --force_split) force_split="$2"; shift ;;             # Capture value for --force_split
         --start_run) start_run="$2"; shift ;;     # Capture value for --start_run
         --end_run) end_run="$2"; shift ;;         # Capture value for --end_run
         --output) output="$2"; shift ;;           # Capture value for --output
@@ -35,9 +37,10 @@ output="${output:-default_output.log}"
 # Build the command dynamically
 command="CUDA_LAUNCH_BLOCKING=1 python -u main_MARSY.py"
 [ -n "$config" ] && command+=" --config \"$config\""
-[ -n "$score_name" ] && command+=" --score_name \"$score_name\""
+[ -n "$seed" ] && command+=" --seed \"$seed\""
 [ -n "$feat" ] && command+=" --feat \"$feat\""
 [ -n "$split" ] && command+=" --split \"$split\""
+[ -n "$force_split" ] && command+=" --force_split \"$force_split\""
 [ -n "$start_run" ] && command+=" --start_run \"$start_run\""
 [ -n "$end_run" ] && command+=" --end_run \"$end_run\""
 command+=" --run_id \"$SLURM_JOB_ID\""

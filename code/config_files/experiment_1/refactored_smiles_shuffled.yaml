@@ -32,11 +32,11 @@ input_settings:
       use: [ false ]
 
     - name: 'smiles'
-      encoder: 'Transformer'
-      use: [ false ]
+      encoder: 'test'
+      use: [ true ]
 
     - name: 'd1hot'
-      use: [ true ]
+      use: [ false ]
 
 
   cell_line_features:
@@ -103,7 +103,6 @@ input_settings:
     project_name: 'Synverse'
     timezone: 'US/Eastern'
     timezone_format: '%Y-%m-%d_%H-%M-%S'
-
 
   abundance: 0.05
 

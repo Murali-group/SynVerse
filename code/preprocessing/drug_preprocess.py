@@ -71,6 +71,9 @@ def prepare_drug_features(drug_pids, params, inputs, device):
             df['pid'] = smiles_df['pid']
             dfeat_dict['value']['smiles'] = df
             dfeat_dict['dim']['smiles'] = embed_dim
+        else:
+            dfeat_dict['value']['smiles'] = smiles_df[['pid', 'smiles']]
+            dfeat_dict['dim']['smiles'] = 0
 
     if 'target' in dfeat_names:
         target_file = inputs.target_file

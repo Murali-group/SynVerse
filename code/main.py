@@ -23,7 +23,7 @@ def setup_opts():
     # general parameters
     group = parser.add_argument_group('Main Options')
     group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/refactored_smiles_rewired.yaml",
+                       "config_files/experiment_1/refactored_smiles_shuffled.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--seed', type=int, default=0,
                        help="Seed value used for train test splitting. Using different seed value will result in different train and test splits.")

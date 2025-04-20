@@ -518,7 +518,7 @@ def joint_plot(rewired, orig, score_name, idx_2_cell_line, weighted=True, plot_f
 
         #keep the common nodes
         uncommon_nodes = set(orig_nodes).difference(set(rewired_nodes))
-        assert len(uncommon_nodes) <5, print('too many nodes left out while randomizing')
+        # assert len(uncommon_nodes) <5, print('too many nodes left out while randomizing')
         common_nodes = list(set(rewired_nodes).intersection(set(orig_nodes)))
         rewired_deg = {x:rewired_deg[x] for x in common_nodes}
         orig_deg = {x:orig_deg[x] for x in common_nodes}

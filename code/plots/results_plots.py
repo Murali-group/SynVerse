@@ -548,9 +548,9 @@ def main():
 
     for orientation in orientations:
         for score_name in score_names:
-            # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_{score_name}'
+            result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_{score_name}'
             # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/MARSY_data/k_0.05_{score_name}'
-            result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/SynergyX_data/k_0.05_{score_name}'
+            # result_dir = f'/home/grads/tasnina/Projects/SynVerse/outputs/SynergyX_data/k_0.05_{score_name}'
 
             score_name_str = score_names[score_name]
 

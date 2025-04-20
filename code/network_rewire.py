@@ -4,6 +4,8 @@ import pandas as pd
 
 from split import *
 from tqdm import tqdm
+from utils import *
+import matplotlib.pyplot as plt
 
 '''
 Reference URL: https://github.com/fmilisav/milisav_strength_nulls
@@ -443,6 +445,7 @@ def rewire(df, score_name,seed, method='SA'):
         rewired_df = pd.concat([rewired_df, rewired_df_edge], axis=0)
     return rewired_df
 
+
 def rewire_signed(df, score_name, seed, method='SA'):
     '''keeping the node degree intact, rewire the edges. We are shuffling pairs of edges. However, as we have to consider the score
     of the new edges, we  pair up two synergistic
@@ -515,6 +518,7 @@ def rewire_unsigned(df, score_name, seed, method='SM_unsigned'):
 
     rewired_df = rewired_df.sample(frac=1)
     return rewired_df
+
 def get_rewired_train_val (all_train_df, score_name, method, split_type, val_frac, seed, rewired_train_file, force_run=False):
 
     if (not os.path.exists(rewired_train_file))|force_run:
@@ -534,10 +538,12 @@ def get_rewired_train_val (all_train_df, score_name, method, split_type, val_fra
 
     rewired_train_df_pos = rewired_train_df[rewired_train_df[score_name]>=0]
     rewired_train_df_neg = rewired_train_df[rewired_train_df[score_name]<0]
-
     check_dups(rewired_train_df_pos)
     check_dups(rewired_train_df_neg)
     check_dups(rewired_train_df)
+
+    # sort rewired_train_df so that (a,b) and (b,a) edges appear as (max(a,b), min(a,b))
+    sort_paired_cols(rewired_train_df, 'source', 'target', inplace=True, relation='greater')
 
     split_type_map = {'random': 'random', 'leave_comb': 'edge', 'leave_drug': 'node', 'leave_cell_line': 'edge_type'}
     train_idx, val_idx = split_train_test(rewired_train_df, split_type_map[split_type], val_frac, seed=0)
@@ -548,9 +554,55 @@ def get_rewired_train_val (all_train_df, score_name, method, split_type, val_fra
     common_triplets = orig_triplets.intersection(rewired_triplet)
     total_triplets = orig_triplets.union(rewired_triplet)
 
+    orig_quad = set(zip(all_train_df['source'], all_train_df['target'], all_train_df['edge_type'], all_train_df[score_name]))
+    rewired_quad = set(zip(rewired_train_df['source'], rewired_train_df['target'], rewired_train_df['edge_type'], all_train_df[score_name]))
+
+    common_quad = orig_quad.intersection(rewired_quad)
+    total_quad = orig_quad.union(rewired_quad)
+
     print(f'frac common triplets: {len(common_triplets)/len(total_triplets)} among total of: {len(total_triplets)}')
+    print(f'frac of rewired triplets from original: {len(common_triplets)/len(rewired_triplet)} among total of: {len(rewired_triplet)}')
+
+    print(f'frac common quads: {len(common_quad)/len(total_quad)} among total of: {len(total_quad)}')
+    print(f'frac of rewired quads from original: {len(common_quad)/len(rewired_quad)} among total of: {len(rewired_quad)}')
+
+    #on avegage the deviation of score for the same triplet present in original vs. rewired network is 15.81 for 'SA'
+    #on avegage the deviation of score for the same triplet present in original vs. rewired network is 22.63 for 'SM'
+    #on avegage the deviation of score for the same triplet present in original vs. rewired network is 26.21 for 'SM_unsigned'
+
+    merged= check_diff(all_train_df, rewired_train_df, score_name)
 
     return rewired_train_df, {0:train_idx}, {0:val_idx}
+
+def check_diff(all_train_df, rewired_train_df, score_name ):
+    merged = all_train_df[['source', 'target', 'edge_type', score_name]] \
+        .merge(
+        rewired_train_df[['source', 'target', 'edge_type', score_name]],
+        on=['source', 'target', 'edge_type'],
+        suffixes=('_orig', '_rewired')
+    )
+
+    # 2. Compute the difference (orig minus rewired)
+    merged['score_diff'] = abs(merged[f'{score_name}_orig'] - merged[f'{score_name}_rewired'])
+    print(f'average difference btn the same triplet present in original and newired network: ', merged['score_diff'].mean())
+    # 3. (Optional) inspect
+    print(f"Found {len(merged)} matching triplets.")
+    print(merged.head())
+
+    # 4. If you only care about the largest positive or negative deltas:
+    top_increases = merged.nlargest(10, 'score_diff')
+    top_decreases = merged.nsmallest(10, 'score_diff')
+    print("Top 10 increases:\n", top_increases)
+    print("Top 10 decreases:\n", top_decreases)
+
+    plt.figure()
+    plt.hist(merged['score_diff'], bins=30)
+    plt.xlabel('Score Difference')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Score Differences')
+    plt.tight_layout()
+    plt.show()
+    return merged
 
 def check_dups(rewired_train_df):
     # check for edges like (a,b) and (b, a)

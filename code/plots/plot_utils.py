@@ -7,7 +7,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.ticker import MaxNLocator, FuncFormatter
-from PIL import Image
 from scipy.stats import skew
 
 

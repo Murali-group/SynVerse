@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, Any
 from typing import Optional
-
+import os
 import types
 @dataclass
 class Inputs:
@@ -46,6 +46,16 @@ class Params:
 def parse_config(config_map, **kwargs):
     input_settings = config_map['input_settings']
     input_dir = input_settings['input_dir']
+    out_dir = config_map['output_settings']['output_dir']
+
+    # rewrite input_dir and out_dir to be absolute
+    code_dir = os.path.dirname(os.path.abspath(__file__))  # …/SynVerse/code
+    project_root = os.path.abspath(os.path.join(code_dir, os.pardir))
+    if not os.path.isabs(input_dir):
+        input_dir = os.path.join(project_root, input_dir)
+    if not os.path.isabs(out_dir):
+        out_dir = os.path.join(project_root, out_dir)
+
 
     # Create Inputs dataclass
     inputs = Inputs(
@@ -78,7 +88,7 @@ def parse_config(config_map, **kwargs):
         bohb=input_settings.get('bohb',{}),
 
         input_dir=input_dir,
-        out_dir=config_map['output_settings']['output_dir'],
+        out_dir=out_dir,
         split_dir=f"{input_dir}/splits",
     )
 

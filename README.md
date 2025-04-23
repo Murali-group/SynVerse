@@ -3,37 +3,42 @@
 - [Introduction](#introduction)
 - [Conda Environment Setup](#conda-environment-setup)
 - [How to Use SynVerse](#how-to-use-synverse)
-- [SynVerse Configuration Guide](#synverse-configuration-guide)
-
-
+    - [Configuration File](#configuration-file)
+  
 ## Introduction
 SynVerse is a framework with an encoder-decoder architecture. It incorporates diverse input features and a reasonable approximation of model architectures commonly employed by existing deep learning-based synergy prediction methods. It includes four data-splitting strategies and three ablation methods: module-based, feature shuffling, and a novel network-based approach to isolate factors influencing model performance.
 <div align="center">
     <img src="https://github.com/Murali-group/SynVerse/blob/main/SynVerse_Overview.jpg" alt="Screenshot" style="width: 70%;">
 </div>
-
-
 ## Conda Environment Setup
 ...
 ## How to Use SynVerse
-## SynVerse Configuration Guide
+SynVerse is configured using a YAML file (e.g., sample_config.yaml), which allows users to define the input features, model architecture, and evaluation strategies. Once a configuration file is prepared, SynVerse can be run in various modes to perform different tasks:
 
-This document explains the configuration fields used in the SynVerse framework for drug synergy prediction. Modify this YAML file to control feature inputs, model settings, training behavior, and evaluation strategies.
+1. To train a model:
+```
+   python main.py --config_file config_files/sample_config.yaml --train_type 'regular'
+```
+2. To perform feature-shuffling-based ablation study:
+```
+   python main.py --config_file config_files/sample_config.yaml --train_type 'shuffle'
+```
+3. To perform network-based ablation study:
+```
+   python main.py --config_file config_files/sample_config.yaml --train_type 'rewire'
+```
+   
+### Configuration File
 
----
+This section describes each field in the YAML configuration file used by SynVerse. 
 
-##  `input_settings`
+####  `score_name`
+The synergy score to predict (Options:`'S_mean_mean'`, `'synergy_loewe_mean'`)
 
-Settings related to the dataset inputs.
+####  `input_dir`
+Base directory where all input files are stored.
 
-###  `score_name`
-- **Purpose**: The synergy score to predict.
-- **Options**: `'S_mean_mean'`, `'synergy_loewe_mean'`
-
-###  `input_dir`
-- **Purpose**: Base directory where all input files are stored.
-
-###  `input_files`
+####  `input_files`
 Each entry defines a path to a required input file.
 | Key | Description |
 |-----|-------------|
@@ -51,11 +56,9 @@ Each entry defines a path to a required input file.
 
 ---
 
-##  `drug_features`
+####  `drug_features`
 
 Describes drug-level features to be used.
-
-Each feature supports:
 - `name`: str: Feature name 
 - `preprocess`: str: Preprocessing method 
 - `compress`: bool: Use autoencoder to reduce dimensions.
@@ -63,71 +66,49 @@ Each feature supports:
 - `encoder`: str: Feature-specific encoders 
 - `use`: List of boolean values: Determines if the feature should be used in the model.
 
----
-
-##  `cell_line_features`
+####  `cell_line_features`
 
 Same structure as `drug_features`, but for cell lines.
 
-##  `model_info`
+####  `model_info`
 
-###  `decoder`
+#####  `decoder`
 - `name`: Model architecture (e.g., `'MLP'`).
 - `hp_range`: Hyperparameter search space for tuning.
 - `hp`: Default configuration.
   
-###  `drug_encoder`
+#####  `drug_encoder`
 List of encoder configs.
 Each contains:
 - `name`: Encoder type (e.g., `'GCN'`, `'Transformer'`).
 - `hp_range`: Hyperparameter search space for tuning.
 - `hp`: Default configuration.
 
----
-
-##  `autoencoder_dims`
+####  `autoencoder_dims`
 Dimension of hidden layers for the autoencoder.
 
-##  `batch_size`
+####  `batch_size`
 Number of samples per batch during training.
 
-##  `epochs`
+####  `epochs`
 Maximum training epochs.
 
----
-
-##  `splits`
-
-Split strategies for model evaluation.
-
-| Type | Description |
-|------|-------------|
-| `random` | Leave triplet out. |
-| `leave_comb` | Leave drug pairs out. |
-| `leave_drug` | Leave drugs out. |
-| `leave_cell_line` | Leave cell lines out. |
-
-Each contains:
+####  `splits`
+- `type`: Spitting strategy to use (Options: `random`, `leave_comb`, `leave_drug`, `leave_cell_line`). 
 - `test_frac`: Test set size (fraction of total).
 - `val_frac`: Validation set size (fraction of training set).
 
----
-
-## `wandb`
+#### `wandb`
 
 [Weights & Biases](https://wandb.ai) integration for experiment tracking.
 - `enabled`: Enable logging.
 - `entity_name`, `token`, `project_name`: W&B credentials.
 - `timezone`, `timezone_format`: Time info formatting.
 
----
-
-##  `abundance`
+####  `abundance`
 Minimum percentage of triplets required per cell line to be included in training.
 
----
-
-##  Feature Combination Control
+####  Feature Combination Control
 
 Defines the number of features in combinations.
 
@@ -138,41 +119,23 @@ Defines the number of features in combinations.
 | `max_cell_feat` | Maximum number of cell line features per model. |
 | `min_cell_feat` | Minimum number of cell line features per model. |
 
----
-
-##  `hp_tune`
+####  `hp_tune`
 
 Set to `true` to enable hyperparameter optimization.
 
-###  `bohb`
+####  `bohb`
 Settings for Bayesian Optimization with BOHB.
 - `min_budget`, `max_budget`: Resource limits per trial.
 - `n_iterations`: Number of trials.
 - `run_id`: BOHB session ID.
 - `server_type`: `'local'` or `'cluster'`.
 
----
+####  `rewire_method`
+Which network rewiring method to use when flag --train_type =  `rewire`.
+Options: `SM`: Degree-preserving (Maslov-Sneppen), `SA`: Strength-preserving (Simulated Annealing).
 
-##  `train_mode`
-
-- `use_best_hyperparam`: Use the best hyperparameters from tuning (`true`) or those provided in the config (`false`).
-
----
-
-###  `rewire_method`
-Applies only when `train_type: rewire`.
-- `SM`: Degree-preserving (Maslov-Sneppen).
-- `SA`: Strength-preserving (Simulated Annealing).
-
----
-
-##  `output_settings`
+####  `output_settings`
 
 - `output_dir`: Output directory for results.
 
 ---
-
-
-
-
-

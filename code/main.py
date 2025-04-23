@@ -22,9 +22,12 @@ def setup_opts():
     parser = argparse.ArgumentParser(description="""Script to download and parse input files, and (TODO) run the  pipeline using them.""")
     # general parameters
     group = parser.add_argument_group('Main Options')
-    group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/refactored_smiles_shuffled.yaml",
+    group.add_argument('--config', type=str, default="config_files/sample_config.yaml",
                        help="Configuration file for this script.")
+    group.add_argument('--train_type', type=str, default="regular",
+                       help="Three Options. ['regular','rewire','shuffle']."
+                            "'regular => train and test model with original feature and triplets, "
+                            "'rewire' => randomize train triplets, 'shuffle' => shuffle features.")
     group.add_argument('--seed', type=int, default=0,
                        help="Seed value used for train test splitting. Using different seed value will result in different train and test splits.")
     group.add_argument('--feat', type=str,
@@ -68,7 +71,7 @@ def run_SynVerse(inputs, params, **kwargs):
     drug_cell_feat_combs = get_feature_comb_wrapper(dfeat_dict, cfeat_dict,
                             max_drug_feat=params.max_drug_feat,
                             min_drug_feat = params.min_drug_feat, max_cell_feat=params.max_cell_feat, min_cell_feat = params.min_cell_feat)
-    plot_synergy_data_dist(synergy_df, params.score_name, out_file = f'{params.input_dir}/synergy/data_distribution_{feat_str}_{params.score_name}.pdf')
+    # plot_synergy_data_dist(synergy_df, params.score_name, out_file = f'{params.input_dir}/synergy/data_distribution_{feat_str}_{params.score_name}.pdf')
     for run_no in range(start_run, end_run):
         for split in params.splits:
             split_type, test_frac, val_frac, params.split = split['type'], split['test_frac'], split['val_frac'], split
@@ -76,17 +79,9 @@ def run_SynVerse(inputs, params, **kwargs):
             split_file_path = params.split_dir + split_info_str
             kwargs['split_file_path'] = split_file_path
 
-            # check for edges like (a,b) and (b, a)
-            # rev_triplets = set(zip(synergy_df['source'], synergy_df['target'], )).intersection(
-            #     set(zip(synergy_df['target'], synergy_df['source'])))
-            # print(f'#common triplets in synergy_df: {len(rev_triplets)}')
-
             #split into train test val
             test_df, all_train_df, train_idx, val_idx = wrapper_test_train_val(copy.deepcopy(synergy_df), split_type, test_frac, val_frac, split_file_path, seed=seed+run_no,
                                                                                force_run=kwargs.get('force_split'))
-
-
-
             all_train_df = all_train_df[['source', 'target','edge_type', params.score_name]]
 
             #************************** POST split processing of features ******************************************
@@ -108,14 +103,12 @@ def run_SynVerse(inputs, params, **kwargs):
                                                       split_feat_str=feat_str, run_no=run_no, seed=seed)
 
                 #**************************** Run the pipeline to train and test model **********************************************************
-                train_type = params.train_type
-                run_manager = RunManagerFactory.get_run_manager(train_type, params, select_model_info, given_epochs, all_train_df,
+                run_manager = RunManagerFactory.get_run_manager(params, select_model_info, given_epochs, all_train_df,
                             train_idx, val_idx, select_dfeat_dict, select_cfeat_dict, test_df, drug_2_idx,cell_line_2_idx, out_file_prefix, '_val_true_', device, **kwargs)
                 run_manager.run_wrapper()
 
             del cur_dfeat_dict, select_drug_feat
             del cur_cfeat_dict, select_cell_feat
-
 
 
 if __name__ == "__main__":

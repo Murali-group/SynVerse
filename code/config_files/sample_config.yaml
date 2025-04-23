@@ -38,7 +38,7 @@ input_settings:
       use: [ true, false ]
 
     - name: 'smiles' #SMILES string
-      encoder: 'Transformer'
+      encoder: 'Transformer' #options: 'Transformer', 'SPMM', 'mole','kpgt'
       use: [ true, false ]
 
     - name: 'target' #binary drug target profile
@@ -139,10 +139,6 @@ input_settings:
     run_id : 'synverse'
     server_type: 'local' #or cluster
 
-  train_mode:
-    use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
-
-  train_type: 'rewire' #regular = train and test model with original feature and triplets, 'rewire' = randomize train triplets, 'shuffle' = shuffle features.
-  rewire_method: [ "SM", "SA" ] #rewiring technique to use. SM: Sneppen-Maslov based degree-preserving rewiring, SA: Simulated Annealing based strength-preserving rewiring
+  rewire_method: [ "SA","SM" ] #rewiring technique to use. SM: Sneppen-Maslov based degree-preserving rewiring, SA: Simulated Annealing based strength-preserving rewiring
 output_settings:
-  output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs_debug/'
+  output_dir: 'outputs_debug/'

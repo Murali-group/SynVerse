@@ -6,7 +6,7 @@ def prepare_cell_line_features(cell_line_names, params, inputs, device=None):
 
     cfeat_names = [f['name'] for f in params.cell_line_features]
 
-    fields = ['norm', 'preprocess', 'filter', 'encoder', 'compress', 'value', 'dim','use']  # for each feature we can have these fields.
+    fields = ['norm', 'preprocess', 'encoder', 'compress', 'value', 'dim','use']  # for each feature we can have these fields.
     cfeat_dict = {field: {} for field in fields}
 
     # parse norm, preprocessing and encoder for all features.

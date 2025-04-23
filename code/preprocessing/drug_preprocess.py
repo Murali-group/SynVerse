@@ -9,7 +9,7 @@ from .preprocess_utils import adjacency_list_to_edges
 def prepare_drug_features(drug_pids, params, inputs, device):
     dfeat_names = [f['name'] for f in params.drug_features]
 
-    fields = ['norm','preprocess','filter', 'encoder', 'value', 'compress', 'dim', 'use'] #for each feature we can have these fields.
+    fields = ['norm','preprocess', 'encoder', 'value', 'compress', 'dim', 'use'] #for each feature we can have these fields.
     dfeat_dict = {field: {} for field in  fields}
 
     #parse norm, preprocessing and encoder for all features.

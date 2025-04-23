@@ -34,9 +34,13 @@ class BaseRunManager:
         if self.params.hp_tune:
             runner.find_best_hyperparam(self.params.bohb['server_type'], **self.kwargs)
 
-        if self.params.train_mode['use_best_hyperparam']:
-            hyperparam_file = self.out_file_prefix + '_best_hyperparam.txt'
+        hyperparam_file = self.out_file_prefix + '_best_hyperparam.txt'
+        if os.path.exists(hyperparam_file):
             hyperparam, _ = extract_best_hyperparam(hyperparam_file)
+        else:
+            print(f'File: {hyperparam_file} not found for best hyperparam.')
+            print('Running with default hyperparameters.')
+
 
         trained_model_state, train_loss = runner.train_model_given_config(hyperparam, self.given_epochs, validation=True, save_output=True)
 
@@ -70,32 +74,51 @@ class RewireRunManager(BaseRunManager):
                     self.params.split['type'], self.params.split['val_frac'], seed=None,
                     rewired_train_file=rewired_train_file, force_run=False)
 
-                # plot degree and strength distribution of nodes in rewired vs. orig networks.
-                wrapper_network_rewiring_box_plot(rewired_df, self.train_df, self.params.score_name, self.cell_line_2_idx, weighted=True,
-                                                  plot_file_prefix =f'{split_file_path}{rand_net}_{rewire_method}')
-                wrapper_network_rewiring_joint_plot(rewired_df, self.train_df, self.params.score_name, self.cell_line_2_idx, weighted=True, plot_file_prefix=f'{split_file_path}{rand_net}_{rewire_method}')
 
-                wrapper_network_rewiring_box_plot(rewired_df, self.train_df, self.params.score_name,
-                                                  self.cell_line_2_idx, weighted=False,
-                                                  plot_file_prefix=f'{split_file_path}{rand_net}_{rewire_method}')
-                wrapper_network_rewiring_joint_plot(rewired_df, self.train_df, self.params.score_name,
-                                                    self.cell_line_2_idx, weighted=False,
-                                                    plot_file_prefix=f'{split_file_path}{rand_net}_{rewire_method}')
-                # wrapper_network_rewiring_degree_joint_plot(rewired_df, self.train_df, self.params.score_name,
+                # plot degree and strength distribution of nodes in rewired vs. orig networks.
+                #Uncomment the following when want to plot
+                # wrapper_network_rewiring_box_plot(rewired_df, self.train_df, self.params.score_name, self.cell_line_2_idx, weighted=True,
+                #                                   plot_file_prefix =f'{split_file_path}{rand_net}_{rewire_method}')
+                # wrapper_network_rewiring_joint_plot(rewired_df, self.train_df, self.params.score_name, self.cell_line_2_idx, weighted=True, plot_file_prefix=f'{split_file_path}{rand_net}_{rewire_method}')
+                #
+                # wrapper_network_rewiring_box_plot(rewired_df, self.train_df, self.params.score_name,
+                #                                   self.cell_line_2_idx, weighted=False,
+                #                                   plot_file_prefix=f'{split_file_path}{rand_net}_{rewire_method}')
+                # wrapper_network_rewiring_joint_plot(rewired_df, self.train_df, self.params.score_name,
                 #                                     self.cell_line_2_idx, weighted=False,
                 #                                     plot_file_prefix=f'{split_file_path}{rand_net}_{rewire_method}')
-
+                #
                 out_file_prefix_rewire = f'{self.out_file_prefix}_rewired_{rand_net}_{rewire_method}'
                 self.execute_run(rewired_df, rewired_train_idx, rewired_val_idx, self.dfeat_dict, self.cfeat_dict, out_file_prefix_rewire)
 
+class RandomizeScoreRunManager(BaseRunManager):
+    def run_wrapper(self):
+        for rand_version in range(10):
+            # randomized_train_file = f'{split_file_path}{rand_version}all_train_randomized_score.tsv'
+            randomized_df = copy.deepcopy(self.train_df)
+            randomized_df[self.params.score_name] = randomized_df[self.params.score_name].sample(frac=1).reset_index(drop=True)
+            out_file_prefix_randomized = f'{self.out_file_prefix}_randomized_score_{rand_version}'
+            self.execute_run(randomized_df,  self.train_idx, self.val_idx, self.dfeat_dict, self.cfeat_dict, out_file_prefix_randomized)
+
 class RunManagerFactory:
     @staticmethod
-    def get_run_manager(train_type, *args, **kwargs):
-        if train_type == "rewire":
-            return RewireRunManager(*args, **kwargs)
-        elif train_type == "shuffle":
-            return ShuffleRunManager(*args, **kwargs)
-        else:
-            return BaseRunManager(*args, **kwargs)
+    def get_run_manager(params, model_info, given_epochs, train_df, train_idx, val_idx,
+                        dfeat_dict, cfeat_dict, test_df, drug_2_idx, cell_line_2_idx,
+                        out_file_prefix, file_prefix, device, **kwargs):
+
+        train_type = kwargs.get('train_type')
+        cls = {
+            "regular": BaseRunManager,
+            "rewire": RewireRunManager,
+            "shuffle": ShuffleRunManager,
+            "randomized_score": RandomizeScoreRunManager,
+        }.get(train_type, BaseRunManager)
+
+        return cls(params, model_info, given_epochs, train_df, train_idx, val_idx,
+                   dfeat_dict, cfeat_dict, test_df, drug_2_idx, cell_line_2_idx,
+                   out_file_prefix, file_prefix, device, **kwargs)
+
+
+
 
 

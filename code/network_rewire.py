@@ -16,169 +16,7 @@ import numpy as np
 from sklearn.utils import check_random_state
 
 
-def strength_preserving_rand_rs(A,
-                                rewiring_iter=10, sort_freq=1,
-                                R=None, connected=None,
-                                seed=None):
-    """
-    Degree- and strength-preserving randomization of
-    undirected, weighted adjacency matrix A
 
-    Parameters
-    ----------
-    A : (N, N) array-like
-        Undirected weighted adjacency matrix
-    rewiring_iter : int, optional
-        Rewiring parameter. Default = 10.
-	    Each edge is rewired approximately rewiring_iter times.
-    sort_freq : float, optional
-        Frequency of weight sorting. Must be between 0 and 1.
-        If 1, weights are sorted at every iteration.
-        If 0.1, weights are sorted at every 10th iteration.
-        A higher value results in a more accurate strength sequence match.
-        Default = 1.
-    R : (N, N) array-like, optional
-        Pre-randomized adjacency matrix.
-        If None, a rewired adjacency matrix is generated using the
-        Maslov & Sneppen algorithm.
-        Default = None.
-    connected: bool, optional
-        Whether to ensure connectedness of the randomized network.
-        By default, this is inferred from data.
-    seed: float, optional
-        Random seed. Default = None.
-
-    Returns
-    -------
-    B : (N, N) array-like
-        Randomized adjacency matrix
-
-    Notes
-    -------
-    Uses Maslov & Sneppen rewiring to produce a
-    surrogate adjacency matrix, B, with the same
-    size, density, and degree sequence as A.
-    The weights are then permuted to optimize the
-    match between the strength sequences of A and B.
-
-    This function is adapted from a function written in MATLAB
-    by Mika Rubinov (https://sites.google.com/site/bctnet/home).
-    It was adapted to positive structural connectivity networks
-    from an algorithm originally developed for
-    signed functional connectivity networks.
-
-    References
-    -------
-    Maslov & Sneppen (2002) Specificity and stability in
-    topology of protein networks. Science.
-    Rubinov & Sporns (2011) Weight-conserving characterization of
-    complex functional brain networks. Neuroimage.
-    """
-
-    A = A.copy()
-    try:
-        A = np.asarray(A)
-    except TypeError as err:
-        msg = ('A must be array_like. Received: {}.'.format(type(A)))
-        raise TypeError(msg) from err
-
-    if sort_freq > 1 or sort_freq <= 0:
-        msg = ('sort_freq must be between 0 and 1. '
-               'Received: {}.'.format(sort_freq))
-        raise ValueError(msg)
-
-    rs = check_random_state(seed)
-
-    n = A.shape[0]
-
-    # clearing diagonal
-    np.fill_diagonal(A, 0)
-
-    if R is None:
-        # ensuring connectedness if the original network is connected
-        if connected is None:
-            connected = False if bct.number_of_components(A) > 1 else True
-
-        # Maslov & Sneppen rewiring
-        if connected:
-            R = bct.randmio_und_connected(A, rewiring_iter, seed=seed)[0]
-        else:
-            R = bct.randmio_und(A, rewiring_iter, seed=seed)[0]
-
-    B = np.zeros((n, n))
-    s = np.sum(A, axis=1)  # strengths of A
-    sortAvec = np.sort(A[np.triu(A, k=1) > 0])  # sorted weights vector
-    x, y = np.nonzero(np.triu(R, k=1))  # weights indices
-
-    E = np.outer(s, s)  # expected weights matrix
-
-    if sort_freq == 1:
-        for i in range(len(sortAvec) - 1, -1, -1):
-            sort_idx = np.argsort(E[x, y])  # indices of x and y that sort E
-
-            r = math.ceil(rs.rand() * i)
-            r_idx = sort_idx[r]  # random index of sorted expected weight matrix
-
-            # assigning corresponding sorted weight at this index
-            B[x[r_idx], y[r_idx]] = sortAvec[r]
-
-            # radjusting the expected weight probabilities of
-            # the node indexed in x
-            f = 1 - sortAvec[r] / s[x[r_idx]]
-            E[x[r_idx], :] *= f
-            E[:, x[r_idx]] *= f
-
-            # radjusting the expected weight probabilities of
-            # the node indexed in y
-            f = 1 - sortAvec[r] / s[y[r_idx]]
-            E[y[r_idx], :] *= f
-            E[:, y[r_idx]] *= f
-
-            # readjusting residual strengths of nodes indexed in x and y
-            s[x[r_idx]] -= sortAvec[r]
-            s[y[r_idx]] -= sortAvec[r]
-
-            # removing current weight
-            x = np.delete(x, r_idx)
-            y = np.delete(y, r_idx)
-            sortAvec = np.delete(sortAvec, r)
-    else:
-        sort_period = round(1 / sort_freq)  # sorting period
-        for i in range(len(sortAvec) - 1, -1, -sort_period):
-            sort_idx = np.argsort(E[x, y])  # indices of x and y that sort E
-
-            r = rs.choice(i, min(i, sort_period), replace=False)
-            r_idx = sort_idx[r]  # random indices of sorted expected weight matrix
-
-            # assigning corresponding sorted weights at these indices
-            B[x[r_idx], y[r_idx]] = sortAvec[r]
-
-            xy_nodes = np.append(x[r_idx], y[r_idx])  # randomly indexed nodes
-            xy_nodes_idx = np.unique(xy_nodes)  # randomly indexed nodes' indices
-
-            # nodal cumulative weights
-            accumWvec = np.bincount(xy_nodes,
-                                    weights=sortAvec[np.append(r, r)],
-                                    minlength=n)
-
-            # readjusting expected weight probabilities
-            F = 1 - accumWvec[xy_nodes_idx] / s[xy_nodes_idx]
-            F = F[:, np.newaxis]
-
-            E[xy_nodes_idx, :] *= F
-            E[:, xy_nodes_idx] *= F.T
-
-            # readjusting residual strengths of nodes indexed in x and y
-            s[xy_nodes_idx] -= accumWvec[xy_nodes_idx]
-
-            # removing current weight
-            x = np.delete(x, r_idx)
-            y = np.delete(y, r_idx)
-            sortAvec = np.delete(sortAvec, r)
-
-    B += B.T
-
-    return B
 
 def strength_preserving_rand_sa(A, rewiring_iter = 10,
                                 nstage = 100, niter = 10000,
@@ -347,7 +185,6 @@ def degree_preserving_rand_sm(A, rewiring_iter = 10,
                'Received: {}.'.format(frac))
         raise ValueError(msg)
 
-
     #Maslov & Sneppen rewiring
     if R is None:
         #ensuring connectedness if the original network is connected
@@ -359,8 +196,11 @@ def degree_preserving_rand_sm(A, rewiring_iter = 10,
             B = bct.randmio_und(A, rewiring_iter, seed=seed)[0]
     else:
         B = R.copy()
-
+    #check for symmetry
+    # symmetric = is_symmetric(B)
+    # print (f'SM returned symmetric array {symmetric}')
     return B
+
 
 
 def dataframe_to_numpy(df, score_name):
@@ -422,29 +262,6 @@ def numpy_to_dataframe(adj_matrix, node_to_idx, score_name):
     return pd.DataFrame(edges)
 
 
-def rewire(df, score_name,seed, method='SA'):
-    '''keeping the node degree intact, rewire the edges. We are shuffling pairs of edges. However, as we have to consider the score
-    of the new edges, we  pair up two synergistic
-    edges or two nonsynergistic edges when we shuffle. '''
-    print(df.head(5))
-    edge_types = set(df['edge_type'].unique())
-
-    rewired_df = pd.DataFrame()
-
-    for edge_type in edge_types:
-        df_edge = df[df['edge_type'] == edge_type][['source', 'target', score_name]]
-        A, node_2_idx = dataframe_to_numpy(df_edge, score_name)
-
-        if method == 'SA': #simmulated annealing
-            B, _ = strength_preserving_rand_sa(A, seed=seed)
-        elif method =='RS': #rubinov and sporns
-            B = strength_preserving_rand_rs(A, seed=seed)
-
-        rewired_df_edge = numpy_to_dataframe(B, node_2_idx, score_name)
-        rewired_df_edge['edge_type'] = edge_type
-        rewired_df = pd.concat([rewired_df, rewired_df_edge], axis=0)
-    return rewired_df
-
 
 def rewire_signed(df, score_name, seed, method='SA'):
     '''keeping the node degree intact, rewire the edges. We are shuffling pairs of edges. However, as we have to consider the score
@@ -454,7 +271,7 @@ def rewire_signed(df, score_name, seed, method='SA'):
     edge_types = set(df['edge_type'].unique())
 
     rewired_df = pd.DataFrame()
-
+    stat_df =  pd.DataFrame()
     for edge_type in edge_types:
         df_edge_pos = df[(df['edge_type'] == edge_type)&(df[score_name]>=0)][['source', 'target', score_name]]
         df_edge_neg =  df[(df['edge_type'] == edge_type)&(df[score_name]<0)][['source', 'target', score_name]]
@@ -463,10 +280,9 @@ def rewire_signed(df, score_name, seed, method='SA'):
 
             if method == 'SA': #simmulated annealing
                 B, _ = strength_preserving_rand_sa(A, seed=seed)
-            elif method =='RS': #rubinov and sporns
-                B = strength_preserving_rand_rs(A, seed=seed)
             elif method =='SM': #snepen-maslov method
                 B = degree_preserving_rand_sm(A, seed=seed)
+                # B = custom_preserving_rand_sm_weighted(A, seed=seed)
 
             rewired_df_edge = numpy_to_dataframe(B, node_2_idx, score_name)
             rewired_df_edge['edge_type'] = edge_type
@@ -480,14 +296,28 @@ def rewire_signed(df, score_name, seed, method='SA'):
             rewired_df_neg = randomize(df_edge_neg)
         rewired_df = pd.concat([rewired_df, rewired_df_pos, rewired_df_neg], axis=0)
 
+        #check how different are the rewired and orig network
+        print(f'\n\nCell line: {edge_type}')
+        print('positive edges')
+        df_edge_pos['edge_type']=edge_type
+        df_edge_neg['edge_type']=edge_type
+        pos_stat_df = check_diff(df_edge_pos, rewired_df_pos, score_name)
+        pos_stat_df['edge_type']=edge_type
+        pos_stat_df['sign'] = 'positive'
+        print('\n\nnegative edges')
+        neg_stat_df = check_diff(df_edge_neg, rewired_df_neg, score_name)
+        neg_stat_df['edge_type'] = edge_type
+        neg_stat_df['sign'] = 'negative'
+        stat_df = pd.concat([stat_df, pos_stat_df, neg_stat_df], axis=0)
+
     rewired_df = rewired_df.sample(frac=1)
-    return rewired_df
+    return rewired_df, stat_df
+
 
 def rewire_unsigned(df, score_name, seed, method='SM_unsigned'):
     '''keeping the node degree intact, rewire the edges. We are shuffling pairs of edges. However, as we have to consider the score
     of the new edges, we  pair up two synergistic
     edges or two nonsynergistic edges when we shuffle. '''
-    print(df.head(5))
     edge_types = set(df['edge_type'].unique())
 
     rewired_df = pd.DataFrame()
@@ -497,14 +327,8 @@ def rewire_unsigned(df, score_name, seed, method='SM_unsigned'):
 
         def randomize(df_edge):
             A, node_2_idx = dataframe_to_numpy(df_edge, score_name)
-
-            if method == 'SA': #simmulated annealing
-                B, _ = strength_preserving_rand_sa(A, seed=seed)
-            elif method =='RS': #rubinov and sporns
-                B = strength_preserving_rand_rs(A, seed=seed)
-            elif method =='SM': #snepen-maslov method
-                B = degree_preserving_rand_sm(A, seed=seed)
-            elif method =='SM_unsigned': #snepen-maslov method
+            if method =='SM_unsigned': #snepen-maslov method
+                # B = custom_preserving_rand_sm_weighted(A, seed=seed)
                 B = degree_preserving_rand_sm(A, seed=seed)
 
             rewired_df_edge = numpy_to_dataframe(B, node_2_idx, score_name)
@@ -520,27 +344,27 @@ def rewire_unsigned(df, score_name, seed, method='SM_unsigned'):
     return rewired_df
 
 def get_rewired_train_val (all_train_df, score_name, method, split_type, val_frac, seed, rewired_train_file, force_run=False):
-
     if (not os.path.exists(rewired_train_file))|force_run:
+        os.makedirs(os.path.dirname(rewired_train_file), exist_ok=True)
         if 'unsigned' in method:
             rewired_train_df = rewire_unsigned(all_train_df, score_name, seed, method=method)
         else:
-            rewired_train_df = rewire_signed(all_train_df, score_name, seed, method=method)
+            rewired_train_df, stat_df = rewire_signed(all_train_df, score_name, seed, method=method)
+            stat_df.to_csv(rewired_train_file.replace('.tsv', '_stat.tsv'), sep='\t', index=False)
         # sort the df so that if the rewired network are same for the same seed, it will be saved as the same. and then
         # while splitting into train-val, we will get the same split.
         sort_cols = ['source', 'target', 'edge_type', score_name]
         rewired_train_df = rewired_train_df.sort_values(by=sort_cols).reset_index(drop=True)
         #save the rewired network
         rewired_train_df.to_csv(rewired_train_file, sep='\t', index=False)
+
     else:
         print('Loading rewired network')
         rewired_train_df = pd.read_csv(rewired_train_file, sep='\t')
 
-    rewired_train_df_pos = rewired_train_df[rewired_train_df[score_name]>=0]
-    rewired_train_df_neg = rewired_train_df[rewired_train_df[score_name]<0]
-    check_dups(rewired_train_df_pos)
-    check_dups(rewired_train_df_neg)
-    check_dups(rewired_train_df)
+    #make sure the index are integer values.
+    rewired_train_df[['source', 'target', 'edge_type']] = rewired_train_df[
+        ['source', 'target', 'edge_type']].astype(int)
 
     # sort rewired_train_df so that (a,b) and (b,a) edges appear as (max(a,b), min(a,b))
     sort_paired_cols(rewired_train_df, 'source', 'target', inplace=True, relation='greater')
@@ -548,61 +372,83 @@ def get_rewired_train_val (all_train_df, score_name, method, split_type, val_fra
     split_type_map = {'random': 'random', 'leave_comb': 'edge', 'leave_drug': 'node', 'leave_cell_line': 'edge_type'}
     train_idx, val_idx = split_train_test(rewired_train_df, split_type_map[split_type], val_frac, seed=0)
 
-    orig_triplets = set(zip(all_train_df['source'], all_train_df['target'], all_train_df['edge_type']))
-    rewired_triplet = set(zip(rewired_train_df['source'], rewired_train_df['target'], rewired_train_df['edge_type']))
-
-    common_triplets = orig_triplets.intersection(rewired_triplet)
-    total_triplets = orig_triplets.union(rewired_triplet)
-
-    orig_quad = set(zip(all_train_df['source'], all_train_df['target'], all_train_df['edge_type'], all_train_df[score_name]))
-    rewired_quad = set(zip(rewired_train_df['source'], rewired_train_df['target'], rewired_train_df['edge_type'], all_train_df[score_name]))
-
-    common_quad = orig_quad.intersection(rewired_quad)
-    total_quad = orig_quad.union(rewired_quad)
-
-    print(f'frac common triplets: {len(common_triplets)/len(total_triplets)} among total of: {len(total_triplets)}')
-    print(f'frac of rewired triplets from original: {len(common_triplets)/len(rewired_triplet)} among total of: {len(rewired_triplet)}')
-
-    print(f'frac common quads: {len(common_quad)/len(total_quad)} among total of: {len(total_quad)}')
-    print(f'frac of rewired quads from original: {len(common_quad)/len(rewired_quad)} among total of: {len(rewired_quad)}')
-
-    #on avegage the deviation of score for the same triplet present in original vs. rewired network is 15.81 for 'SA'
-    #on avegage the deviation of score for the same triplet present in original vs. rewired network is 22.63 for 'SM'
-    #on avegage the deviation of score for the same triplet present in original vs. rewired network is 26.21 for 'SM_unsigned'
-
-    merged= check_diff(all_train_df, rewired_train_df, score_name)
+    check_diff(all_train_df, rewired_train_df, score_name)
 
     return rewired_train_df, {0:train_idx}, {0:val_idx}
 
-def check_diff(all_train_df, rewired_train_df, score_name ):
+def check_diff(all_train_df, unsorted_rewired_train_df, score_name ):
+    # Combine 'source' and 'target' columns to count participation in edges
+    all_nodes = pd.concat([all_train_df['source'], all_train_df['target']], ignore_index=True)
+
+    # Count occurrences
+    node_counts = all_nodes.value_counts().reset_index()
+    node_counts.columns = ['node', 'count']
+
+    # Optional: sort by count
+    node_counts = node_counts.sort_values(by='count', ascending=False)
+
+    # Display or inspect
+    # print(node_counts.head())
+
+    rewired_train_df = sort_paired_cols(unsorted_rewired_train_df, 'source', 'target', inplace=False, relation='greater')
+
+    orig_triplets = set(zip(all_train_df['source'], all_train_df['target'], all_train_df['edge_type']))
+    rewired_triplet = set(zip(rewired_train_df['source'], rewired_train_df['target'], rewired_train_df['edge_type']))
+    common_triplets = orig_triplets.intersection(rewired_triplet)
+
+    orig_quad = set(zip(all_train_df['source'], all_train_df['target'], all_train_df['edge_type'], all_train_df[score_name]))
+    rewired_quad = set(zip(rewired_train_df['source'], rewired_train_df['target'], rewired_train_df['edge_type'], all_train_df[score_name]))
+    common_quad = orig_quad.intersection(rewired_quad)
+
+    print(f'total samples in original {len(orig_quad)} vs. in rewired {len(rewired_quad)}')
+    print(f'total triplets in original {len(orig_triplets)} vs. in rewired {len(rewired_triplet)}')
+
+    # print(f'frac common triplets: {len(common_triplets)/len(total_triplets)} among total of: {len(total_triplets)}')
+    print(f'frac triplet from original: {len(common_triplets)/len(rewired_triplet)} among total of: {len(rewired_triplet)}')
+
+    # print(f'frac common quads: {len(common_quad)/len(total_quad)} among total of: {len(total_quad)}')
+    print(f'frac samples from original: {len(common_quad)/len(rewired_quad)} among total of: {len(rewired_quad)}')
+
+    #find deviation of score among the overlapping triplets between original and rewired network
     merged = all_train_df[['source', 'target', 'edge_type', score_name]] \
         .merge(
         rewired_train_df[['source', 'target', 'edge_type', score_name]],
         on=['source', 'target', 'edge_type'],
         suffixes=('_orig', '_rewired')
     )
-
     # 2. Compute the difference (orig minus rewired)
     merged['score_diff'] = abs(merged[f'{score_name}_orig'] - merged[f'{score_name}_rewired'])
     print(f'average difference btn the same triplet present in original and newired network: ', merged['score_diff'].mean())
-    # 3. (Optional) inspect
-    print(f"Found {len(merged)} matching triplets.")
-    print(merged.head())
 
-    # 4. If you only care about the largest positive or negative deltas:
-    top_increases = merged.nlargest(10, 'score_diff')
-    top_decreases = merged.nsmallest(10, 'score_diff')
-    print("Top 10 increases:\n", top_increases)
-    print("Top 10 decreases:\n", top_decreases)
+    # Step 4: Unique nodes and edge statistics (undirected)
+    unique_nodes = set(all_train_df['source']).union(set(all_train_df['target']))
+    n_nodes = len(unique_nodes)
+    n_possible_edges = n_nodes * (n_nodes - 1) // 2
 
-    plt.figure()
-    plt.hist(merged['score_diff'], bins=30)
-    plt.xlabel('Score Difference')
-    plt.ylabel('Frequency')
-    plt.title('Histogram of Score Differences')
-    plt.tight_layout()
-    plt.show()
-    return merged
+    # Drop duplicates for undirected edges
+    undirected_edges = pd.DataFrame(np.sort(all_train_df[['source', 'target']].values, axis=1),
+                                    columns=['node1', 'node2'])
+    n_present_edges = len(undirected_edges.drop_duplicates())
+
+    # Step 5: Store all computed statistics in a DataFrame
+    stats = {
+        'n_orig_quad': [len(orig_quad)],
+        'n_rewired_quad': [len(rewired_quad)],
+        'n_orig_triplets': [len(orig_triplets)],
+        'n_rewired_triplets': [len(rewired_triplet)],
+        'n_common_triplets': [len(common_triplets)],
+        'frac_triplets_from_original': [len(common_triplets) / len(rewired_triplet) if rewired_triplet else np.nan],
+        'n_common_quad': [len(common_quad)],
+        'frac_samples_from_original': [len(common_quad) / len(rewired_quad) if rewired_quad else np.nan],
+        'avg_score_diff': [merged['score_diff'].mean()],
+        'n_unique_nodes': [n_nodes],
+        'n_possible_edges': [n_possible_edges],
+        'n_present_edges': [n_present_edges],
+        'frac_edges_present': [n_present_edges / n_possible_edges if n_possible_edges else np.nan],
+    }
+
+    df_stats = pd.DataFrame(stats)
+    return  df_stats
 
 def check_dups(rewired_train_df):
     # check for edges like (a,b) and (b, a)
@@ -612,40 +458,3 @@ def check_dups(rewired_train_df):
 
     dup_triplets = rewired_train_df.duplicated(subset=['source', 'target', 'edge_type']).sum()
     print(f'#duplicated triplets in rewired: {dup_triplets}')
-def check_rewire_signed():
-    """
-    Test that rewire_signed() produces the same rewired network
-    when called twice with the same seed.
-    """
-    # Create a small sample network with both positive and negative scores.
-    data = {
-        'source': ['A', 'B', 'C', 'D', 'E', 'F'],
-        'target': ['B', 'C', 'D', 'E', 'F', 'A'],
-        'edge_type': ['mixed'] * 6,
-        'score': [0.5, -0.8, 0.3, -0.7, 0.9, -0.2]
-    }
-    df = pd.DataFrame(data)
-    score_name = 'score'
-    seed = 123
-    method = 'SA'  # You can also test with 'RS' or 'SM'
-
-    # Call rewire_signed() twice with the same seed.
-    rewired_df1 = rewire_signed(df, score_name, seed=seed, method=method)
-    rewired_df2 = rewire_signed(df, score_name, seed=seed, method=method)
-
-    # Because rewire_signed() shuffles the rows via sample(frac=1),
-    # sort the DataFrames on common columns and reset the index.
-    sort_cols = ['source', 'target', 'edge_type', score_name]
-    rewired_df1_sorted = rewired_df1.sort_values(by=sort_cols).reset_index(drop=True)
-    rewired_df2_sorted = rewired_df2.sort_values(by=sort_cols).reset_index(drop=True)
-
-    # Convert sorted DataFrames to a list of dictionaries (records) for comparison.
-    records1 = rewired_df1_sorted.to_dict(orient='records')
-    records2 = rewired_df2_sorted.to_dict(orient='records')
-
-    # Check if the two outputs are identical.
-    if records1 != records2:
-        raise AssertionError("Test failed: Rewired networks differ for the same seed.")
-    else:
-        print("Test passed: Rewired networks are identical for the same seed.")
-

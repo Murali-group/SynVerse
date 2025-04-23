@@ -59,14 +59,14 @@ def post_split_processing(dfeat_dict, cfeat_dict, all_train_df, params, split_in
                                                                         hidden_dim_options=params.autoencoder_dims,
                                                                         epoch=500,
                                                                         file_prefix=f'{params.input_dir}/drug/AE/{split_info_str}/',
-                                                                        device=device)
+                                                                        device=device, force_run=False)
     cur_cfeat_dict['value'], cur_cfeat_dict['dim'] = autoencoder_runner(cur_cfeat_dict['value'], cur_cfeat_dict['dim'],
                                                                         cur_cfeat_dict['compress'],
                                                                         train_cell_idx,
                                                                         hidden_dim_options=params.autoencoder_dims,
                                                                         epoch=500,
                                                                         file_prefix=f'{params.input_dir}/cell-line/AE/{split_info_str}/',
-                                                                        device=device)
+                                                                        device=device, force_run=False)
 
     # Normalize data based on training data. Use the computed mean, std from training data to normalize test data.
     cur_dfeat_dict['value'], cur_cfeat_dict['value'] = normalization_wrapper(cur_dfeat_dict['value'],

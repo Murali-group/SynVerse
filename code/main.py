@@ -25,9 +25,10 @@ def setup_opts():
     group.add_argument('--config', type=str, default="config_files/sample_config.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--train_type', type=str, default="regular",
-                       help="Three Options. ['regular','rewire','shuffle']."
+                       help="Three Options. ['regular','rewire','shuffle','randomized_score]."
                             "'regular => train and test model with original feature and triplets, "
-                            "'rewire' => randomize train triplets, 'shuffle' => shuffle features.")
+                            "'rewire' => randomize train triplets, 'shuffle' => shuffle features."
+                            "'randomized_score' => randomize the score of the triplets. ")
     group.add_argument('--seed', type=int, default=0,
                        help="Seed value used for train test splitting. Using different seed value will result in different train and test splits.")
     group.add_argument('--feat', type=str,

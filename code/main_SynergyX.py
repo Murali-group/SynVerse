@@ -21,16 +21,20 @@ def setup_opts():
     parser = argparse.ArgumentParser(description="""Script to download and parse input files, and (TODO) run the  pipeline using them.""")
     # general parameters
     group = parser.add_argument_group('Main Options')
-    group.add_argument('--config', type=str, default="/home/grads/tasnina/Projects/SynVerse/code/"
-                       "config_files/experiment_1/refactored_SynergyX.yaml",
+    group.add_argument('--config', type=str, default="config_files/sample_config.yaml",
                        help="Configuration file for this script.")
+    group.add_argument('--train_type', type=str, default="regular",
+                       help="Three Options. ['regular','rewire','shuffle','randomized_score]."
+                            "'regular => train and test model with original feature and triplets, "
+                            "'rewire' => randomize train triplets, 'shuffle' => shuffle features."
+                            "'randomized_score' => randomize the score of the triplets. ")
     group.add_argument('--seed', type=int, default=0,
                        help="Seed value used for train test splitting. Using different seed value will result in different train and test splits.")
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space. Applicable when you want to run just one set of features.")
     group.add_argument('--split', type=str,
                        help="Put the name of the split types to run, separated by space.")
-    group.add_argument('--force_split', type=bool, default=True,
+    group.add_argument('--force_split', type=bool, default=False,
                        help="Should split or use the existing splits.")
     group.add_argument('--start_run', type=int, default=0, help='From which run should the model start from. This is to help when'
                     'some model has been trained for first 2 runs but then terminated by arc. Then next time we need to start from run 2, hence start_run should be 2')
@@ -44,6 +48,7 @@ def setup_opts():
     group.add_argument('--shared_directory', type=str,
                         help='A directory that is accessible for all processes, e.g. a NFS share.')
     return parser
+
 
 
 def run_SynVerse(inputs, params, **kwargs):
@@ -107,8 +112,7 @@ def run_SynVerse(inputs, params, **kwargs):
                                                       split_feat_str=feat_str, run_no=run_no, seed=seed)
 
                 #**************************** Run the pipeline to train and test model **********************************************************
-                train_type = params.train_type
-                run_manager = RunManagerFactory.get_run_manager(train_type, params, select_model_info, given_epochs, all_train_df,
+                run_manager = RunManagerFactory.get_run_manager(params, select_model_info, given_epochs, all_train_df,
                             train_idx, val_idx, select_dfeat_dict, select_cfeat_dict, test_df, drug_2_idx,cell_line_2_idx, out_file_prefix, '_val_true_', device, **kwargs)
                 run_manager.run_wrapper()
 

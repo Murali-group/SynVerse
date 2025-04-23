@@ -19,24 +19,24 @@ input_settings:
 
   drug_features:
     - name: 'MACCS'
-      use: [ false ]
+      use: [ true, false ]
 
     - name: 'ECFP_4'
-      use: [  True ]
+      use: [  true, false  ]
 
     - name: 'MFP' #morgan fingerprint
-      use: [ false ]
+      use: [ true, false  ]
 
     - name: 'mol_graph'
       encoder: 'GCN'
-      use: [ false ]
+      use: [  true, false  ]
 
     - name: 'smiles'
-      encoder: 'test'
-      use: [ false ]
+      encoder: 'Transformer'
+      use: [  true, false  ]
 
     - name: 'd1hot'
-      use: [ false ]
+      use: [ true, false  ]
 
 
   cell_line_features:
@@ -56,7 +56,7 @@ input_settings:
                    'hid_dropout_rate': [ 0.0, 0.5 ] }
 
        hp: {'hid_0': 2048, 'hid_1': 1024,'hid_2': 512, 'hid_dropout_rate': 0.3, 'in_dropout_rate': 0.1,
-            'lr': 0.001, 'num_hid_layers': 3, 'optimizer': 'Adam'}
+            'lr': 0.0001, 'num_hid_layers': 3, 'optimizer': 'Adam'}
 
      drug_encoder:
        - name: 'GCN'
@@ -75,13 +75,13 @@ input_settings:
 
   autoencoder_dims:  [[1024, 512], [512, 256], [256, 128], [256, 64]]
   batch_size: 4096
-  epochs: 150
+  epochs: 1500
 
 
   splits:
-#    - type: 'random'
-#      test_frac: 0.2
-#      val_frac: 0.25
+    - type: 'random'
+      test_frac: 0.2
+      val_frac: 0.25
 
     - type: 'leave_comb'
       test_frac: 0.2
@@ -95,7 +95,6 @@ input_settings:
       test_frac: 0.2
       val_frac: 0.25
 
-
   wandb:
     enabled: False
     entity_name: 'ntasnina'
@@ -108,7 +107,6 @@ input_settings:
 
   max_drug_feat: 1
   min_drug_feat: 1
-
   max_cell_feat: 1
   min_cell_feat: 1
 
@@ -120,10 +118,6 @@ input_settings:
     run_id : 'synverse'
     server_type: 'local' #or cluster
 
-  train_mode:
-    use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
-
-  train_type: 'randomized_score' #regular = train and test model with original feature and triplets, 'rewire' = randomize train triplets, 'shuffle' = shuffle features.
-  rewire_method: [ "SA" ]
+  rewire_method: [ "SA", "SM" ]
 output_settings:
-  output_dir: 'outputs/'
+  output_dir: 'outputs_debug/'

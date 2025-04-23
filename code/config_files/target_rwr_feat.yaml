@@ -17,31 +17,18 @@ input_settings:
     net_file: 'network/STRING/9606.protein.links.v12.0.txt.gz'
     prot_info_file: 'network/STRING/9606.protein.info.v12.0.txt.gz'
 
+
   drug_features:
-    - name: 'MACCS'
-      use: [ false ]
-
-    - name: 'ECFP_4'
-      use: [  true ]
-
-    - name: 'MFP' #morgan fingerprint
-      use: [ false ]
-
-    - name: 'mol_graph'
-      encoder: 'GCN'
-      use: [  false ]
-
-    - name: 'smiles'
-      encoder: 'Transformer'
-      use: [  false ]
-
     - name: 'd1hot'
       use: [ false ]
 
+    - name: 'target'
+      preprocess: 'rwr'
+      use: [ true ]
 
   cell_line_features:
     - name: 'c1hot'
-      use: [true]
+      use: [ true ]
 
   model_info:
      decoder:
@@ -56,7 +43,7 @@ input_settings:
                    'hid_dropout_rate': [ 0.0, 0.5 ] }
 
        hp: {'hid_0': 2048, 'hid_1': 1024,'hid_2': 512, 'hid_dropout_rate': 0.3, 'in_dropout_rate': 0.1,
-            'lr': 0.0001, 'num_hid_layers': 3, 'optimizer': 'Adam'}
+            'lr': 0.001, 'num_hid_layers': 3, 'optimizer': 'Adam'}
 
      drug_encoder:
        - name: 'GCN'
@@ -83,17 +70,18 @@ input_settings:
       test_frac: 0.2
       val_frac: 0.25
 
-#    - type: 'leave_comb'
-#      test_frac: 0.2
-#      val_frac: 0.25
+    - type: 'leave_comb'
+      test_frac: 0.2
+      val_frac: 0.25
 
-#    - type: 'leave_drug'
-#      test_frac: 0.2
-#      val_frac: 0.25
-#
-#    - type: 'leave_cell_line'
-#      test_frac: 0.2
-#      val_frac: 0.25
+    - type: 'leave_drug'
+      test_frac: 0.2
+      val_frac: 0.25
+
+    - type: 'leave_cell_line'
+      test_frac: 0.2
+      val_frac: 0.25
+
 
   wandb:
     enabled: False
@@ -103,10 +91,12 @@ input_settings:
     timezone: 'US/Eastern'
     timezone_format: '%Y-%m-%d_%H-%M-%S'
 
+
   abundance: 0.05
 
   max_drug_feat: 1
   min_drug_feat: 1
+
   max_cell_feat: 1
   min_cell_feat: 1
 
@@ -118,6 +108,6 @@ input_settings:
     run_id : 'synverse'
     server_type: 'local' #or cluster
 
-  rewire_method: [ "SA" ]
+  rewire_method: [ "SA", "SM" ]
 output_settings:
-  output_dir: 'outputs_debug/'
+  output_dir: 'outputs/'

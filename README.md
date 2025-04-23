@@ -16,7 +16,7 @@ SynVerse is a framework with an encoder-decoder architecture. It incorporates di
 
 ## How to Use SynVerse
 
-SynVerse is configured using a YAML file (e.g., sample_config.yaml), which allows users to define the input features, model architecture, and evaluation strategies. Once a configuration file is prepared, SynVerse can be run in various modes to perform different tasks:
+SynVerse is configured using a YAML file (e.g., [sample_config.yaml](https://github.com/Murali-group/SynVerse/blob/main/code/config_files/sample_config.yaml)), which allows users to define the input features, model architecture, and evaluation strategies. Once a configuration file is prepared, SynVerse can be run in various modes to perform different tasks:
 
 1. To train a model:
 ```

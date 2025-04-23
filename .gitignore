@@ -7,7 +7,7 @@ documents/
 inputs/
 outputs/
 code/wandb/
-*archive/
+**archive/
 
 # # Jupyter Notebook
 .ipynb_checkpoints

@@ -1,51 +1,35 @@
-dataset_dir: "/home/grads/tasnina/Projects/SynVerse/datasets/"
-
 # Input Settings: initialize base input folder names,
-# dataset collections, and models to run over
+# dataset collections, and models to run
 input_settings:
+  score_name: 'S_mean_mean'
   # Base input directory
-  input_dir: "/home/grads/tasnina/Projects/SynVerse/inputs/"
+  input_dir: "inputs/"
+  input_files:
+    synergy_file: 'synergy/synergy_scores_S_mean_mean.tsv' #file containing triplets with S_mean_mean score for triplets in DrugComb.
+    maccs_file: 'drug/MACCS.tsv'
+    mfp_file: 'drug/Morgan_fingerprint.tsv'
+    ecfp_file: 'drug/ECFP_4.tsv'
+    smiles_file: 'drug/smiles.tsv'
+    mol_graph_file: 'drug/molecular_graph.pickle'
+    target_file: 'drug/target.tsv'
+    genex_file: 'cell-line/gene_expression.tsv'
+    lincs: 'cell-line/LINCS_1000.txt'
+    net_file: 'network/STRING/9606.protein.links.v12.0.txt.gz'
+    prot_info_file: 'network/STRING/9606.protein.info.v12.0.txt.gz'
+
 
   drug_features:
-
-    - name: 'MACCS'
-      compress: true
-      use: [ true, false ]
-      norm: std
-
-
-    - name: 'ECFP_4'
-      compress: true
-      use: [ true, false ]
-      norm: std
-
-
-    - name: 'MFP' #morgan fingerprint
-      compress: true
-      use: [ true, false ]
-      norm: std
-
-
-    - name: 'mol_graph'
-      encoder: 'GCN'
-      use: [ false ]
-
-    - name: 'smiles'
-      encoder: 'Transformer'
-      use: [ false ]
-
     - name: 'd1hot'
       use: [ false ]
 
+    - name: 'target'
+      use: [ true ]
 
   cell_line_features:
     - name: 'c1hot'
       use: [ true ]
-      compress: true
-      norm: std
 
-
-  models:
+  model_info:
      decoder:
        name: 'MLP'
        hp_range: { 'lr': [ 1e-5, 1e-3 ], 'optimizer': [ 'Adam', 'SGD' ],
@@ -75,42 +59,58 @@ input_settings:
          hp: {'positional_encoding_type': 'learnable', 'transformer_batch_norm': True, 'transformer_embedding_dim': 512,
                   'transformer_ff_num_layers': 1024, 'transformer_n_head': 8, 'transformer_num_layers': 3,'max_seq_length': 120}
 
-
+  autoencoder_dims:  [[1024, 512], [512, 256], [256, 128], [256, 64]]
   batch_size: 4096
   epochs: 1500
 
 
   splits:
+#    - type: 'random'
+#      test_frac: 0.2
+#      val_frac: 0.25
+
     - type: 'leave_comb'
       test_frac: 0.2
       val_frac: 0.25
 
+#    - type: 'leave_drug'
+#      test_frac: 0.2
+#      val_frac: 0.25
+#
+#    - type: 'leave_cell_line'
+#      test_frac: 0.2
+#      val_frac: 0.25
+
+
   wandb:
     enabled: False
+    entity_name: 'ntasnina'
     token: 'd9462b91edea6523563900fab17134d7e9177e16'
     project_name: 'Synverse'
-    entity_name: 'ntasnina'
     timezone: 'US/Eastern'
     timezone_format: '%Y-%m-%d_%H-%M-%S'
+
+
+  abundance: 0.05
+
+  max_drug_feat: 1
+  min_drug_feat: 1
+
+  max_cell_feat: 1
+  min_cell_feat: 1
+
+  hp_tune: False
   bohb:
-    min_budget: 1
-    max_budget: 3
-    n_iterations: 1
+    min_budget: 27
+    max_budget: 729
+    n_iterations: 3
     run_id : 'synverse'
     server_type: 'local' #or cluster
 
-  feature: 'must'
-  abundance: 0.05
-
-  max_feat: 1
-  hp_tune: False
   train_mode:
     use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
 
-  rewire: True #if True, rewire the training data such that the node degree is preserved.
-  rewire_method: ["SA", "SM"]
-
-
-
+  train_type: 'rewire' #regular = train and test model with original feature and triplets, 'rewire' = randomize train triplets, 'shuffle' = shuffle features.
+  rewire_method: [ "SM" ]
 output_settings:
-  output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs/'
+  output_dir: 'outputs/'

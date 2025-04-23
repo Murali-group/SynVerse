@@ -1,0 +1,148 @@
+input_settings:
+  score_name: 'S_mean_mean' #which synergy score to predict. Another option is 'synergy_loewe_mean'
+  input_dir: "inputs/" #Base input directory
+  input_files:
+    synergy_file: 'synergy/synergy_scores_S_mean_mean.tsv' #tab separated file containing triplets with synergy score with columns named 'drug_1_pid', 'drug_2_pid', 'cell_line_name', score_name (same as the value of variable score_name)
+    maccs_file: 'drug/MACCS.tsv' #tab separated file containing MACCS key values of drug. Columns: ['pid', 'MACCS_0', 'MACCS_1',..,'MACCS_166']
+    mfp_file: 'drug/Morgan_fingerprint.tsv' #tab separated file containing Morgan Figerprint values of drug. Columns: ['pid', 'Morgan_FP_0','Morgan_FP_1',.., 'Morgan_FP_255']
+    ecfp_file: 'drug/ECFP_4.tsv' #tab separated file containing ECFP_4 values of drug. Columns: ['pid', 'ECFP4_0','ECFP4_1',.., 'ECFP4_1023']
+    smiles_file: 'drug/smiles.tsv' #tab separated file containing SMILES values of drug. Mandatory Columns: ['pid', 'smiles']
+    mol_graph_file: 'drug/molecular_graph.pickle' #a pickle file containing a dictionary where key='pid', value=molecular structure of drug derived from DeepChem
+    target_file: 'drug/target.tsv' #tab separated file containing targets of drug. Mandatory Columns: ['pid', 'gene_name']
+    genex_file: 'cell-line/gene_expression.tsv' #tab separated file containing targets of drug. Mandatory Columns: ['cell_line_name'], gene names across columns.
+    lincs: 'cell-line/LINCS_1000.txt' #tab separated file containing landmark genes
+    net_file: 'network/STRING/9606.protein.links.v12.0.txt.gz' #file containing protein-protein interactions or edges in STRING
+    prot_info_file: 'network/STRING/9606.protein.info.v12.0.txt.gz' #file containing mapping between protein_id in STRING and protein name.
+
+  drug_features:
+#    - name: name of the feature
+#      preprocess: how to preprocess. Feature specific option for preprocessing are: 1.'rwr' for 'target' as name feature,
+#      compress: True if want to use autoencoder to reduce feature dimension, false otherwise.
+#      norm: Implemented option 'std' which standardize the corresponding feature.
+#      encoder: Both trainable and freezed pretrained encoder to use can be mentioned here.
+#               Feature specific options: 'GCN' (when name = 'mol_graph');
+#                                         'Transformer', 'SPMM', 'mole','kpgt' (when name= 'smiles')
+#      use: [true] => the feature must be used. [false] => the feature must be excluded. [true, false]=> the feature canbe cinsidered when creating combinations of features to train the model.
+
+    - name: 'MACCS' #MACCS keys
+      use: [ true, false ]
+
+    - name: 'ECFP_4' #ECFP fingerprints
+      use: [  true, false ]
+
+    - name: 'MFP' #Morgan fingerprint
+      use: [ true, false ]
+
+    - name: 'mol_graph' #molecular graph of drug derived from SMILES
+      encoder: 'GCN'
+      use: [ true, false ]
+
+    - name: 'smiles' #SMILES string
+      encoder: 'Transformer'
+      use: [ true, false ]
+
+    - name: 'target' #binary drug target profile
+      preprocess: 'rwr'
+      use: [ true, false ]
+
+    - name: 'd1hot' #one-hot encoding of drug
+      use: [ true, false ]
+
+
+  cell_line_features:
+    - name: 'genex_lincs_1000' #expression of landmark genes only
+      norm: 'std'
+      use: [ true, False ]
+
+    - name: 'genex' #expression of all available genes
+      norm: 'std'
+      use: [ true, False ]
+
+    - name: 'c1hot'
+      use: [true]
+
+  model_info: #contains paramaters to train the decoder and encoders.
+     decoder:
+       name: 'MLP'
+       hp_range: { 'lr': [ 1e-5, 1e-3 ], 'optimizer': [ 'Adam', 'SGD' ],
+                   'sgd_momentum': [ 0.5, 0.99 ] ,
+                   'num_hid_layers': [ 1,3 ] ,
+                   'hid_0': [ 128, 256, 512, 1024, 2048, 4096 ],
+                   'hid_1': [ 128, 256, 512, 1024, 2048, 4096 ],
+                   'hid_2': [ 128, 256, 512, 1024, 2048, 4096 ],
+                   'in_dropout_rate': [ 0.0, 0.5 ],
+                   'hid_dropout_rate': [ 0.0, 0.5 ] }
+
+       hp: {'hid_0': 2048, 'hid_1': 1024,'hid_2': 512, 'hid_dropout_rate': 0.3, 'in_dropout_rate': 0.1,
+            'lr': 0.001, 'num_hid_layers': 3, 'optimizer': 'Adam'}
+
+     drug_encoder:
+       - name: 'GCN'
+         hp_range: { 'batch_norm': [ True, False ], 'gnn_num_layers': [ 1, 3 ], 'gnn_0': [ 256, 512, 1024, 2048, 4096 ] ,'gnn_1': [ 256, 512, 1024, 2048, 4096 ],
+                     'gnn_2': [  256, 512, 1024, 2048, 4096 ],
+                     'ff_num_layers': [ 1,3 ], 'ff_0': [ 256, 512, 1024, 2048, 4096 ] , 'ff_1': [ 256, 512, 1024, 2048, 4096 ] , 'ff_2': [ 256, 512, 1024, 2048, 4096 ],
+                     'gnn_dropout': [ 0.0,0.5 ] }
+         hp: { 'batch_norm': True, 'gnn_num_layers': 2 ,'gnn_0': 512 ,'gnn_1': 128, 'ff_num_layers': 1, 'ff_0': 128, 'gnn_dropout': 0.1 }
+
+       - name: 'Transformer'
+         hp_range: { 'transformer_batch_norm': [ True, False ], 'transformer_num_layers': [ 2, 3, 4 ] ,'transformer_embedding_dim': [ 64, 128, 256, 512, 1024, 2048 ] ,
+                     'transformer_n_head': [ 4, 8 ], 'transformer_ff_num_layers': [ 64, 128, 256, 512, 1024, 2048 ], 'max_seq_length': [ 120 ],
+                     'positional_encoding_type': [ 'learnable', 'fixed' ] }
+         hp: {'positional_encoding_type': 'learnable', 'transformer_batch_norm': True, 'transformer_embedding_dim': 512,
+                  'transformer_ff_num_layers': 1024, 'transformer_n_head': 8, 'transformer_num_layers': 3,'max_seq_length': 120}
+
+  autoencoder_dims:  [[1024, 512], [512, 256], [256, 128], [256, 64]]
+  batch_size: 4096
+  epochs: 1500
+
+
+  splits: #contains the split names you want to
+    - type: 'random' #corresponds to 'leave triplet' splitting strategy
+      test_frac: 0.2 #fraction of total triplets in the test set
+      val_frac: 0.25 #fraction of training triplet that should be used for validation
+
+    - type: 'leave_comb' #corresponds to 'leave drug pair' splitting strategy
+      test_frac: 0.2
+      val_frac: 0.25
+
+    - type: 'leave_drug'
+      test_frac: 0.2
+      val_frac: 0.25
+
+    - type: 'leave_cell_line'
+      test_frac: 0.2
+      val_frac: 0.25
+
+
+  wandb:
+    enabled: False #True if you want to watch training and validation loss in Weights & Biases.
+    entity_name: 'ntasnina' #put your credientials.
+    token: '' #put your credientials.
+    project_name: 'Synverse'
+    timezone: 'US/Eastern'
+    timezone_format: '%Y-%m-%d_%H-%M-%S'
+
+
+  abundance: 0.05 #Minimum what percent of triplets should come from a cell line.
+
+  max_drug_feat: 1 #While creating different combinations of features (and corresponding models) maximum 'max_drug_feat' drug features can be considered in a model.
+  min_drug_feat: 1 #While creating different combinations of features (and corresponding models) minimum 'min_drug_feat' drug features has to be in a model.
+
+  max_cell_feat: 1 #analogous to max_drug_feat
+  min_cell_feat: 1 #analogous to min_drug_feat
+
+  hp_tune: True #True if tuning hyoerparam else false.
+  bohb: #params for Bayesian Optomization Based Hyperparameter Tuning.
+    min_budget: 27
+    max_budget: 729
+    n_iterations: 3
+    run_id : 'synverse'
+    server_type: 'local' #or cluster
+
+  train_mode:
+    use_best_hyperparam: True # True: extract best hyperpam from results of hyperparam tune, False: use the param given in this config file.
+
+  train_type: 'rewire' #regular = train and test model with original feature and triplets, 'rewire' = randomize train triplets, 'shuffle' = shuffle features.
+  rewire_method: [ "SM", "SA" ] #rewiring technique to use. SM: Sneppen-Maslov based degree-preserving rewiring, SA: Simulated Annealing based strength-preserving rewiring
+output_settings:
+  output_dir: '/home/grads/tasnina/Projects/SynVerse/outputs_debug/'

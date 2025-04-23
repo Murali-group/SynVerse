@@ -4,7 +4,7 @@
 - [Conda Environment Setup](#conda-environment-setup)
 - [How to Use SynVerse](#how-to-use-synverse)
     - [Configuration File](#configuration-file)
-  
+      
 ## Introduction
 SynVerse is a framework with an encoder-decoder architecture. It incorporates diverse input features and a reasonable approximation of model architectures commonly employed by existing deep learning-based synergy prediction methods. It includes four data-splitting strategies and three ablation methods: module-based, feature shuffling, and a novel network-based approach to isolate factors influencing model performance.
 <div align="center">
@@ -15,6 +15,7 @@ SynVerse is a framework with an encoder-decoder architecture. It incorporates di
 ...
 
 ## How to Use SynVerse
+
 SynVerse is configured using a YAML file (e.g., sample_config.yaml), which allows users to define the input features, model architecture, and evaluation strategies. Once a configuration file is prepared, SynVerse can be run in various modes to perform different tasks:
 
 1. To train a model:
@@ -29,7 +30,8 @@ SynVerse is configured using a YAML file (e.g., sample_config.yaml), which allow
 ```
    python main.py --config_file config_files/sample_config.yaml --train_type 'rewire'
 ```
-   
+
+
 ### Configuration File
 
 This section describes each field in the YAML configuration file used by SynVerse. 

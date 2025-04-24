@@ -2,8 +2,12 @@
 ## Table of Contents
 - [Introduction](#introduction)
 - [Conda Environment Setup](#conda-environment-setup)
+- [Download Processed Dataset](#download-processed-dataset)
 - [How to Use SynVerse](#how-to-use-synverse)
     - [Configuration File](#configuration-file)
+- [Docker Setup Guide for Pretrained Models](#docker-setup-guide-for-pretrained-models)
+  - [Prerequisites](#prerequisites)
+  - [Build the Docker Image](#build-the-docker-image)
       
 ## Introduction
 SynVerse is a framework with an encoder-decoder architecture. It incorporates diverse input features and a reasonable approximation of model architectures commonly employed by existing deep learning-based synergy prediction methods. It includes four data-splitting strategies and three ablation methods: module-based, feature shuffling, and a novel network-based approach to isolate factors influencing model performance.
@@ -167,4 +171,27 @@ Options: `SM`: Degree-preserving (Maslov-Sneppen), `SA`: Strength-preserving (Si
 
 - `output_dir`: Output directory for results.
 
----
+## Docker Setup Guide for Pretrained Models
+This guide provides detailed instructions for containerizing [KPGT](https://github.com/lihan97/KPGT) and [MolE](https://github.com/recursionpharma/mole_public) using Docker with GPU support.
+
+### Prerequisites
+- **Hardware Requirements**
+  - NVIDIA GPU with Compute Capability ≥ 3.5
+  - Minimum 16GB+ RAM
+  - 50GB+ free disk space for Docker images and dependencies
+
+- **Software Requirements**
+  - **For KPGT (CUDA 11.3)** 
+    - **OS:** Linux (Ubuntu 20.04 recommended)
+    - **NVIDIA drivers**: v465+ (CUDA 11.3 compatibility)
+    - **CUDA Toolkit:** 11.3.1
+    - **Docker:** Engine 20.10+ with NVIDIA Container Toolkit configured for CUDA 11.3
+  - **For MolE (CUDA 12.1)** 
+    - **OS:** Linux (Ubuntu 20.04 recommended)
+    - **NVIDIA drivers**: v525+ (CUDA 12.1 compatibility)
+    - **CUDA Toolkit:** 12.1
+    - **Docker:** Engine 20.10+ with NVIDIA Container Toolkit configured for CUDA 12.1
+
+### Build the Docker Image
+We already have created Dockerfiles for each project. To build the Docker images, simply run the provided [script](./code/build_docker.sh).
+This script will build the `kpgt:base` image and the `mole:base` image using their respective Dockerfiles located in the root directory of each project at [pretrain](./code/preprocessing/pretrain) directory.

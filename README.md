@@ -4,6 +4,9 @@
 - [Conda Environment Setup](#conda-environment-setup)
 - [How to Use SynVerse](#how-to-use-synverse)
     - [Configuration File](#configuration-file)
+- [Docker Setup Guide for Pretrained Models](#docker-setup-guide-for-pretrained-models)
+  - [Prerequisites](#prerequisites)
+  - [Build the Docker Image](#build-the-docker-image)
       
 ## Introduction
 SynVerse is a framework with an encoder-decoder architecture. It incorporates diverse input features and a reasonable approximation of model architectures commonly employed by existing deep learning-based synergy prediction methods. It includes four data-splitting strategies and three ablation methods: module-based, feature shuffling, and a novel network-based approach to isolate factors influencing model performance.
@@ -164,3 +167,23 @@ Options: `SM`: Degree-preserving (Maslov-Sneppen), `SA`: Strength-preserving (Si
 - `output_dir`: Output directory for results.
 
 ---
+
+## Docker Setup Guide for Pretrained Models
+This guide provides detailed instructions for containerizing [KPGT](https://github.com/lihan97/KPGT) and [MolE](https://github.com/recursionpharma/mole_public) using Docker with GPU support.
+
+### Prerequisites
+- **Hardware Requirements**
+  - NVIDIA GPU with CUDA 11.3 compatibility
+  - Minimum 16GB RAM (32GB recommended for training)
+  - 50GB+ free disk space for Docker images and dependencies
+
+- **Software Requirements**
+Ensure your host system meets these prerequisites before proceeding:
+  - **OS:** Linux (Ubuntu 20.04 recommended)
+  - **NVIDIA drivers**: v465+ (CUDA 11.3 compatibility used in `environment.yml`)
+  - **Docker Engine:**  V20.10+ (required for native GPU support via `--gpus all`)
+  - **NVIDIA Container Toolkit:** Required for GPU passthrough to containers.
+
+### Build the Docker Image
+We already have created Dockerfiles for each project. To build the Docker images, simply run the provided [script](./code/build_docker.sh).
+This script will build the `kpgt:base` image and the `mole:base` image using their respective Dockerfiles located in the root directory of each project at [pretrain](./code/preprocessing/pretrain) directory.

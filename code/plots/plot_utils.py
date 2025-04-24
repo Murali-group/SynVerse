@@ -37,6 +37,7 @@ def set_model_names(df):
 
     # Explicitly sort the DataFrame based on categorical order
     df = df.sort_values('Model')
+    df['Model'] = df['Model'].astype(str)
     return df
 
 
@@ -465,7 +466,7 @@ def wrapper_network_rewiring_box_plot(rewired_df, orig_df, score_name, cell_line
     plot_df['cell_line_name'] =  plot_df['edge_type'].map(idx_2_cell_line)
 
     # Create the violin plot
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(6, 4))
     # sns.violinplot(x='cell_line_name', y='diff', hue='degree_type', data=plot_df, split=True, inner='quart', density_norm='count', linewidth=0.4)
     sns.boxplot( x='cell_line_name', y='diff', hue='degree_type',
         data=plot_df,
@@ -479,7 +480,7 @@ def wrapper_network_rewiring_box_plot(rewired_df, orig_df, score_name, cell_line
         plt.ylabel('Difference in Degree', fontsize=12)
 
     # plt.title('Distribution of Differences in Degree by Cell line')
-    plt.legend(loc='upper right')
+    plt.legend(loc='lower right')
 
     # Show and save the plot
     plt.xticks(rotation=90, ha='right')

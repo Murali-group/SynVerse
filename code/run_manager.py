@@ -77,17 +77,17 @@ class RewireRunManager(BaseRunManager):
 
                 # plot degree and strength distribution of nodes in rewired vs. orig networks.
                 #Uncomment the following when want to plot
-                # wrapper_network_rewiring_box_plot(rewired_df, self.train_df, self.params.score_name, self.cell_line_2_idx, weighted=True,
-                #                                   plot_file_prefix =f'{split_file_path}{rand_net}_{rewire_method}')
+                wrapper_network_rewiring_box_plot(rewired_df, self.train_df, self.params.score_name, self.cell_line_2_idx, weighted=True,
+                                                  plot_file_prefix =f'{split_file_path}{rand_net}_{rewire_method}')
                 # wrapper_network_rewiring_joint_plot(rewired_df, self.train_df, self.params.score_name, self.cell_line_2_idx, weighted=True, plot_file_prefix=f'{split_file_path}{rand_net}_{rewire_method}')
-                #
-                # wrapper_network_rewiring_box_plot(rewired_df, self.train_df, self.params.score_name,
-                #                                   self.cell_line_2_idx, weighted=False,
-                #                                   plot_file_prefix=f'{split_file_path}{rand_net}_{rewire_method}')
+
+                wrapper_network_rewiring_box_plot(rewired_df, self.train_df, self.params.score_name,
+                                                  self.cell_line_2_idx, weighted=False,
+                                                  plot_file_prefix=f'{split_file_path}{rand_net}_{rewire_method}')
                 # wrapper_network_rewiring_joint_plot(rewired_df, self.train_df, self.params.score_name,
                 #                                     self.cell_line_2_idx, weighted=False,
                 #                                     plot_file_prefix=f'{split_file_path}{rand_net}_{rewire_method}')
-                #
+
                 out_file_prefix_rewire = f'{self.out_file_prefix}_rewired_{rand_net}_{rewire_method}'
                 self.execute_run(rewired_df, rewired_train_idx, rewired_val_idx, self.dfeat_dict, self.cfeat_dict, out_file_prefix_rewire)
 
@@ -95,8 +95,17 @@ class RandomizeScoreRunManager(BaseRunManager):
     def run_wrapper(self):
         for rand_version in range(10):
             # randomized_train_file = f'{split_file_path}{rand_version}all_train_randomized_score.tsv'
-            randomized_df = copy.deepcopy(self.train_df)
-            randomized_df[self.params.score_name] = randomized_df[self.params.score_name].sample(frac=1).reset_index(drop=True)
+            randomized_df = pd.DataFrame()
+
+            edge_types = set(self.train_df['edge_type'].unique())
+            for edge_type in edge_types:
+                edge_pos_df = self.train_df[(self.train_df['edge_type'] == edge_type) & (self.train_df[self.params.score_name]>=0)]
+                edge_pos_df[self.params.score_name] = edge_pos_df[self.params.score_name].sample(frac=1).values
+                edge_neg_df = self.train_df[(self.train_df['edge_type'] == edge_type) & (self.train_df[self.params.score_name]<0)]
+                edge_neg_df[self.params.score_name] = edge_neg_df[self.params.score_name].sample(frac=1).values
+                randomized_df = pd.concat([randomized_df, edge_pos_df, edge_neg_df], axis=0)
+
+            # randomized_df[self.params.score_name] = randomized_df[self.params.score_name].sample(frac=1).reset_index(drop=True)
             out_file_prefix_randomized = f'{self.out_file_prefix}_randomized_score_{rand_version}'
             self.execute_run(randomized_df,  self.train_idx, self.val_idx, self.dfeat_dict, self.cfeat_dict, out_file_prefix_randomized)
 

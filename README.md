@@ -12,13 +12,34 @@ SynVerse is a framework with an encoder-decoder architecture. It incorporates di
 </div>
 
 ## Conda Environment Setup
-...
+If you haven't cloned the repository yet, run the following command to clone it and navigate to the SynVerse folder:
+```bash
+git clone https://github.com/Murali-group/SynVerse.git
+cd SynVerse
+```
+
+Then, follow the steps below to set up the `synverse` environment with required libraries using the provided [`synverse.yml`](./synverse.yml) file.
+
+```bash
+conda env create -f synverse.yml
+```
+To run the command, make sure Conda is installed. If not, install [Anaconda](https://www.anaconda.com/docs/getting-started/anaconda/install) or the lighter version, [Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install).
+
+After the environment is created, activate it using:
+```bash
+conda activate synverse
+```
+
+To verify that the environment and its dependencies are set up correctly, you can list the installed packages:
+```bash
+conda list
+```
 
 ## How to Use SynVerse
 
-SynVerse is configured using a YAML file (e.g., sample_config.yaml), which allows users to define the input features, model architecture, and evaluation strategies. Once a configuration file is prepared, SynVerse can be run in various modes to perform different tasks:
+SynVerse is configured using a YAML file (e.g., [sample_config.yaml](https://github.com/Murali-group/SynVerse/blob/main/code/config_files/sample_config.yaml)), which allows users to define the input features, model architecture, and evaluation strategies. Once a configuration file is prepared, SynVerse can be run in various modes to perform different tasks:
 
-1. To train a model:
+1. To train and test a model:
 ```
    python main.py --config_file config_files/sample_config.yaml --train_type 'regular'
 ```

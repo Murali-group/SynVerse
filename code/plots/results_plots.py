@@ -202,6 +202,7 @@ def aggregate_scores(df):
 
     # Explicitly sort again based on categorical order
     aggregated_results = aggregated_results.sort_values('Model')
+    aggregated_results['Model'] = aggregated_results['Model'].astype(str)
     return aggregated_results
 
 def compute_average_and_significance(df, measure, alt='greater'):
@@ -473,7 +474,7 @@ def pairwise_significance_test_wrapper(df, group_by_cols, compare_based_on,
     return sig_df
 
 
-def compare_across_models(df, divide_by, group_by_cols, metric, remove_model=None):
+def compare_across_models(df, divide_by, group_by_cols, metric, sorted_models = None):
     """
     For each unique value in `divide_by`:
       1) Run a Kruskal–Wallis omnibus test across the groups defined by `group_by_cols`.
@@ -487,11 +488,18 @@ def compare_across_models(df, divide_by, group_by_cols, metric, remove_model=Non
     pairwise_df : pandas.DataFrame
         Columns: [divide_by, 'group1', 'group2', 'p_value', 'p_adj', 'reject']
     """
-    if remove_model is not None:
-        df = df[df['Model'] != remove_model]
 
-    if isinstance(group_by_cols, str):
-        group_by_cols = [group_by_cols]
+    # sort df according to their performance.
+    # if sorted_models:
+    #     # remove multiple presence of 'One hot' from sorted_model list
+    #     sorted_models = [x for x in sorted_models if x != 'One hot']
+    #     sorted_models.append('One hot')
+    #     df['Model'] = pd.Categorical(df['Model'], categories=sorted_models, ordered=True)
+    #     df = df.sort_values('Model')
+    #     df['Model'] = df['Model'].astype(str)
+
+    #remove one hot model
+    df = df[df['Model'] != 'One hot']
 
     omnibus_results = []
     pairwise_results = []
@@ -515,30 +523,51 @@ def compare_across_models(df, divide_by, group_by_cols, metric, remove_model=Non
 
         # pairwise
         items = list(grouped)  # list of (name, DataFrame)
+        if sorted_models:
+            items = sorted(items, key=lambda x: sorted_models.index(x[0]) if x[0] in sorted_models else float('inf'))
+
         for (name1, grp1), (name2, grp2) in combinations(items, 2):
+
+            try:
+                _, p_pair_two_sided = mannwhitneyu(grp1[metric], grp2[metric], alternative='two-sided')
+                _, p_pair_less = mannwhitneyu(grp1[metric], grp2[metric], alternative='less')
+                _, p_pair_greater = mannwhitneyu(grp1[metric], grp2[metric], alternative='greater')
+
+            except ValueError:
+                print('error occured during significance test')
+
             g1 = "_".join(map(str, name1 if isinstance(name1, tuple) else [name1]))
             g2 = "_".join(map(str, name2 if isinstance(name2, tuple) else [name2]))
-            try:
-                _, p_pair = mannwhitneyu(grp1[metric], grp2[metric], alternative='two-sided')
-            except ValueError:
-                p_pair = np.nan
             pairwise_results.append({
                 divide_by: val,
                 'group1': g1,
                 'group2': g2,
-                'p_value': p_pair
+                'p_value_two_sided': p_pair_two_sided,
+                'p_value_less': p_pair_less,
+                'p_value_greater': p_pair_greater
+
             })
 
     omnibus_df = pd.DataFrame(omnibus_results)
     pairwise_df = pd.DataFrame(pairwise_results)
 
     # apply BH correction **within each** divide_by family
-    def adjust(group):
-        # multipletests returns: reject, p_adj, _, _
-        reject, p_adj, _, _ = multipletests(group['p_value'].fillna(1.0), method='fdr_bh')
-        group = group.assign(p_adj=p_adj, reject=reject)
+    def adjust(group, pval_cols=None, method='fdr_bh'):
+        if pval_cols is None:
+            pval_cols = ['p_value_two_sided', 'p_value_less', 'p_value_greater']
+
+        for pval_col in pval_cols:
+            pvals = group[pval_col].fillna(1.0)
+            reject, p_adj, _, _ = multipletests(pvals, method=method)
+
+            group = group.assign(**{
+                f'adj_{pval_col}': p_adj,
+                f'reject_{pval_col}': reject
+            })
+
         return group
 
+    # pairwise_df = pairwise_df.groupby(divide_by, group_keys=False).apply(adjust)
     pairwise_df = pairwise_df.groupby(divide_by, group_keys=False).apply(adjust)
 
     return omnibus_df, pairwise_df
@@ -603,13 +632,6 @@ def main():
 
     plot_metrics = [{'metric': 'Pearsons', 'y_label':'PCC', 'alt': 'greater' },
                    {'metric': 'test_RMSE', 'y_label':'RMSE', 'alt': 'less' }]
-    # metric = 'Pearsons'
-    # y_label = 'PCC'
-    # alt= 'greater' #alternate hypothesis for significance test
-
-    # metric = 'test_RMSE'
-    # y_label = 'RMSE'
-    # alt='less'
 
     orientations= [ 'vertical']
 
@@ -651,7 +673,8 @@ def main():
 
 
                     #Kruskal test
-                    kruskal_df, pair_wise_sig_df = compare_across_models(copy.deepcopy(result_df), divide_by ='feature_filter', group_by_cols=['Model'], metric=metric, remove_model='One hot')
+                    sorted_models = df_avg.sort_values(by=f'{metric}_median', ascending=False if metric=='Pearsons' else True)['Model'].tolist() #return model names ordered accoring to their performance
+                    kruskal_df, pair_wise_sig_df = compare_across_models(copy.deepcopy(result_df), divide_by ='feature_filter', group_by_cols='Model', metric=metric, sorted_models=sorted_models)
                     kruskal_df.to_csv(f'{result_dir}/{score_name_str}_{split_type}_{metric}_kruskal.tsv', sep='\t')
                     pair_wise_sig_df.to_csv(f'{result_dir}/{score_name_str}_{split_type}_{metric}_pairwise_model_significance.tsv', sep='\t')
 

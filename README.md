@@ -173,16 +173,21 @@ This guide provides detailed instructions for containerizing [KPGT](https://gith
 
 ### Prerequisites
 - **Hardware Requirements**
-  - NVIDIA GPU with CUDA 11.3 compatibility
-  - Minimum 16GB RAM (32GB recommended for training)
+  - NVIDIA GPU with Compute Capability ≥ 3.5
+  - Minimum 16GB+ RAM
   - 50GB+ free disk space for Docker images and dependencies
 
 - **Software Requirements**
-Ensure your host system meets these prerequisites before proceeding:
-  - **OS:** Linux (Ubuntu 20.04 recommended)
-  - **NVIDIA drivers**: v465+ (CUDA 11.3 compatibility used in `environment.yml`)
-  - **Docker Engine:**  V20.10+ (required for native GPU support via `--gpus all`)
-  - **NVIDIA Container Toolkit:** Required for GPU passthrough to containers.
+  - **For KPGT (CUDA 11.3)** 
+    - **OS:** Linux (Ubuntu 20.04 recommended)
+    - **NVIDIA drivers**: v465+ (CUDA 11.3 compatibility)
+    - **CUDA Toolkit:** 11.3.1
+    - **Docker:** Engine 20.10+ with NVIDIA Container Toolkit configured for CUDA 11.3
+  - **For MolE (CUDA 12.1)** 
+    - **OS:** Linux (Ubuntu 20.04 recommended)
+    - **NVIDIA drivers**: v525+ (CUDA 12.1 compatibility)
+    - **CUDA Toolkit:** 12.1
+    - **Docker:** Engine 20.10+ with NVIDIA Container Toolkit configured for CUDA 12.1
 
 ### Build the Docker Image
 We already have created Dockerfiles for each project. To build the Docker images, simply run the provided [script](./code/build_docker.sh).

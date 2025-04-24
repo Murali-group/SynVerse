@@ -35,6 +35,10 @@ To verify that the environment and its dependencies are set up correctly, you ca
 conda list
 ```
 
+## Download Processed Dataset
+All datasets used in this study, including drug and cell line features and the preprocessed synergy dataset required to reproduce the results, are available in the [Zenodo repository](10.5281/zenodo.15277143). Download and unzip the `inputs.zip` file, and place the `inputs` folder in the project directory, at the same level as the `code/` folder.
+
+
 ## How to Use SynVerse
 
 SynVerse is configured using a YAML file (e.g., [sample_config.yaml](https://github.com/Murali-group/SynVerse/blob/main/code/config_files/sample_config.yaml)), which allows users to define the input features, model architecture, and evaluation strategies. Once a configuration file is prepared, SynVerse can be run in various modes to perform different tasks:

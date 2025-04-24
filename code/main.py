@@ -22,9 +22,9 @@ def setup_opts():
     parser = argparse.ArgumentParser(description="""Script to download and parse input files, and (TODO) run the  pipeline using them.""")
     # general parameters
     group = parser.add_argument_group('Main Options')
-    group.add_argument('--config', type=str, default="config_files/smiles_derived_feat.yaml",
+    group.add_argument('--config', type=str, default="config_files/sample_config.yaml",
                        help="Configuration file for this script.")
-    group.add_argument('--train_type', type=str, default="rewire",
+    group.add_argument('--train_type', type=str, default="regular",
                        help="Three Options. ['regular','rewire','shuffle','randomized_score]."
                             "'regular => train and test model with original feature and triplets, "
                             "'rewire' => randomize train triplets, 'shuffle' => shuffle features."

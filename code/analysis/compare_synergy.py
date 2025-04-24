@@ -1,2 +1,0 @@
-smean_file_in_use = "/home/grads/tasnina/Projects/SynVerse/inputs/synergy/synergy_scores_S_mean_mean.tsv"
-smean_file_wanna_upload = "/home/grads/tasnina/Projects/SynVerse/inputs/synergy/S_mean_std_threshold_0.1.tsv"

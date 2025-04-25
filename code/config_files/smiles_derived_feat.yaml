@@ -79,9 +79,9 @@ input_settings:
 
 
   splits:
-#    - type: 'random'
-#      test_frac: 0.2
-#      val_frac: 0.25
+    - type: 'random'
+      test_frac: 0.2
+      val_frac: 0.25
 
     - type: 'leave_comb'
       test_frac: 0.2
@@ -110,7 +110,7 @@ input_settings:
   max_cell_feat: 1
   min_cell_feat: 1
 
-  hp_tune: False
+  hp_tune: True
   bohb:
     min_budget: 27
     max_budget: 729
@@ -120,4 +120,4 @@ input_settings:
 
   rewire_method: [  "SA", "SM" ]
 output_settings:
-  output_dir: 'outputs_debug/'
+  output_dir: 'outputs/'

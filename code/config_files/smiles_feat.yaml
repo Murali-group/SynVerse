@@ -69,9 +69,11 @@ input_settings:
        - name: 'Transformer'
          hp_range: { 'transformer_batch_norm': [ True, False ], 'transformer_num_layers': [ 2, 3, 4 ] ,'transformer_embedding_dim': [ 64, 128, 256, 512, 1024, 2048 ] ,
                      'transformer_n_head': [ 4, 8 ], 'transformer_ff_num_layers': [ 64, 128, 256, 512, 1024, 2048 ], 'max_seq_length': [ 120 ],
-                     'positional_encoding_type': [ 'learnable', 'fixed' ] }
+                     'positional_encoding_type': [ 'learnable', 'fixed' ], pooling_type': ['CLS', 'mean', 'attention'],
+                     'dropout': [0.1, 0.2, 0.3], 'embedding_dropout': [0.05, 0.1, 0.15, 0.2]}
          hp: {'positional_encoding_type': 'learnable', 'transformer_batch_norm': True, 'transformer_embedding_dim': 512,
-                  'transformer_ff_num_layers': 1024, 'transformer_n_head': 8, 'transformer_num_layers': 3,'max_seq_length': 120}
+                  'transformer_ff_num_layers': 1024, 'transformer_n_head': 8, 'transformer_num_layers': 3,'max_seq_length': 120,
+                  'pooling_type': 'CLS', 'dropout': 0.1, 'embedding_dropout': 0.1}
 
   autoencoder_dims:  [[1024, 512], [512, 256], [256, 128], [256, 64]]
   batch_size: 4096
@@ -96,12 +98,12 @@ input_settings:
 #      val_frac: 0.25
 
   wandb:
-    enabled: False
-    entity_name: 'ntasnina'
-    token: 'd9462b91edea6523563900fab17134d7e9177e16'
-    project_name: 'Synverse'
+    enabled: True
+    token: 'dc3d431c0afb735d9ac046c72f076bf1f7656472'
+    entity_name: 'haghani-vt'
     timezone: 'US/Eastern'
     timezone_format: '%Y-%m-%d_%H-%M-%S'
+    project_name: 'Synverse-CLS'
 
   abundance: 0.05
 

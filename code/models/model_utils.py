@@ -4,9 +4,9 @@ import numpy as np
 #***************************************************** FEATURE PREP ************************
 
 def get_vocab_smiles(smiles_df):
+    """Create vocabulary and tokenize SMILES strings."""
     # vocabulary of SMILES characters
     vocab = sorted(set(''.join(smiles_df['smiles'].values)))
-
     # add special tokens
     char_to_token = {'[PAD]': 0, '[CLS]': 1}
     # SMILES tokens start from 2
@@ -17,7 +17,6 @@ def get_vocab_smiles(smiles_df):
         return [char_to_token['[CLS]']] + [char_to_token[char] for char in smiles]
 
     smiles_df['tokenized'] = smiles_df['smiles'].apply(lambda x: tokenize(x, char_to_token))
-
     return smiles_df, len(char_to_token)
 
 def concatenate_features(feat_dict, identifier_col,numeric_idx_map):

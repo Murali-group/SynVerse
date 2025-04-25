@@ -50,9 +50,8 @@ class Transformer_Encoder(nn.Module):
         self.out_dim = self.d_model
 
     def forward(self, src):
-        #padding or truncating
+        # Pad/truncate
         src = [pad_or_truncate(x, self.max_seq_length) for x in src]
-        # Convert each element to a tensor and move it to the device
         src = torch.stack([torch.tensor(element, dtype=torch.long) for element in src]).to(self.device)
 
         # Get token embeddings
@@ -60,8 +59,8 @@ class Transformer_Encoder(nn.Module):
 
         # Add positional encodings
         if self.positional_encoding_type == 'learnable':
-            positions = torch.arange(0, src_embed.size(1), device=src_embed.device).unsqueeze(0).repeat(
-                src_embed.size(0), 1)
+            positions = (torch.arange(0, src_embed.size(1), device=src_embed.device)
+                         .unsqueeze(0).repeat(src_embed.size(0), 1))
             src_embed += self.pos_encoder(positions)
         elif self.positional_encoding_type == 'fixed':
             src_embed += self.positional_encoding[:, :src_embed.size(1), :].to(self.device)
@@ -70,6 +69,5 @@ class Transformer_Encoder(nn.Module):
         output = self.transformer_encoder(src_embed.transpose(0, 1))
 
         # Use the output corresponding to the first token ([CLS] token)
-        output = output[0, :, :]
-
-        return output.squeeze()
+        cls_embedding = output[0, :, :]
+        return cls_embedding

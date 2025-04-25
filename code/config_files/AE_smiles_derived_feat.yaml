@@ -14,6 +14,7 @@ input_settings:
     target_file: 'drug/target.tsv'
     genex_file: 'cell-line/gene_expression.tsv'
     lincs: 'cell-line/LINCS_1000.txt'
+    vocab_file: 'drug/vocab_bpe_300_new.txt'
     net_file: 'network/STRING/9606.protein.links.v12.0.txt.gz'
     prot_info_file: 'network/STRING/9606.protein.info.v12.0.txt.gz'
 
@@ -80,6 +81,13 @@ input_settings:
                      'positional_encoding_type': [ 'learnable', 'fixed' ] }
          hp: {'positional_encoding_type': 'learnable', 'transformer_batch_norm': True, 'transformer_embedding_dim': 512,
                   'transformer_ff_num_layers': 1024, 'transformer_n_head': 8, 'transformer_num_layers': 3,'max_seq_length': 120}
+
+       - name: 'Transformer_Berttokenizer'
+         hp_range: { 'transformer_batch_norm': [ True, False ], 'transformer_num_layers': [ 2, 3, 4 ] ,'transformer_embedding_dim': [ 64, 128, 256, 512, 1024, 2048 ] ,
+                     'transformer_n_head': [ 4, 8 ], 'transformer_ff_num_layers': [ 64, 128, 256, 512, 1024, 2048 ], 'max_seq_length': [ 120 ],
+                     'positional_encoding_type': [ 'learnable', 'fixed' ] }
+         hp: { 'hid_0': 1024, 'hid_dropout_rate': 0.05282017248732984, 'in_dropout_rate': 0.45595097943491075, 'lr': 0.0002569150545438125, 'max_seq_length': 120, 'num_hid_layers': 2, 'optimizer': 'Adam', 'positional_encoding_type': 'learnable', 'transformer_batch_norm': True, 'transformer_embedding_dim': 64,
+               'transformer_ff_num_layers': 64, 'transformer_n_head': 4, 'transformer_num_layers': 4, 'hid_1': 128 }
 
   autoencoder_dims:  [[1024, 512], [512, 256], [256, 128], [256, 64]]
   batch_size: 4096

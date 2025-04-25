@@ -7,7 +7,8 @@ from parse_config import parse_config
 import argparse
 from plots.plot_utils import plot_synergy_data_dist
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = get_available_gpu()
 def parse_args():
     parser = setup_opts()
     args = parser.parse_args()
@@ -22,7 +23,7 @@ def setup_opts():
     parser = argparse.ArgumentParser(description="""Script to download and parse input files, and (TODO) run the  pipeline using them.""")
     # general parameters
     group = parser.add_argument_group('Main Options')
-    group.add_argument('--config', type=str, default="config_files/smiles_feat.yaml",
+    group.add_argument('--config', type=str, default="config_files/debug_transformer.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--train_type', type=str, default="regular",
                        help="Three Options. ['regular','rewire','shuffle','randomized_score]."

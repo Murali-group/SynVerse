@@ -44,6 +44,8 @@ class Runner(ABC):
         self.cell_line_feat = cfeat_dict['value']
         self.dfeat_dim_dict = dfeat_dict['dim']
         self.cfeat_dim_dict = cfeat_dict['dim']
+        self.dfeat_file_dict = dfeat_dict['file']
+        self.cfeat_file_dict = cfeat_dict['file']
 
         self.train_idx = train_idx
         self.val_idx = val_idx
@@ -65,7 +67,7 @@ class Runner(ABC):
 
     def init_model(self, config):
         model = SynVerseModel(self.drug_encoder_info, self.cell_encoder_info,
-                              self.dfeat_dim_dict, self.cfeat_dim_dict,
+                              self.dfeat_dim_dict, self.cfeat_dim_dict,self.dfeat_file_dict, self.cfeat_file_dict,
                               self.drug_feat_encoder_mapping, self.cell_feat_encoder_mapping,
                               config, self.device).to(self.device)
         ## Wrap the model for parallel processing if multiple gpus are available
@@ -110,13 +112,13 @@ class Runner(ABC):
             # get the used specified setting here about wandb and BOHB
             run_id = kwargs.get("run_id")
             # Step 2: Start a worker #Nure: Model specific
-            # formatted_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-            # run_id = f'{run_id}_{formatted_time}'
+            formatted_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            run_id = f'{run_id}_{formatted_time}'
 
             name_server = '127.0.0.1'
 
             # Step 1: Start a nameserver
-            NS = hpns.NameServer(run_id=run_id, host=name_server, port=None)
+            NS = hpns.NameServer(run_id=run_id, host=name_server, port=0)
             NS.start()
 
 

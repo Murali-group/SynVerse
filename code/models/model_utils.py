@@ -1,11 +1,12 @@
 import pandas as pd
 import numpy as np
+from transformers import BertTokenizer, WordpieceTokenizer
 
 #***************************************************** FEATURE PREP ************************
 
 def get_vocab_smiles(smiles_df):
     # vocabulary of SMILES characters
-    vocab = sorted(set(''.join(smiles_df['smiles'].values)))
+    vocab = sorted(set(''.join(smiles_df['smiles'].values))) #may consider using other tokenization
 
     # add special tokens
     char_to_token = {'[PAD]': 0, '[CLS]': 1}

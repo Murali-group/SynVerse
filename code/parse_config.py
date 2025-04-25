@@ -14,6 +14,7 @@ class Inputs:
     target_file: Optional[str] = None
     genex_file: Optional[str] = None
     lincs: Optional[str] = None
+    vocab_file: Optional[str] = None
     net_file: Optional[str] = None
     prot_info_file: Optional[str] = None
 

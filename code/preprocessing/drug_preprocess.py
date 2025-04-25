@@ -1,3 +1,5 @@
+from rdkit import Chem
+
 from preprocessing.rwr_runner import *
 # from utils import *
 from models.model_utils import *
@@ -9,7 +11,7 @@ from .preprocess_utils import adjacency_list_to_edges
 def prepare_drug_features(drug_pids, params, inputs, device):
     dfeat_names = [f['name'] for f in params.drug_features]
 
-    fields = ['norm','preprocess', 'encoder', 'value', 'compress', 'dim', 'use'] #for each feature we can have these fields.
+    fields = ['norm','preprocess', 'encoder', 'value', 'compress', 'dim', 'use','file'] #for each feature we can have these fields.
     dfeat_dict = {field: {} for field in  fields}
 
     #parse norm, preprocessing and encoder for all features.
@@ -19,6 +21,8 @@ def prepare_drug_features(drug_pids, params, inputs, device):
     dfeat_dict['encoder'] = {f['name']: f.get('encoder') for f in params.drug_features if f.get('encoder') is not None}
     dfeat_dict['compress'] = {f['name']: f.get('compress', False) for f in params.drug_features}
     dfeat_dict['use'] = {f['name']: f.get('use') for f in params.drug_features}
+    dfeat_dict['file'] = {f['name']: f.get('file') for f in params.drug_features if  f.get('file') is not None}
+
 
 
     if ('d1hot' in dfeat_names):
@@ -60,10 +64,15 @@ def prepare_drug_features(drug_pids, params, inputs, device):
         smiles_file = inputs.smiles_file
         smiles_df = pd.read_csv(smiles_file,dtype={'pid':str}, sep='\t', index_col=None)
         encoder_name = dfeat_dict['encoder'].get('smiles')
+        # xx = smiles_df['smiles'].apply(lambda x: x[0:3])
         if encoder_name == 'Transformer':
             smiles_df, vocab_size = get_vocab_smiles(smiles_df)
             dfeat_dict['value']['smiles'] = smiles_df[['pid', 'tokenized']]
             dfeat_dict['dim']['smiles'] = vocab_size
+
+        elif encoder_name == 'Transformer_Berttokenizer':
+            dfeat_dict['value']['smiles'] = smiles_df[['pid', 'smiles']]
+            dfeat_dict['file']['smiles'] = inputs.vocab_file
 
         elif encoder_name in ['SPMM', 'mole','kpgt']:
             embedding, embed_dim = get_pretrained_embedding(list(smiles_df['smiles']), params.input_dir,encoder_name, device)
@@ -71,6 +80,7 @@ def prepare_drug_features(drug_pids, params, inputs, device):
             df['pid'] = smiles_df['pid']
             dfeat_dict['value']['smiles'] = df
             dfeat_dict['dim']['smiles'] = embed_dim
+
         else:
             dfeat_dict['value']['smiles'] = smiles_df[['pid', 'smiles']]
             dfeat_dict['dim']['smiles'] = 0

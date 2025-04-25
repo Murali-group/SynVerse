@@ -1,5 +1,8 @@
 import os
 import sys
+
+import torch
+import subprocess
 import yaml
 import pandas as pd
 from itertools import combinations
@@ -9,6 +12,33 @@ def load_yaml_file(filepath):
     with open(filepath, 'r') as file:
         data = yaml.safe_load(file)
     return data
+
+
+def get_available_gpu():
+    # If CUDA isn’t available or there are no GPUs, fall back to CPU
+    if not torch.cuda.is_available() or torch.cuda.device_count() == 0:
+        print("No GPUs available, using CPU.")
+        return torch.device("cpu")
+
+    # Query free/total memory for all GPUs
+    result = subprocess.run(
+        ['nvidia-smi',
+         '--query-gpu=memory.free,memory.total',
+         '--format=csv,noheader,nounits'],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True
+    )
+    lines = result.stdout.decode('utf-8').strip().splitlines()
+
+    # Build a list of free-memory ints
+    free_mem = [int(line.split(',')[0]) for line in lines]
+
+    # Select the GPU index that has the most free memory
+    best_gpu = max(range(len(free_mem)), key=lambda i: free_mem[i])
+    print(f"Using GPU {best_gpu} with {free_mem[best_gpu]} MB free memory.")
+
+    return torch.device(f"cuda:{best_gpu}")
 
 #********************************** SYNERGY TRIPLETS ***********************************
 def sort_paired_cols(df, col1, col2, inplace, relation='greater'):
@@ -96,7 +126,7 @@ def get_feature_comb_wrapper(dfeat_dict, cfeat_dict, max_drug_feat, min_drug_fea
 
 
 def keep_selected_feat(feat_dict, selected_feat):
-    fields = ['norm', 'preprocess', 'encoder', 'value', 'dim', 'use','compress']  # for each feature we can have these fields.
+    fields = ['norm', 'preprocess', 'encoder', 'value', 'dim', 'use','compress', 'file']  # for each feature we can have these fields.
     select_feat_dict = {field: {} for field in fields}
 
     for field in fields:

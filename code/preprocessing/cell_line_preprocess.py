@@ -6,7 +6,7 @@ def prepare_cell_line_features(cell_line_names, params, inputs, device=None):
 
     cfeat_names = [f['name'] for f in params.cell_line_features]
 
-    fields = ['norm', 'preprocess', 'encoder', 'compress', 'value', 'dim','use']  # for each feature we can have these fields.
+    fields = ['norm', 'preprocess', 'encoder', 'compress', 'value', 'dim','use', 'file']  # for each feature we can have these fields.
     cfeat_dict = {field: {} for field in fields}
 
     # parse norm, preprocessing and encoder for all features.
@@ -16,6 +16,8 @@ def prepare_cell_line_features(cell_line_names, params, inputs, device=None):
     cfeat_dict['encoder'] = {f['name']: f.get('encoder') for f in params.cell_line_features if f.get('encoder') is not None}
     cfeat_dict['compress'] = {f['name']: f.get('compress', False) for f in params.cell_line_features}
     cfeat_dict['use'] = {f['name']: f.get('use') for f in params.cell_line_features}
+    cfeat_dict['file'] = {f['name']: f.get('file') for f in params.cell_line_features if  f.get('file') is not None}
+
 
     if 'c1hot' in cfeat_names:
         one_hot_feat = pd.DataFrame(np.eye(len(cell_line_names)))

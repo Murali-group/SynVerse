@@ -4,6 +4,8 @@ Define the mlp model here.
 
 from models.encoders.drug.gcn_encoder import GCN_Encoder
 from models.encoders.drug.transformer_encoder import Transformer_Encoder
+from models.encoders.drug.transformer_encoder_berttokenizer import Transformer_Berttokenizer_Encoder
+
 from models.decoders.mlp import MLP
 
 import torch
@@ -14,12 +16,15 @@ import copy
 
 class SynVerseModel(nn.Module):
     def __init__(self, drug_encoder_list, cell_encoder_list, dfeat_dim_dict, cfeat_dim_dict,
+                 dfeat_file_dict, cfeat_file_dict,
                  drug_feat_encoder_mapping, cell_feat_encoder_mapping, config, device):
         super().__init__()
         self.chosen_config = config
 
         self.dfeat_dim_dict = dfeat_dim_dict
         self.cfeat_dim_dict = cfeat_dim_dict
+        self.dfeat_file_dict = dfeat_file_dict
+        self.cfeat_file_dict = cfeat_file_dict
 
         self.dfeat_out_dim = copy.deepcopy(dfeat_dim_dict)
         self.cfeat_out_dim = copy.deepcopy(cfeat_dim_dict)
@@ -35,7 +40,6 @@ class SynVerseModel(nn.Module):
             encoder_name = drug_feat_encoder_mapping[feat_name]
             for drug_encoder in self.drug_encoder_list:
                 if (drug_encoder['name'] == encoder_name):
-
                     if encoder_name=='GCN':
                         self.gcn_encoder = GCN_Encoder(self.dfeat_dim_dict[feat_name], config)
                         #update the drug feat dim with the dimension of generated embedding
@@ -46,12 +50,12 @@ class SynVerseModel(nn.Module):
                         self.transformer_encoder = Transformer_Encoder(self.dfeat_dim_dict[feat_name], config, self.device)
                         # update the drug feat dim with the dimension of generated embedding
                         self.dfeat_out_dim[feat_name] = self.transformer_encoder.out_dim
-                    #TODO Maryam: kpgt_finetuned. Create drug->kpgt_encoder
-                    # if encoder_name == 'SPMM':
-                    #     # print(self.chosen_config)
-                    #     self.SPMM_encoder = SPMM_Encoder(drug_encoder['params']['vocab'], drug_encoder['params']['checkpoint'],config, self.device)
-                    #     # update the drug feat dim with the dimension of generated embedding
-                    #     self.dfeat_out_dim[feat_name] = self.SPMM_encoder.out_dim
+                    if encoder_name == 'Transformer_Berttokenizer':
+                        # print(self.chosen_config)
+                        self.transformer_berttoken_encoder = (
+                            Transformer_Berttokenizer_Encoder(self.dfeat_file_dict[feat_name], config, self.device))
+                        # update the drug feat dim with the dimension of generated embedding
+                        self.dfeat_out_dim[feat_name] = self.transformer_berttoken_encoder.out_dim
 
         drug_dim = 0
         cell_dim = 0
@@ -89,12 +93,10 @@ class SynVerseModel(nn.Module):
                         drug_represenatation.append(self.transformer_encoder(source))
                         embedded_feat.append(feat_name)
 
-                    #TODO Maryam add code for getting embedding from kpgt_finetued_encoder
-
-                    # if encoder_name=='SPMM':
-                    #     drug_smiles = drug_feat[feat_name][batch_drugs,0]
-                    #     drug_represenatation.append(self.SPMM_encoder(drug_smiles))
-                    #     embedded_feat.append(feat_name)
+                    if encoder_name=='Transformer_Berttokenizer':
+                        batch_smiles = drug_feat[feat_name][batch_drugs,0]
+                        drug_represenatation.append(self.transformer_berttoken_encoder(batch_smiles.tolist()))
+                        embedded_feat.append(feat_name)
 
 
         #now concatenate any raw drug features present in drug_feat

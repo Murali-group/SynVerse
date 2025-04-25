@@ -155,7 +155,7 @@ class HP_Worker(Worker):
                                         upper=encoder_params['gnn_dropout'][1], default_value=0.5, log=False)
                 cs.add_hyperparameters([dropout])
 
-            if (drug_encoder['name']=='Transformer'):
+            if ((drug_encoder['name']=='Transformer') or (drug_encoder['name']=='Transformer_Berttokenizer')):
                 tx_batch_norm = CSH.CategoricalHyperparameter('transformer_batch_norm', encoder_params['transformer_batch_norm'])
                 tx_num_layers = CSH.CategoricalHyperparameter('transformer_num_layers', encoder_params['transformer_num_layers'])
                 tx_embedding_dim = CSH.CategoricalHyperparameter('transformer_embedding_dim', encoder_params['transformer_embedding_dim'])

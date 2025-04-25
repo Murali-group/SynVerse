@@ -4,29 +4,21 @@ import numpy as np
 #***************************************************** FEATURE PREP ************************
 
 def get_vocab_smiles(smiles_df):
-    # Create a vocabulary of characters
+    # vocabulary of SMILES characters
     vocab = sorted(set(''.join(smiles_df['smiles'].values)))
-    char_to_idx = {char: idx + 1 for idx, char in enumerate(vocab)}
 
-    char_to_idx['[PAD]'] = 0  # Padding token
+    # add special tokens
+    char_to_token = {'[PAD]': 0, '[CLS]': 1}
+    # SMILES tokens start from 2
+    char_to_token.update({char: idx + 2 for idx, char in enumerate(vocab)})
 
-    def tokenize(smiles, char_to_idx):
-        return [char_to_idx[char] for char in smiles]
+    def tokenize(smiles, char_to_token):
+        # prepend [CLS] token to each SMILES string
+        return [char_to_token['[CLS]']] + [char_to_token[char] for char in smiles]
 
-    smiles_df['tokenized'] = smiles_df['smiles'].apply(lambda x: tokenize(x, char_to_idx))
+    smiles_df['tokenized'] = smiles_df['smiles'].apply(lambda x: tokenize(x, char_to_token))
 
-    # def pad_or_truncate(seq, max_len):
-    #
-    #     if len(seq) < max_len:
-    #         return seq + [0] * (max_len - len(seq))
-    #     else:
-    #         return seq[:max_len]
-    #
-    # smiles_df['tokenized'] = smiles_df['tokenized'].apply(lambda x: pad_or_truncate(x, max_len))
-
-    return smiles_df, len(char_to_idx)
-
-
+    return smiles_df, len(char_to_token)
 
 def concatenate_features(feat_dict, identifier_col,numeric_idx_map):
     '''

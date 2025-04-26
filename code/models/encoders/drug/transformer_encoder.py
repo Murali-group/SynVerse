@@ -32,10 +32,10 @@ class Transformer_Encoder(nn.Module):
         self.transformer_n_layers = config['transformer_num_layers']
         self.dim_feedforward = config['transformer_ff_num_layers']
         self.positional_encoding_type = config['positional_encoding_type']
-        self.pooling_type = config.get('pooling_type')
-        self.embedding_dropout = config.get('embedding_dropout')
-        self.dropout = config.get('dropout')
-        self.batch_norm = config['transformer_batch_norm']
+        self.pooling_type = config.get('pooling_type', 'CLS')
+        self.embedding_dropout = config.get('embedding_dropout', 0)
+        self.dropout = config.get('dropout', 0.1)
+        self.batch_norm = config.get('transformer_batch_norm')
 
         self.embedding = nn.Embedding(vocab_size, self.d_model, padding_idx=0)
         self.embed_dropout = nn.Dropout(self.embedding_dropout)
@@ -60,7 +60,7 @@ class Transformer_Encoder(nn.Module):
 
         self.out_dim = self.d_model
 
-        # Optional batch normalization for the output embeddings
+        # Batch normalization for the output embeddings
         if self.batch_norm:
             self.output_norm = nn.BatchNorm1d(self.d_model)
 
@@ -74,7 +74,8 @@ class Transformer_Encoder(nn.Module):
     def forward(self, src):
         # Pad/truncate sequences
         src = [pad_or_truncate(x, self.max_seq_length) for x in src]
-        src = torch.stack([torch.tensor(element, dtype=torch.long) for element in src]).to(self.device)
+        src = (torch.stack([torch.tensor(element, dtype=torch.long) for element in src])
+               .to(self.device)) # [batch_size, seq_len]
 
         # Create padding mask (True for padding positions, False for token positions)
         padding_mask = (src == 0)
@@ -93,17 +94,19 @@ class Transformer_Encoder(nn.Module):
 
         # Pass through the transformer encoder with padding mask
         # Padding positions should be ignored during self-attention
-        output = self.transformer_encoder(src_embed, src_key_padding_mask=padding_mask)
+        output = self.transformer_encoder(src_embed, src_key_padding_mask=padding_mask) # [batch_size, seq_len, d_model]
 
         # Pool the embeddings based on pooling type
         if self.pooling_type == 'CLS':
             # Use the [CLS] token (first position) embedding
-            pooled = output[:, 0, :] # [batch_size, seq_len, dim] -> first token is [:, 0, :]
+            pooled_embedding = output[:, 0, :] # [batch_size, d_model]
+
         elif self.pooling_type == 'mean':
             # a boolean mask for valid (non-padding) tokens
-            mask = ~padding_mask
-            # Sum and divide by number of tokens (excluding padding)
-            pooled = torch.sum(output * mask.unsqueeze(-1), dim=1) / mask.sum(dim=1, keepdim=True)
+            mask = ~padding_mask #  mask for valid tokens
+            # Sum and divide by number of valid tokens (excluding padding)
+            pooled_embedding = torch.sum(output * mask.unsqueeze(-1), dim=1) / mask.sum(dim=1, keepdim=True) # [batch_size, d_model]
+
         elif self.pooling_type == 'attention':
             # Attention-weighted pooling
             attention_weights = self.attention_pool(output).transpose(1, 2) # [batch_size, 1, seq_len]
@@ -112,13 +115,10 @@ class Transformer_Encoder(nn.Module):
             # Apply softmax after masking
             attention_weights = torch.softmax(attention_weights, dim=-1) # [batch_size, 1, seq_len]
             # Perform the weighted pooling using the attention weights
-            pooled = torch.bmm(attention_weights, output) # [batch_size, 1, d_model]
-
-            pooled = pooled.squeeze(1)  # [batch_size, d_model]
+            pooled_embedding = torch.bmm(attention_weights, output) # [batch_size, 1, d_model]
+            pooled_embedding = pooled_embedding.squeeze(1)  # [batch_size, d_model]
         else:
             raise ValueError(f"Unknown pooling type: {self.pooling_type}")
 
         # Apply batch normalization if specified
-        pooled_embedding = self.output_norm(pooled) if self.batch_norm else pooled
-
-        return pooled_embedding
+        return self.output_norm(pooled_embedding) if self.batch_norm else pooled_embedding

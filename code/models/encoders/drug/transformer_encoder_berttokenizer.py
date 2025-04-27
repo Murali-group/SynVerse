@@ -62,6 +62,13 @@ class Transformer_Berttokenizer_Encoder(nn.Module):
         # Get token embeddings
         smiles_embed = self.embedding(text_input['input_ids'])
 
+        # first_token = set(text_input['input_ids'][:, 1].tolist())
+        # all_tokens = set(text_input['input_ids'].view(-1).tolist())
+        # if 1 in all_tokens:
+        #     print("⚠️ There are UNK tokens somewhere in the batch")
+        # else:
+        #     print("✅ No UNK tokens anywhere in the batch")
+
         # Add positional encodings
         if self.positional_encoding_type == 'learnable':
             positions = (torch.arange(0, smiles_embed.size(1), device=smiles_embed.device)

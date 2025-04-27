@@ -64,7 +64,8 @@ def prepare_drug_features(drug_pids, params, inputs, device):
         smiles_file = inputs.smiles_file
         smiles_df = pd.read_csv(smiles_file,dtype={'pid':str}, sep='\t', index_col=None)
         encoder_name = dfeat_dict['encoder'].get('smiles')
-        # xx = smiles_df['smiles'].apply(lambda x: x[0:3])
+        xx = smiles_df['smiles'].apply(lambda x: len(x))
+        max_len = max(list(xx))
         if encoder_name == 'Transformer':
             smiles_df, vocab_size = get_vocab_smiles(smiles_df)
             dfeat_dict['value']['smiles'] = smiles_df[['pid', 'tokenized']]

@@ -84,7 +84,7 @@ input_settings:
 
        - name: 'Transformer_Berttokenizer'
          hp_range: { 'transformer_batch_norm': [ True, False ], 'transformer_num_layers': [ 2, 3, 4 ] ,'transformer_embedding_dim': [ 64, 128, 256, 512, 1024, 2048 ] ,
-                     'transformer_n_head': [ 4, 8 ], 'transformer_ff_num_layers': [ 64, 128, 256, 512, 1024, 2048 ], 'max_seq_length': [ 120 ],
+                     'transformer_n_head': [ 4, 8 ], 'transformer_ff_num_layers': [ 64, 128, 256, 512, 1024, 2048 ], 'max_seq_length': [ 320 ],
                      'positional_encoding_type': [ 'learnable', 'fixed' ] }
          hp: { 'hid_0': 1024, 'hid_dropout_rate': 0.05282017248732984, 'in_dropout_rate': 0.45595097943491075, 'lr': 0.0002569150545438125, 'max_seq_length': 120, 'num_hid_layers': 2, 'optimizer': 'Adam', 'positional_encoding_type': 'learnable', 'transformer_batch_norm': True, 'transformer_embedding_dim': 64,
                'transformer_ff_num_layers': 64, 'transformer_n_head': 4, 'transformer_num_layers': 4, 'hid_1': 128 }

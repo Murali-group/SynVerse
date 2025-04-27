@@ -23,7 +23,7 @@ def setup_opts():
     parser = argparse.ArgumentParser(description="""Script to download and parse input files, and (TODO) run the  pipeline using them.""")
     # general parameters
     group = parser.add_argument_group('Main Options')
-    group.add_argument('--config', type=str, default="config_files/debug_transformer.yaml",
+    group.add_argument('--config', type=str, default="config_files/Transformer_Berttoken.yaml",
                        help="Configuration file for this script.")
     group.add_argument('--train_type', type=str, default="regular",
                        help="Three Options. ['regular','rewire','shuffle','randomized_score]."

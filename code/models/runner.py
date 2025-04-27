@@ -2,7 +2,7 @@ from models.synversemodel import *
 from models.HP_worker import HP_Worker
 from models.model_utils import *
 from abc import ABC
-
+import socket
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader, Subset, TensorDataset
@@ -118,18 +118,38 @@ class Runner(ABC):
             name_server = '127.0.0.1'
 
             # Step 1: Start a nameserver
+            # def find_free_port(host=name_server, start=50000, end=50100):
+            #     for p in range(start, end + 1):
+            #         s = socket.socket()
+            #         try:
+            #             s.bind((host, p))
+            #             return p
+            #         except OSError:
+            #             continue
+            #         finally:
+            #             s.close()
+            #     raise RuntimeError("No free port found")
+            #
+            # port = find_free_port()
             NS = hpns.NameServer(run_id=run_id, host=name_server, port=0)
-            NS.start()
+            ns_host, ns_port = NS.start()
 
 
-            w = self.worker_cls(self, sleep_interval=0, nameserver=name_server, run_id=run_id)
+            # w = self.worker_cls(self, sleep_interval=0, nameserver=name_server, run_id=run_id)
+            w = self.worker_cls(self, sleep_interval=0, nameserver=ns_host, nameserver_port=ns_port, run_id=run_id)
+
             w.run(background=True)
 
             # Step 3: Run an optimizer
             # The run method will return the `Result` that contains all runs performed.
 
+            # bohb = BOHB(configspace=w.get_configspace(self.model_info),
+            #             run_id=run_id, nameserver=name_server,
+            #             result_logger=self.result_logger,
+            #             min_budget=min_budget, max_budget=max_budget)
             bohb = BOHB(configspace=w.get_configspace(self.model_info),
-                        run_id=run_id, nameserver=name_server,
+                        run_id=run_id, nameserver=ns_host,
+                        nameserver_port=ns_port,
                         result_logger=self.result_logger,
                         min_budget=min_budget, max_budget=max_budget)
             res = bohb.run(n_iterations=n_iterations)

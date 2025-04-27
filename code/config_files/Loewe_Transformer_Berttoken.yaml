@@ -1,11 +1,11 @@
 # Input Settings: initialize base input folder names,
 # dataset collections, and models to run
 input_settings:
-  score_name: 'S_mean_mean'
+  score_name: 'synergy_loewe_mean'
   # Base input directory
   input_dir: "inputs/"
   input_files:
-    synergy_file: 'synergy/synergy_scores_S_mean_mean.tsv' #file containing triplets with S_mean_mean score for triplets in DrugComb.
+    synergy_file: 'synergy/synergy_loewe_S_mean_std_threshold_0.1.tsv' #file containing triplets with S_mean_mean score for triplets in DrugComb.
     maccs_file: 'drug/MACCS.tsv'
     mfp_file: 'drug/Morgan_fingerprint.tsv'
     ecfp_file: 'drug/ECFP_4.tsv'
@@ -78,7 +78,8 @@ input_settings:
          hp_range: { 'transformer_batch_norm': [ True, False ], 'transformer_num_layers': [ 2, 3, 4 ] ,'transformer_embedding_dim': [ 64, 128, 256, 512, 1024 ] ,
                      'transformer_n_head': [ 4, 8 ], 'transformer_ff_num_layers': [ 64, 128, 256, 512, 1024 ], 'max_seq_length': [ 320 ],
                      'positional_encoding_type': [ 'learnable', 'fixed' ] }
-         hp: { 'hid_0': 1024, 'hid_dropout_rate': 0.05282017248732984, 'in_dropout_rate': 0.45595097943491075, 'lr': 0.0002569150545438125, 'max_seq_length': 320, 'num_hid_layers': 2, 'optimizer': 'Adam', 'positional_encoding_type': 'learnable', 'transformer_batch_norm': True, 'transformer_embedding_dim': 64,
+         hp: { 'hid_0': 1024, 'hid_dropout_rate': 0.05282017248732984, 'in_dropout_rate': 0.45595097943491075, 'lr': 0.0002569150545438125,
+               'max_seq_length': 320, 'num_hid_layers': 2, 'optimizer': 'Adam', 'positional_encoding_type': 'learnable', 'transformer_batch_norm': True, 'transformer_embedding_dim': 64,
                'transformer_ff_num_layers': 64, 'transformer_n_head': 4, 'transformer_num_layers': 4, 'hid_1': 128 }
 
   autoencoder_dims:  [[1024, 512], [512, 256], [256, 128], [256, 64]]

@@ -810,28 +810,46 @@ def plot_nodewise_train_test_score_dist(train_df, test_df, score_name, out_dir=N
     return stats_df
 
 
-def plot_synergy_data_dist(df, score_name, out_file):
+def plot_synergy_data_dist(df, score_name, out_file, title=None):
+
+
+    if title:
+        if 'smiles' in title:
+            title='SMILES-based'
+        elif 'target' in title:
+            title = 'Target-based'
+        elif 'genex' in title:
+            title= 'Gene Expression-based'
     # 1. Count plot for the number of rows per edge_type
     df_sorted = df.sort_values(by=['edge_type'])
 
     # Create a figure with two subplots (vertical layout)
-    fig, axes = plt.subplots(1, 2, figsize=(8, 6))  # (width, height)
+    fig, axes = plt.subplots(2, 1, figsize=(4, 12))  # (width, height)
 
     sns.countplot(ax=axes[0], x='cell_line_name', data=df_sorted, facecolor='#048815', edgecolor='grey', linewidth=0.2, alpha=0.4)
+    axes[0].set_title(title)
     axes[0].set_xlabel('Cell Lines')
     axes[0].set_ylabel('Number of Triplets')
     axes[0].tick_params(axis='x', rotation=90)
     axes[0].grid(axis='y', linestyle='--', color='grey', linewidth=0.5)
-    # axes[0].text(-0.1, 1.1, "A", transform=axes[0].transAxes,
-    #              fontsize=16, fontweight='bold', va='top')
-    # 2. Distribution plot for scores (histogram with KDE)
+    axes[0].set_ylim(0, 40000)
+
+    # 2. Distribution plot for scores
     sns.histplot(ax=axes[1], data=df_sorted, x=score_name, bins=50,  edgecolor='grey', linewidth=0.1)
+    axes[1].set_title(title)
     axes[1].set_xlabel('Score')
     axes[1].set_ylabel('Number of Triplets')
     axes[1].grid(axis='y', linestyle='--', color='grey', linewidth=0.5)
-    # Add the subplot tag "B"
-    # axes[1].text(-0.1, 1.1, "B", transform=axes[1].transAxes,
-    #              fontsize=16, fontweight='bold', va='top')
+    if 'loewe' in out_file:
+        axes[1].set_ylim(0, 20000)
+        # axes[1].set_xlim(-200, 100)
+    else:
+        axes[1].set_ylim(0, 45000)
+        # axes[1].set_xlim(-300, 800)
+
+
+
+
 
     # Adjust subplots for neat layout
     fig.tight_layout()

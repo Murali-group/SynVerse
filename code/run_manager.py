@@ -38,8 +38,10 @@ class BaseRunManager:
         if os.path.exists(hyperparam_file):
             hyperparam, _ = extract_best_hyperparam(hyperparam_file)
         else:
-            print(f'File: {hyperparam_file} not found for best hyperparam.')
-            print('Running with default hyperparameters.')
+            if self.kwargs.get('use_best_hyperparam'): #user asked to use best hyperparam but the file saving the params are not found. So exit.
+                sys.exit(f"Error: hyperparameter file not found ({hyperparam_file}) but use_best_hyperparam=True")
+            else:
+                print(f'File: {hyperparam_file} not found for best hyperparam. Running with default hyperparameters.')
 
 
         trained_model_state, train_loss = runner.train_model_given_config(hyperparam, self.given_epochs, validation=True, save_output=True)

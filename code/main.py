@@ -23,13 +23,16 @@ def setup_opts():
     parser = argparse.ArgumentParser(description="""Script to download and parse input files, and (TODO) run the  pipeline using them.""")
     # general parameters
     group = parser.add_argument_group('Main Options')
-    group.add_argument('--config', type=str, default="config_files/Transformer_Berttoken.yaml",
-                       help="Configuration file for this script.")
+    group.add_argument('--config', type=str, default="config_files/Transformer_Berttoken.yaml", help="Configuration file for this script.")
+
     group.add_argument('--train_type', type=str, default="regular",
                        help="Three Options. ['regular','rewire','shuffle','randomized_score]."
                             "'regular => train and test model with original feature and triplets, "
                             "'rewire' => randomize train triplets, 'shuffle' => shuffle features."
                             "'randomized_score' => randomize the score of the triplets. ")
+
+    group.add_argument('--use_best_hyperparam', type=bool, default=True,
+                       help="True =>Search for the file where best hyperparam is saved, if not found then exit. False => If file for best hyperparam is present then use that otherwise run with default params.")
     group.add_argument('--seed', type=int, default=0,
                        help="Seed value used for train test splitting. Using different seed value will result in different train and test splits.")
     group.add_argument('--feat', type=str,
@@ -73,7 +76,8 @@ def run_SynVerse(inputs, params, **kwargs):
     drug_cell_feat_combs = get_feature_comb_wrapper(dfeat_dict, cfeat_dict,
                             max_drug_feat=params.max_drug_feat,
                             min_drug_feat = params.min_drug_feat, max_cell_feat=params.max_cell_feat, min_cell_feat = params.min_cell_feat)
-    # plot_synergy_data_dist(synergy_df, params.score_name, out_file = f'{params.input_dir}/synergy/data_distribution_{feat_str}_{params.score_name}.pdf')
+
+    plot_synergy_data_dist(synergy_df, params.score_name, title = feat_str, out_file = f'{params.input_dir}/synergy/data_distribution_{feat_str}_{params.score_name}.pdf')
     for run_no in range(start_run, end_run):
         for split in params.splits:
             split_type, test_frac, val_frac, params.split = split['type'], split['test_frac'], split['val_frac'], split

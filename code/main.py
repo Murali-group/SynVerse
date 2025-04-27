@@ -77,7 +77,7 @@ def run_SynVerse(inputs, params, **kwargs):
                             max_drug_feat=params.max_drug_feat,
                             min_drug_feat = params.min_drug_feat, max_cell_feat=params.max_cell_feat, min_cell_feat = params.min_cell_feat)
 
-    plot_synergy_data_dist(synergy_df, params.score_name, title = feat_str, out_file = f'{params.input_dir}/synergy/data_distribution_{feat_str}_{params.score_name}.pdf')
+    # plot_synergy_data_dist(synergy_df, params.score_name, title = feat_str, out_file = f'{params.input_dir}/synergy/data_distribution_{feat_str}_{params.score_name}.pdf')
     for run_no in range(start_run, end_run):
         for split in params.splits:
             split_type, test_frac, val_frac, params.split = split['type'], split['test_frac'], split['val_frac'], split

@@ -80,7 +80,7 @@ def wrapper_test_train_val(df, split_type, test_frac, val_frac, spec_dir, seed=N
     summary = f'{spec_dir}/train_test_val_summary.txt'
 
     os.makedirs(spec_dir, exist_ok=True)
-    print('Creating train test val folds')
+    # print('Creating train test val folds')
 
     if (not (os.path.exists(test_file) and os.path.exists(train_file) and os.path.exists(val_file))) or force_run:
         print('Creating train test val folds')

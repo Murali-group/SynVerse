@@ -42,23 +42,11 @@ input_settings:
       encoder: 'Transformer_Berttokenizer' #options: 'Transformer','Transformer_Berttokenizer', 'SPMM', 'mole','kpgt'
       use: [  false ]
 
-    - name: 'target' #binary drug target profile
-      preprocess: 'rwr'
-      use: [  false ]
-
     - name: 'd1hot' #one-hot encoding of drug
       use: [  false ]
 
 
   cell_line_features:
-    - name: 'genex_lincs_1000' #expression of landmark genes only
-      norm: 'std'
-      use: [ False ]
-
-    - name: 'genex' #expression of all available genes
-      norm: 'std'
-      use: [  False ]
-
     - name: 'c1hot'
       use: [true]
 
@@ -139,7 +127,7 @@ input_settings:
   max_cell_feat: 1 #analogous to max_drug_feat
   min_cell_feat: 1 #analogous to min_drug_feat
 
-  hp_tune: True #True if tuning hyoerparam else False.
+  hp_tune: False #True if tuning hyoerparam else False.
   bohb: #params for Bayesian Optomization Based Hyperparameter Tuning.
     min_budget: 27
     max_budget: 729
@@ -149,4 +137,4 @@ input_settings:
 
   rewire_method: [ "SA","SM" ] #rewiring technique to use. SM: Sneppen-Maslov based degree-preserving rewiring, SA: Simulated Annealing based strength-preserving rewiring
 output_settings:
-  output_dir: 'outputs/'
+  output_dir: 'outputs_debug/'

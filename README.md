@@ -40,7 +40,7 @@ conda list
 ```
 
 ## Download Processed Dataset
-All datasets used in this study, including drug and cell line features and the preprocessed synergy dataset required to reproduce the results, are available in the [Zenodo repository](10.5281/zenodo.15277144). Download and unzip the `inputs.zip` file, and place the `inputs` folder in the project directory, at the same level as the `code/` folder.
+All datasets used in this study, including drug and cell line features and the preprocessed synergy dataset required to reproduce the results, are available in the [Zenodo repository](https://zenodo.org/records/15277144). Download and unzip the `inputs.zip` file, and place the `inputs` folder in the project directory, at the same level as the `code/` folder.
 
 
 ## How to Use SynVerse

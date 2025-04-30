@@ -138,7 +138,5 @@ def wrapper_test_train_val(df, split_type, test_frac, val_frac, spec_dir, seed=N
                    f' \n #cell lines: {len(val_cell_lines)}')
     file.close()
 
-    #TODO: convert the return type of train and val idx from a dictionary to list once we finalize on NOT using n_folds any more.
-    # return test_df, all_train_df, {0:train_idx}, {0:val_idx}, drug_2_idx, cell_line_2_idx
     return test_df, all_train_df, {0:train_idx}, {0:val_idx}
 

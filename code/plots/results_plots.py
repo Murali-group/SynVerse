@@ -225,6 +225,7 @@ def compute_average_and_significance(df, measure, alt='greater'):
     )
 
     # Apply multiple testing correction
+    significance_results.dropna(inplace=True)
     adjusted_results = multipletests(significance_results['p_value'], method='fdr_bh')
     significance_results['adjusted_p_value'] = adjusted_results[1]
     significance_results['is_significant'] = significance_results['adjusted_p_value'] < 0.05
@@ -261,18 +262,18 @@ def wrapper_plot_model_performance_subplots(df, ft_filt_wise_1hot, metric, y_lab
         figsize = (box_height, 2.5 * len(feature_filters))
         rotation = 0
 
-    #without baseline
-    box_plot_subplots(
-        df, x='Model', y=metric,
-        ylabel=y_label,
-        hue=None, hue_order=None,
-        feature_filters=feature_filters, rotate=rotation, y_min=y_min, y_max=y_max,
-        figsize= figsize,
-        color=original_model_color,
-        width=0.7,
-        dodge=True, edgecolor=edge_color, legend=False, bg_colors = ["#A9A9A9", "white" ],orientation=orientation,
-        out_file_prefix=f'{out_file_prefix}',
-    )
+    # #without baseline
+    # box_plot_subplots(
+    #     df, x='Model', y=metric,
+    #     ylabel=y_label,
+    #     hue=None, hue_order=None,
+    #     feature_filters=feature_filters, rotate=rotation, y_min=y_min, y_max=y_max,
+    #     figsize= figsize,
+    #     color=original_model_color,
+    #     width=0.7,
+    #     dodge=True, edgecolor=edge_color, legend=False, bg_colors = ["#A9A9A9", "white" ],orientation=orientation,
+    #     out_file_prefix=f'{out_file_prefix}',
+    # )
 
     # with baseline
     box_plot_subplots(
@@ -443,8 +444,8 @@ def pairwise_significance_test_wrapper(df, group_by_cols, compare_based_on,
             data1 = group_df[group_df[compare_based_on] == cat1][measure]
             data2 = group_df[group_df[compare_based_on] == cat2][measure]
 
-            # data1.dropna(inplace=True) #if a few runs were not complete.
-            # data2.dropna(inplace=True) #if a few runs were not complete.
+            data1.dropna(inplace=True) #if a few runs were not complete.
+            data2.dropna(inplace=True) #if a few runs were not complete.
             # Choose test
             if test == "mannwhitney":
                 p_value = stats.mannwhitneyu(data1, data2, alternative=alt).pvalue
@@ -627,11 +628,13 @@ def compute_performance_retained_wrapper(df, group_by_cols, compare_based_on,
     # Convert results to DataFrame
     return performance_comp_df
 def main():
-    score_names = {'S_mean_mean':'S', 'synergy_loewe_mean':'Loewe'}
-    split_types = ['leave_comb', 'leave_drug', 'leave_cell_line', 'random']
+    # score_names = {'S_mean_mean':'S', 'synergy_loewe_mean':'Loewe'}
+    score_names = {'S_mean_mean':'S'}
+
+    split_types = ['leave_drug', 'leave_comb', 'leave_cell_line', 'random']
 
     plot_metrics = [{'metric': 'Pearsons', 'y_label':'PCC', 'alt': 'greater' },
-                   {'metric': 'test_RMSE', 'y_label':'RMSE', 'alt': 'less' }]
+                    {'metric': 'test_RMSE', 'y_label':'RMSE', 'alt': 'less' }]
 
     orientations= [ 'vertical']
 

@@ -114,8 +114,6 @@ def rwr(net, weights={}, alpha=0.5, eps=0.01, maxIters=500, verbose=False, weigh
     # the graph. If no node weights are passed in, use a uniform distribution.
     totalWeight = sum([w for v, w in weights.items()])
 
-    # TODO: handle no incoming weights
-
     # If weights are given, apply two transformations
     #   - Add a small incoming teleportation probability to every node to ensure that the graph is strongly connected
     #   - Normalize the weights to sum to one: these are now probabilities.

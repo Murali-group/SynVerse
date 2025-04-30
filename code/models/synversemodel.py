@@ -82,8 +82,6 @@ class SynVerseModel(nn.Module):
                 if (drug_encoder['name'] == encoder_name):
                     if encoder_name=='GCN':
                         # create a list of drug_graphs where in index i, the molecular graph of drug i is present.
-                        #TODO check if filtering out the batch_drugs is done properly.
-                        # data_list = [drug_feat[feat_name][x] for x in range(len(drug_feat[feat_name].keys()))][batch_drugs]
                         data_list = [drug_feat[feat_name][x] for x in batch_drugs]
                         drug_represenatation.append(self.gcn_encoder(data_list, device))
                         embedded_feat.append(feat_name)
@@ -154,7 +152,7 @@ class SynVerseModel(nn.Module):
     def forward(self, batch_triplets, drug_feat, cell_line_feat, device):
 
         #batch_drugs: find out the drugs in the current batch
-        #batch_cell_lines: find out the drugs in the cu
+        #batch_cell_lines: find out the drugs in the current batch
         batch_drugs = list(set(batch_triplets[:, 0].flatten().numpy()).union(set(batch_triplets[:, 1].flatten().numpy())))
         batch_cell_lines = list(set(batch_triplets[:, 2].flatten().numpy()))
 

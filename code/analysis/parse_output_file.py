@@ -137,7 +137,7 @@ def get_run_feat_info(file_path, run_number, feature_filter=None):
     cell_features = features.split('_C_')[1].split('_rewired_')[0].split('_shuffled_')[0]
     rewired = True if len(features.split('_rewired_'))>1 else False
     if rewired:
-        rewire_method = features.split('_rewired_')[-1].split('_')[1]
+        rewire_method = '_'.join(features.split('_rewired_')[-1].split('_')[1:])
     else:
         rewire_method='Original'
 
@@ -261,13 +261,17 @@ def main():
         df = df[~((df['drug_features'] == 'd1hot_comp_True') | (
                 df['cell_features'] == 'c1hot_comp_True'))]
 
+        df.dropna(subset=['Model'], inplace=True)
+
         #seperate performance of models trained on original and rewired training  networks
         df_orig = df[(df['rewired'] == False) & (df['shuffled'] == False) ]
         df_rewired = df[df['rewired'] == True]
+        df_rewired =df_rewired[df_rewired['rewire_method']!='SM_unsigned']
+
         df_shuffled = df[df['shuffled'] == True]
 
-        df_orig.to_csv(f'{splitwise_summary_file}.tsv', sep='\t', index=False)
 
+        df_orig.to_csv(f'{splitwise_summary_file}.tsv', sep='\t', index=False)
         if not df_rewired.empty:
             df_rewired.to_csv(f'{splitwise_summary_file}_rewired.tsv', sep='\t', index=False)
         if not df_shuffled.empty:

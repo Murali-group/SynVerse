@@ -26,42 +26,41 @@ input_settings:
 #      use: [true] => the feature must be used. [false] => the feature must be excluded. [true, false]=> the feature canbe cinsidered when creating combinations of features to train the model.
 
     - name: 'MACCS' #MACCS keys
-      use: [ true, false ] #while choosing different combinations of features: ['true']=> this feature must be included in each combination. ['false']=>  this feature must NOT be included in ANY combination.
-                          #['true', 'false'] => this feature can be considered. However, it will not appear in every combination.
+      use: [  false ]
 
     - name: 'ECFP_4' #ECFP fingerprints
-      use: [  true, false ]
+      use: [   false ]
 
     - name: 'MFP' #Morgan fingerprint
-      use: [ true, false ]
+      use: [  false ]
 
     - name: 'mol_graph' #molecular graph of drug derived from SMILES
       encoder: 'GCN'
-      use: [ true, false ]
+      use: [ true ]
 
     - name: 'smiles' #SMILES string
       encoder: 'Transformer_Berttokenizer' #options: 'Transformer','Transformer_Berttokenizer', 'SPMM', 'mole','kpgt'
-      use: [ true, false ]
+      use: [  false ]
 
     - name: 'target' #binary drug target profile
       preprocess: 'rwr'
-      use: [ true, false ]
+      use: [  false ]
 
     - name: 'd1hot' #one-hot encoding of drug
-      use: [ true, false ]
+      use: [  false ]
 
 
   cell_line_features:
     - name: 'genex_lincs_1000' #expression of landmark genes only
       norm: 'std'
-      use: [ true, False ]
+      use: [ False ]
 
     - name: 'genex' #expression of all available genes
       norm: 'std'
-      use: [ true, False ]
+      use: [  False ]
 
     - name: 'c1hot'
-      use: [true, False]
+      use: [true]
 
   model_info: #contains paramaters to train the decoder and encoders.
      decoder:
@@ -146,7 +145,7 @@ input_settings:
     max_budget: 729
     n_iterations: 3
     run_id : 'synverse'
-    server_type: 'local'
+    server_type: 'local' #or cluster
 
   rewire_method: [ "SA","SM" ] #rewiring technique to use. SM: Sneppen-Maslov based degree-preserving rewiring, SA: Simulated Annealing based strength-preserving rewiring
 output_settings:

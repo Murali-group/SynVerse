@@ -374,6 +374,22 @@ def get_rewired_train_val (all_train_df, score_name, method, split_type, val_fra
 
     check_diff(all_train_df, rewired_train_df, score_name)
 
+
+    edge_types = set(all_train_df['edge_type'].unique())
+    for edge_type in edge_types:
+        df1=all_train_df[all_train_df['edge_type'] == edge_type]
+        df2=rewired_train_df[rewired_train_df['edge_type'] == edge_type]
+        orig_nodes = set(df1['source']).union(set(df1['target']))
+        rewiered_nodes = set(df2['source']).union(set(df2['target']))
+        print('uncommon: ', orig_nodes.difference(rewiered_nodes))
+        print('total original vs rewired edge:', len(df1), len(df2))
+        removed_edgeweight = set(df1[score_name]).difference(set(df2[score_name]))
+        for e in removed_edgeweight:
+            print(df1[df1[score_name]==e])
+
+
+
+
     return rewired_train_df, {0:train_idx}, {0:val_idx}
 
 def check_diff(all_train_df, unsorted_rewired_train_df, score_name ):

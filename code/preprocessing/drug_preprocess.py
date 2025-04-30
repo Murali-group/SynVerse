@@ -64,8 +64,7 @@ def prepare_drug_features(drug_pids, params, inputs, device):
         smiles_file = inputs.smiles_file
         smiles_df = pd.read_csv(smiles_file,dtype={'pid':str}, sep='\t', index_col=None)
         encoder_name = dfeat_dict['encoder'].get('smiles')
-        xx = smiles_df['smiles'].apply(lambda x: len(x))
-        max_len = max(list(xx))
+
         if encoder_name == 'Transformer':
             smiles_df, vocab_size = get_vocab_smiles(smiles_df)
             dfeat_dict['value']['smiles'] = smiles_df[['pid', 'tokenized']]
@@ -114,7 +113,6 @@ def get_target_feat(target_df):
     the unique uniprot_id values. The cells contain 1 if the uniprot_id is associated with the pid, and 0 otherwise.
     '''
     # Create the pivot table
-    # TODO: uncomment the following once target data parsing is done.
     target_feat_df = target_df.pivot_table(index='pid', columns='gene_name', aggfunc='size', fill_value=0)
     # target_feat_df = target_df.pivot_table(index='pid', columns='uniprot_id', aggfunc='size', fill_value=0)
 

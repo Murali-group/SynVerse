@@ -84,6 +84,7 @@ Each entry defines a path to a required input file.
 | `target_file` | Drug target binary profile. Columns: `pid` and target names |
 | `genex_file` | Cell line gene expression. Columns: `cell_line_name` and gene names. |
 | `lincs` | Landmark genes file for LINCS1000. |
+| `vocab_file` | Vocabulary file to convert smiles to tokens. |
 | `net_file` | STRING network file (gzipped). |
 | `prot_info_file` | STRING protein metadata file (gzipped). |
 

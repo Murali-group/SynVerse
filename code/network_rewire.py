@@ -263,7 +263,7 @@ def numpy_to_dataframe(adj_matrix, node_to_idx, score_name):
 
 
 
-def rewire_signed(df, score_name, seed, method='SA'):
+def rewire_unsigned(df, score_name, seed, method='SA'):
     '''keeping the node degree intact, rewire the edges. We are shuffling pairs of edges. However, as we have to consider the score
     of the new edges, we  pair up two synergistic
     edges or two nonsynergistic edges when we shuffle. '''
@@ -314,43 +314,13 @@ def rewire_signed(df, score_name, seed, method='SA'):
     return rewired_df, stat_df
 
 
-def rewire_unsigned(df, score_name, seed, method='SM_unsigned'):
-    '''keeping the node degree intact, rewire the edges. We are shuffling pairs of edges. However, as we have to consider the score
-    of the new edges, we  pair up two synergistic
-    edges or two nonsynergistic edges when we shuffle. '''
-    edge_types = set(df['edge_type'].unique())
 
-    rewired_df = pd.DataFrame()
-
-    for edge_type in edge_types:
-        df_edge = df[(df['edge_type'] == edge_type)][['source', 'target', score_name]]
-
-        def randomize(df_edge):
-            A, node_2_idx = dataframe_to_numpy(df_edge, score_name)
-            if method =='SM_unsigned': #snepen-maslov method
-                # B = custom_preserving_rand_sm_weighted(A, seed=seed)
-                B = degree_preserving_rand_sm(A, seed=seed)
-
-            rewired_df_edge = numpy_to_dataframe(B, node_2_idx, score_name)
-            rewired_df_edge['edge_type'] = edge_type
-            return rewired_df_edge
-
-        if not df_edge.empty:
-            rewired_df_edge= randomize(df_edge)
-
-        rewired_df = pd.concat([rewired_df, rewired_df_edge], axis=0)
-
-    rewired_df = rewired_df.sample(frac=1)
-    return rewired_df
 
 def get_rewired_train_val (all_train_df, score_name, method, split_type, val_frac, seed, rewired_train_file, force_run=False):
     if (not os.path.exists(rewired_train_file))|force_run:
         os.makedirs(os.path.dirname(rewired_train_file), exist_ok=True)
-        if 'unsigned' in method:
-            rewired_train_df = rewire_unsigned(all_train_df, score_name, seed, method=method)
-        else:
-            rewired_train_df, stat_df = rewire_signed(all_train_df, score_name, seed, method=method)
-            stat_df.to_csv(rewired_train_file.replace('.tsv', '_stat.tsv'), sep='\t', index=False)
+        rewired_train_df, stat_df = rewire_unsigned(all_train_df, score_name, seed, method=method)
+        stat_df.to_csv(rewired_train_file.replace('.tsv', '_stat.tsv'), sep='\t', index=False)
         # sort the df so that if the rewired network are same for the same seed, it will be saved as the same. and then
         # while splitting into train-val, we will get the same split.
         sort_cols = ['source', 'target', 'edge_type', score_name]
@@ -425,16 +395,7 @@ def check_diff(all_train_df, unsorted_rewired_train_df, score_name ):
     # print(f'frac common quads: {len(common_quad)/len(total_quad)} among total of: {len(total_quad)}')
     print(f'frac samples from original: {len(common_quad)/len(rewired_quad)} among total of: {len(rewired_quad)}')
 
-    #find deviation of score among the overlapping triplets between original and rewired network
-    merged = all_train_df[['source', 'target', 'edge_type', score_name]] \
-        .merge(
-        rewired_train_df[['source', 'target', 'edge_type', score_name]],
-        on=['source', 'target', 'edge_type'],
-        suffixes=('_orig', '_rewired')
-    )
-    # 2. Compute the difference (orig minus rewired)
-    merged['score_diff'] = abs(merged[f'{score_name}_orig'] - merged[f'{score_name}_rewired'])
-    print(f'average difference btn the same triplet present in original and newired network: ', merged['score_diff'].mean())
+    merged = compute_deviation_of_score(all_train_df, rewired_train_df, score_name)
 
     # Step 4: Unique nodes and edge statistics (undirected)
     unique_nodes = set(all_train_df['source']).union(set(all_train_df['target']))
@@ -466,6 +427,19 @@ def check_diff(all_train_df, unsorted_rewired_train_df, score_name ):
     df_stats = pd.DataFrame(stats)
     return  df_stats
 
+def compute_deviation_of_score(all_train_df , rewired_train_df, score_name ):
+    # find deviation of score among the overlapping triplets between original and rewired network
+    merged = all_train_df[['source', 'target', 'edge_type', score_name]] \
+        .merge(
+        rewired_train_df[['source', 'target', 'edge_type', score_name]],
+        on=['source', 'target', 'edge_type'],
+        suffixes=('_orig', '_rewired')
+    )
+    # 2. Compute the difference (orig minus rewired)
+    merged['score_diff'] = abs(merged[f'{score_name}_orig'] - merged[f'{score_name}_rewired'])
+    print(f'average difference btn the same triplet present in original and newired network: ',
+          merged['score_diff'].mean())
+    return merged
 def check_dups(rewired_train_df):
     # check for edges like (a,b) and (b, a)
     rev_pairs = set(zip(rewired_train_df['source'], rewired_train_df['target'])).intersection(

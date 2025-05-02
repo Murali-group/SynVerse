@@ -39,12 +39,12 @@ class BaseRunManager:
         hyperparam_file = self.out_file_prefix + '_best_hyperparam.txt'
         if os.path.exists(hyperparam_file):
             hyperparam, _ = extract_best_hyperparam(hyperparam_file)
+            print('Found hyperparam file: ', out_file_prefix)
         else:
             if self.kwargs.get('use_best_hyperparam'): #user asked to use best hyperparam but the file saving the params are not found. So exit.
                 sys.exit(f"Error: hyperparameter file not found ({hyperparam_file}) but use_best_hyperparam=True")
             else:
                 print(f'File: {hyperparam_file} not found for best hyperparam. Running with default hyperparameters.')
-
 
         trained_model_state, train_loss = runner.train_model_given_config(hyperparam, self.given_epochs, validation=True, save_output=True)
 
@@ -95,7 +95,7 @@ class RewireRunManager(BaseRunManager):
 
 class RandomizeScoreRunManager(BaseRunManager):
     def run_wrapper(self):
-        for rand_version in range(10):
+        for rand_version in range(5):
             # randomized_train_file = f'{split_file_path}{rand_version}all_train_randomized_score.tsv'
             randomized_df = pd.DataFrame()
 
@@ -106,6 +106,22 @@ class RandomizeScoreRunManager(BaseRunManager):
                 edge_neg_df = self.train_df[(self.train_df['edge_type'] == edge_type) & (self.train_df[self.params.score_name]<0)]
                 edge_neg_df[self.params.score_name] = edge_neg_df[self.params.score_name].sample(frac=1).values
                 randomized_df = pd.concat([randomized_df, edge_pos_df, edge_neg_df], axis=0)
+
+            def compute_deviation_of_score(all_train_df, rewired_train_df, score_name):
+                # find deviation of score among the overlapping triplets between original and rewired network
+                merged = all_train_df[['source', 'target', 'edge_type', score_name]] \
+                    .merge(
+                    rewired_train_df[['source', 'target', 'edge_type', score_name]],
+                    on=['source', 'target', 'edge_type'],
+                    suffixes=('_orig', '_rewired')
+                )
+                # 2. Compute the difference (orig minus rewired)
+                merged['score_diff'] = abs(merged[f'{score_name}_orig'] - merged[f'{score_name}_rewired'])
+                print(f'average difference btn the same triplet present in original and newired network: ',
+                      merged['score_diff'].mean())
+                return merged
+
+            deviation = compute_deviation_of_score(randomized_df, self.train_df, self.params.score_name)
 
             # randomized_df[self.params.score_name] = randomized_df[self.params.score_name].sample(frac=1).reset_index(drop=True)
             out_file_prefix_randomized = f'{self.out_file_prefix}_randomized_score_{rand_version}'

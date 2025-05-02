@@ -23,7 +23,7 @@ def setup_opts():
     parser = argparse.ArgumentParser(description="""Script to parse the file for training data and run the  pipeline using them.""")
     # general parameters
     group = parser.add_argument_group('Main Options')
-    group.add_argument('--config', type=str, default="config_files/mol_graph_config.yaml", help="Configuration file for this script.")
+    group.add_argument('--config', type=str, default="config_files/archive/loewe_smiles_derived_feat.yaml", help="Configuration file for this script.")
 
     group.add_argument('--train_type', type=str, default="regular",
                        help="Three Options. ['regular','rewire','shuffle','randomized_score]."
@@ -88,6 +88,8 @@ def run_SynVerse(inputs, params, **kwargs):
             #split into train test val
             test_df, all_train_df, train_idx, val_idx = wrapper_test_train_val(copy.deepcopy(synergy_df), split_type, test_frac, val_frac, split_file_path, seed=seed+run_no,
                                                                                force_run=kwargs.get('force_split'))
+            test_df, all_train_df, train_idx, val_idx = remove_self_loop_from_splits( test_df, all_train_df, train_idx, val_idx)
+
             all_train_df = all_train_df[['source', 'target','edge_type', params.score_name]]
 
             #************************** POST split processing of features ******************************************

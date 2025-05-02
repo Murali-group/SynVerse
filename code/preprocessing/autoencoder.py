@@ -198,7 +198,7 @@ def autoencoder_runner(feat_mtx_dict, feat_dim_dict, feat_compress_info, train_i
         if should_compress: #if compress feature = True
             model_file = f'{file_prefix}/{feat_name}.pth'
             feature_file = f'{file_prefix}/{feat_name}.npy'
-            if (not os.path.exists(feature_file)) or (force_run):  # if model file doesn't exist, train and save the model
+            if ((not os.path.exists(feature_file)) or (force_run)):  # if model file doesn't exist, train and save the model
                 feat_mtx_train = feat_mtx_dict[feat_name][train_idx, :]  # keep the training data only
                 #train autoencoder using only the drugs present in training split
                 best_hidden_dims, req_epochs = tune_hyperparam(feat_mtx_train, hidden_dim_options, epoch, device)
@@ -213,6 +213,7 @@ def autoencoder_runner(feat_mtx_dict, feat_dim_dict, feat_compress_info, train_i
                 np.save(feature_file, feat_mtx_dict[feat_name])
 
             else:
+                print('loading autoencoder')
                 feat_mtx_dict[feat_name] = np.load(feature_file)
                 feat_dim_dict[feat_name] = feat_mtx_dict[feat_name].shape[1]
 

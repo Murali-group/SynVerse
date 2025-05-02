@@ -288,6 +288,59 @@ def extract_best_hyperparam(hyperparam_file):
 
 
 
+def remove_self_loop_from_splits(test_df, all_train_df, train_idx, val_idx):
+    train_idx = train_idx[0]
+    val_idx = val_idx[0]
+    idx_with_self_loop_train = list(all_train_df[all_train_df['source'] == all_train_df['target']].index)
+    idx_with_self_loop_test = list(test_df[test_df['source'] == test_df['target']].index)
+
+    all_train_df_clean = all_train_df.drop(index=idx_with_self_loop_train).reset_index(drop=True)
+    test_df_clean = test_df.drop(index=idx_with_self_loop_test).reset_index(drop=True)
+
+    old_to_new_index_map = {
+        old_idx: new_idx
+        for new_idx, old_idx in enumerate(all_train_df.drop(index=idx_with_self_loop_train).index)
+    }
+
+    new_train_idx = [old_to_new_index_map[i] for i in train_idx if i in old_to_new_index_map]
+    new_val_idx = [old_to_new_index_map[i] for i in val_idx if i in old_to_new_index_map]
+
+    return test_df_clean, all_train_df_clean, {0:new_train_idx}, {0:new_val_idx}
+#
+# def check_remove_loop():
+#     # Step 1: Create dummy all_train_df and test_df
+#     all_train_df = pd.DataFrame({
+#         'source': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'H', 'I'],
+#         'target': ['B', 'C', 'C', 'D', 'E', 'F', 'H', 'K', 'D', 'I'],  # idx 4 and 8 are self-loops
+#     })
+#
+#     test_df = pd.DataFrame({
+#         'source': ['X', 'Y', 'Z'],
+#         'target': ['X', 'B', 'Z'],  # idx 0 and 2 are self-loops
+#     })
+#
+#     # Step 2: Define train_idx and val_idx using old DataFrame indices
+#     train_idx = [0, 2, 4, 5, 7, 8]  # idx 4 and 8 should be dropped
+#     val_idx = [1, 3, 6, 9]  # no dropped indices here
+#
+#     # Step 3: Run the function
+#     clean_train_df, clean_test_df, new_train_idx, new_val_idx = remove_self_loop_from_splits(
+#         all_train_df, test_df, train_idx, val_idx
+#     )
+#
+#     # Step 4: Print results
+#     print("Cleaned all_train_df:")
+#     print(clean_train_df)
+#
+#     print("\nCleaned test_df:")
+#     print(clean_test_df)
+#
+#     print("\nNew train_idx:", new_train_idx)
+#     print("New val_idx:", new_val_idx)
+
+
+
+# check_remove_loop()
 
 
 

@@ -11,7 +11,7 @@ input_settings:
     target_file: 'drug/target.tsv' #tab separated file containing targets of drug. Mandatory Columns: ['pid', 'gene_name']
     genex_file: 'cell-line/gene_expression.tsv' #tab separated file containing targets of drug. Mandatory Columns: ['cell_line_name'], gene names across columns.
     lincs: 'cell-line/LINCS_1000.txt' #tab separated file containing landmark genes
-    vocab_file: 'drug/vocab.txt' #vocab file to convert smiles to token.
+    vocab_file: 'drug/vocab.txt' #vocab file to convert smiles to tokens.
     net_file: 'network/STRING/9606.protein.links.v12.0.txt.gz' #file containing protein-protein interactions or edges in STRING
     prot_info_file: 'network/STRING/9606.protein.info.v12.0.txt.gz' #file containing mapping between protein_id in STRING and protein name.
 

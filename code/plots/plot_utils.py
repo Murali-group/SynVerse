@@ -308,7 +308,7 @@ def compute_strength(df, score_name):
     # 4. Compute weighted degree (sum of weights of incident edges)
     strength = {}
     degree_weighted = dict(G.degree(weight=score_name))
-    print("\nWeighted degree:")
+    # print("\nWeighted degree:")
     for node, wdeg in degree_weighted.items():
         strength[node] = wdeg
     return strength
@@ -347,53 +347,6 @@ def compute_node_signed_degree(df, score_name):
     neg_degree = compute_degree(neg_df, score_name)
     return pos_degree, neg_degree
 
-# def compute_node_signed_strength(df, score_name):
-#     #compute: for each node the sum of positive scores and sum of negative scores separately, without considering self loops
-#     nodes = list(set(df['source'].unique()).union(set(df['target'].unique())))
-#     nodes.sort()
-#     positive_strength = {}
-#     negative_strength = {}
-#
-#     for node in nodes:
-#         df_node = df[(df['source'] == node) | (df['target'] == node)]
-#         positive_strength[node] = df_node[df_node[score_name] >= 0][score_name].sum()
-#         negative_strength[node] = df_node[df_node[score_name] < 0][score_name].sum()
-#     return positive_strength, negative_strength
-
-# def compute_node_signed_degree(df, score_name):
-#     #compute: for each node how many positive edges and how many negative edges seperately.
-#     nodes = list(set(df['source'].unique()).union(set(df['target'].unique())))
-#     nodes.sort()
-#     positive_degree = {}
-#     negative_degree = {}
-#
-#     for node in nodes:
-#         df_node = df[(df['source'] == node) | (df['target'] == node)]
-#         positive_degree[node] = len(df_node[df_node[score_name] >= 0])
-#         negative_degree[node] = len(df_node[df_node[score_name] < 0])
-#     return positive_degree, negative_degree
-
-
-# def compute_node_strength(df, score_name):
-#     #compute: for each node the total sum of scores.
-#     nodes = list(set(df['source'].unique()).union(set(df['target'].unique())))
-#     nodes.sort()
-#     degree = {}
-#     for node in nodes:
-#         df_node = df[(df['source'] == node) | (df['target'] == node)]
-#         degree[node] = df_node[score_name].sum()
-#     return degree, nodes
-
-# def compute_node_degree(df, score_name):
-#     #compute: for each node the total sum of degrees.
-#     nodes = list(set(df['source'].unique()).union(set(df['target'].unique())))
-#     nodes.sort()
-#     degree = {}
-#
-#     for node in nodes:
-#         df_node =df[(df['source'] == node) | (df['target'] == node)]
-#         degree[node] = len(df_node[score_name])
-#     return degree, nodes
 
 
 def wrapper_network_rewiring_box_plot(rewired_df, orig_df, score_name, cell_line_2_idx, weighted=True, plot_file_prefix=None):
@@ -435,10 +388,10 @@ def wrapper_network_rewiring_box_plot(rewired_df, orig_df, score_name, cell_line
     sns.boxplot( x='cell_line_name', y='diff', hue='degree_type',
         data=plot_df,
         linewidth=0.4)
-    if not weighted:
-        plt.ylim(-0.5, 0.5)
-    else:
-        plt.ylim(plot_df['diff'].min(), plot_df['diff'].max())
+    # if not weighted:
+    #     plt.ylim(-0.5, 0.5)
+    # else:
+    #     plt.ylim(plot_df['diff'].min(), plot_df['diff'].max())
     # Customize the plot
     plt.xlabel('Cell lines', fontsize=12)
     if weighted:
@@ -813,9 +766,6 @@ def plot_synergy_data_dist(df, score_name, out_file, title=None):
     else:
         axes[1].set_ylim(0, 45000)
         # axes[1].set_xlim(-300, 800)
-
-
-
 
 
     # Adjust subplots for neat layout

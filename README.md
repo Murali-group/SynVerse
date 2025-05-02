@@ -40,7 +40,7 @@ conda list
 ```
 
 ## Download Processed Dataset
-All datasets used in this study, including drug and cell line features and the preprocessed synergy dataset required to reproduce the results, are available in the [Zenodo repository](10.5281/zenodo.15277143). Download and unzip the `inputs.zip` file, and place the `inputs` folder in the project directory, at the same level as the `code/` folder.
+All datasets used in this study, including drug and cell line features and the preprocessed synergy dataset required to reproduce the results, are available in the [Zenodo repository](https://zenodo.org/records/15277144). Download and unzip the `inputs.zip` file, and place the `inputs` folder in the project directory, at the same level as the `code/` folder.
 
 
 ## How to Use SynVerse
@@ -84,6 +84,7 @@ Each entry defines a path to a required input file.
 | `target_file` | Drug target binary profile. Columns: `pid` and target names |
 | `genex_file` | Cell line gene expression. Columns: `cell_line_name` and gene names. |
 | `lincs` | Landmark genes file for LINCS1000. |
+| `vocab_file` | Vocabulary file to convert smiles to tokens. |
 | `net_file` | STRING network file (gzipped). |
 | `prot_info_file` | STRING protein metadata file (gzipped). |
 

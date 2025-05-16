@@ -60,6 +60,11 @@ SynVerse is configured using a YAML file (e.g., [sample_config.yaml](https://git
 ```
    python main.py --config_file config_files/sample_config.yaml --train_type 'rewire'
 ```
+4. To parse the output files and create plots showing RMSE and PCC score of the models:
+```
+    python -m code.plots.results_polts --parse --config config_files/sample_config.yaml
+    python -m code.plots.results_polts --plot --config config_files/sample_config.yaml 
+```
 
 
 ### Configuration File

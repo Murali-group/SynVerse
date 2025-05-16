@@ -10,7 +10,7 @@ def get_pretrained_embedding(smiles, input_dir,encoder_name, device):
 def get_SPMM_embedding(smiles, input_dir, device):
     from preprocessing.pretrain.SPMM.encoder import SPMM_Encoder
 
-    vocab_file = input_dir + 'drug/pretrain/vocab_bpe_300.txt'
+    vocab_file = input_dir + 'drug/vocab_bpe_300.txt'
     checkpoint_file = input_dir + 'drug/pretrain/checkpoint_SPMM.ckpt'
 
     pretrained_spmm = SPMM_Encoder(vocab_file, checkpoint_file, device)

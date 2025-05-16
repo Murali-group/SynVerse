@@ -1,12 +1,7 @@
-import pandas as pd
-import os
 import re
 from sklearn.metrics import recall_score, precision_score, f1_score
-import matplotlib.pyplot as plt
-import numpy as np
 import scipy.stats as stats
-import sys
-from plots.plot_utils import *
+from .plot_utils import *
 
 
 def feature_to_filter_map(drug_feat, cell_feat):
@@ -25,8 +20,7 @@ def feature_to_filter_map(drug_feat, cell_feat):
                        'D_ECFP_4_MACCS_MFP_d1hot_mol_graph_smiles_C_c1hot']
 
     # currently I have run d1hot with AE and c1hot with AE only for SMILES based split.
-    if drug_feat in ['d1hot_std_comp_True', 'd1hot_comp_True'] and cell_feat in ['c1hot_std_comp_True',
-                                                                                 'c1hot_comp_True']:
+    if drug_feat in ['d1hot_std_comp_True', 'd1hot_comp_True'] and cell_feat in ['c1hot_std_comp_True', 'c1hot_comp_True']:
         return 'D_ECFP_4_MACCS_MFP_d1hot_mol_graph_smiles_C_c1hot'
 
     substr_dfeat = drug_feat.split('_')
@@ -95,6 +89,17 @@ def compute_cls_performance(pred_file_path, thresholds = [0]):
 def compute_corr(pred_file_path):
     #columns = drug1	drug2	cell_line	TRUE	predicted
     pred_df = pd.read_csv(pred_file_path, sep='\t')
+
+    # # Check for NaNs or infs and report rows
+    # bad_rows = pred_df[pred_df[['true', 'predicted']].isnull().any(axis=1) |
+    #                    ~np.isfinite(pred_df[['true', 'predicted']]).all(axis=1)]
+    #
+    # if not bad_rows.empty:
+    #     print("Warning: Found NaN or Inf values in the following rows:")
+    #     print(bad_rows)
+    #     return None
+
+
     y_true = list(pred_df['true'].astype(float))
     y_pred = list(pred_df['predicted'].astype(float))
     corr_prsn, pval_prsn = stats.pearsonr(y_true, y_pred)
@@ -134,7 +139,7 @@ def get_run_feat_info(file_path, run_number, feature_filter=None):
     clean_file_name = file_path.split('/')[-1].replace("_val_true_loss.txt", "")
     features = re.sub(r'run_[0-4]', '', clean_file_name)  # Remove 'run_x' pattern
     drug_features = features.split('_C_')[0].replace('D_', '')
-    cell_features = features.split('_C_')[1].split('_rewired_')[0].split('_shuffled_')[0]
+    cell_features = features.split('_C_')[1].split('_rewired_')[0].split('_shuffled_')[0].split('_randomized_score_')[0]
     rewired = True if len(features.split('_rewired_'))>1 else False
     if rewired:
         rewire_method = '_'.join(features.split('_rewired_')[-1].split('_')[1:])
@@ -142,10 +147,17 @@ def get_run_feat_info(file_path, run_number, feature_filter=None):
         rewire_method='Original'
 
     shuffled = True if len(features.split('_shuffled_'))>1 else False
+    randomized_score = True if len(features.split('_randomized_score_'))>1 else False
+
     if shuffled:
         shuffle_method = 'Shuffled'
     else:
         shuffle_method='Original'
+
+    if randomized_score:
+        randomized_method = 'Randomized'
+    else:
+        randomized_method='Original'
 
     if feature_filter is None:
         feature_filter = feature_to_filter_map(drug_features, cell_features)
@@ -157,7 +169,9 @@ def get_run_feat_info(file_path, run_number, feature_filter=None):
         'rewired': rewired,
         'rewire_method': rewire_method,
         'shuffled': shuffled,
-        'shuffle_method': shuffle_method
+        'shuffle_method': shuffle_method,
+        'randomized_score': randomized_score,
+        'randomized_method': randomized_method
     }
     return run_info
 
@@ -200,10 +214,10 @@ def iterate_output_files(folder_path):
     return out_file_list
 
 
-def main():
+def parse_output_files(base_folder):
     # Example usage
     # base_folder=sys.argv[1]
-    base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/"
+    # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_S_mean_mean/"
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/k_0.05_synergy_loewe_mean/"
 
     # base_folder= "/home/grads/tasnina/Projects/SynVerse/outputs/sample_norm_0.99/k_0.05_S_mean_mean/"
@@ -220,8 +234,6 @@ def main():
     splitwise_df_dict = {}
     for split_type in split_types:
         splitwise_summary_file = base_folder+f'output_{split_type}'
-        # plot_outputs(splitwise_summary_file)
-
         spec_folder = f'{base_folder}/{split_type}/'
         if not os.path.exists(spec_folder):
             continue
@@ -230,28 +242,17 @@ def main():
         for out_info in out_info_list:
             if not os.path.exists(out_info['pred_file']):
                 continue
+            print(out_info['pred_file'])
             all_info = out_info
             loss_info = read_loss_file_content(out_info['loss_file'])
-            # precision_dict, recall_dict, f1_dict = compute_cls_performance(out_info['pred_file'], thresholds = [0, 10, 30])
-            # print(out_info['pred_file'])
             correlations_dict  = compute_corr(out_info['pred_file'])
             all_info.update(loss_info)
             all_info.update(correlations_dict)
-            # all_info.update(precision_dict)
-            # all_info.update(recall_dict)
-            # all_info.update(f1_dict)
-
-
             data.append(all_info)
         df = pd.DataFrame(data)
         df.drop(columns=['loss_file', 'pred_file'], axis=1, inplace=True)
         splitwise_df_dict[split_type] = df
         print(df.head(5))
-
-        # compute_RMSE from MSE
-        # for split in ['test', 'train', 'val']:
-        #     df[f'{split}_RMSE'] = np.sqrt(df[f'{split}_MSE'])
-
 
         # remove model 'One hot (AE)'
         df = set_model_names(df)
@@ -264,11 +265,16 @@ def main():
         df.dropna(subset=['Model'], inplace=True)
 
         #seperate performance of models trained on original and rewired training  networks
-        df_orig = df[(df['rewired'] == False) & (df['shuffled'] == False) ]
+        df_orig = df[(df['rewired'] == False) & (df['shuffled'] == False) & (df['randomized_score'] == False) ]
+
         df_rewired = df[df['rewired'] == True]
-        df_rewired =df_rewired[df_rewired['rewire_method']!='SM_unsigned']
+        df_rewired =df_rewired[df_rewired['Model']!='One hot'] #do not consider one-hot models
 
         df_shuffled = df[df['shuffled'] == True]
+        df_shuffled = df_shuffled[df_shuffled['Model']!='One hot']
+
+        df_randomized = df[df['randomized_score'] == True]
+        df_randomized = df_randomized[df_randomized['Model']!='One hot']
 
 
         df_orig.to_csv(f'{splitwise_summary_file}.tsv', sep='\t', index=False)
@@ -276,12 +282,9 @@ def main():
             df_rewired.to_csv(f'{splitwise_summary_file}_rewired.tsv', sep='\t', index=False)
         if not df_shuffled.empty:
             df_shuffled.to_csv(f'{splitwise_summary_file}_shuffled.tsv', sep='\t', index=False)
-        # plot_outputs(splitwise_summary_file, split_type)
-
+        if not df_randomized.empty:
+            df_randomized.to_csv(f'{splitwise_summary_file}_randomized.tsv', sep='\t', index=False)
 
     with pd.ExcelWriter(outfile_detailed, mode="w") as writer:
         for split_type in splitwise_df_dict:
             splitwise_df_dict[split_type].to_excel(writer, sheet_name=split_type, index=False)
-
-
-main()

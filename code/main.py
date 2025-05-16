@@ -26,7 +26,7 @@ def setup_opts():
     group.add_argument('--config', type=str, default="config_files/archive/loewe_smiles_derived_feat.yaml", help="Configuration file for this script.")
 
     group.add_argument('--train_type', type=str, default="regular",
-                       help="Three Options. ['regular','rewire','shuffle','randomized_score]."
+                       help="Three Options. ['regular','rewire','shuffle','randomized_score']."
                             "'regular => train and test model with original feature and triplets, "
                             "'rewire' => randomize train triplets, 'shuffle' => shuffle features."
                             "'randomized_score' => randomize the score of the triplets. ")

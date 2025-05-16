@@ -732,7 +732,6 @@ def plot_nodewise_train_test_score_dist(train_df, test_df, score_name, out_dir=N
 
 def plot_synergy_data_dist(df, score_name, out_file, title=None):
 
-
     if title:
         if 'smiles' in title:
             title='SMILES-based'

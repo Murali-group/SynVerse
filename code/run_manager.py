@@ -73,7 +73,7 @@ class RewireRunManager(BaseRunManager):
         split_file_path = self.kwargs.get('split_file_path')
         for rewire_method in self.params.rewire_method:
             for rand_net in range(10):
-
+                out_file_prefix_rewire = f'{self.out_file_prefix}_rewired_{rand_net}_{rewire_method}'
 
                 rewired_train_file = f'{split_file_path}{rand_net}all_train_rewired_{rewire_method}.tsv'
                 rewired_df, rewired_train_idx, rewired_val_idx = get_rewired_train_val(
@@ -89,8 +89,6 @@ class RewireRunManager(BaseRunManager):
                 wrapper_network_rewiring_box_plot(rewired_df, self.train_df, self.params.score_name,
                                                   self.cell_line_2_idx, weighted=False,
                                                   plot_file_prefix=f'{split_file_path}{rand_net}_{rewire_method}')
-
-                out_file_prefix_rewire = f'{self.out_file_prefix}_rewired_{rand_net}_{rewire_method}'
                 self.execute_run(rewired_df, rewired_train_idx, rewired_val_idx, self.dfeat_dict, self.cfeat_dict, out_file_prefix_rewire)
 
 class RandomizeScoreRunManager(BaseRunManager):

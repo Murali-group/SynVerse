@@ -8,6 +8,7 @@ inputs/
 outputs/
 code/wandb/
 **archive/
+code/analysis/
 
 # # Jupyter Notebook
 .ipynb_checkpoints

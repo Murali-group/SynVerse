@@ -8,6 +8,7 @@
 - [Docker Setup Guide for Pretrained Models](#docker-setup-guide-for-pretrained-models)
   - [Prerequisites](#prerequisites)
   - [Build the Docker Image](#build-the-docker-image)
+- [Publication](#publication)
       
 ## Introduction
 SynVerse is a framework with an encoder-decoder architecture. It incorporates diverse input features and a reasonable approximation of model architectures commonly employed by existing deep learning-based synergy prediction methods. It includes four data-splitting strategies and three ablation methods: module-based, feature shuffling, and a novel network-based approach to isolate factors influencing model performance.
@@ -196,3 +197,7 @@ This guide provides detailed instructions for containerizing [KPGT](https://gith
 ### Build the Docker Image
 We already have created Dockerfiles for each project. To build the Docker images, simply run the provided [script](./code/build_docker.sh).
 This script will build the `kpgt:base` image and the `mole:base` image using their respective Dockerfiles located in the root directory of each project at [pretrain](./code/preprocessing/pretrain) directory.
+
+## Publication
+Tasnina, N., Haghani, M. and Murali, T.M., 2025. SynVerse: A Framework for Systematic Evaluation of Deep Learning Based Drug Synergy Prediction Models. bioRxiv, pp.2025-04.
+https://doi.org/10.1101/2025.04.30.651516

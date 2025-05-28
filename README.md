@@ -98,7 +98,10 @@ Each entry defines a path to a required input file.
 
 ####  `drug_features`
 
-Describes drug-level features to be used.
+Describes drug-level features. 
+
+Features appearing here will determine which subset of triplets from synergy_file is used in training, validation, and test. Example 1: If only SMILES-based features such as `MACCS`, `MFP`, `ECFP_4`, `mol_graph`, `smiles` appear in `drug_features`, then the final synergy dataset will contain the triplets where both drugs have SMILES available. Example 2: If both SMILES-based features such as `MACCS`, `MFP`, `ECFP_4`, `mol_graph`, `smiles`, and `target` appear in the list of drug_features, then the final synergy dataset will contain the triplets where drugs have both smiles and target data available.
+
 - `name`: str: Feature name 
 - `preprocess`: str: Preprocessing method 
 - `compress`: bool: Use autoencoder to reduce dimensions.

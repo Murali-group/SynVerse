@@ -396,7 +396,6 @@ class Runner(ABC):
                             f.close()
                             return best_model, min_val_loss, train_loss, req_epochs
 
-
             else:
                 if (is_wandb) and ((i % check_freq) == 0):
                     wandb.log({"epoch": i, "train_loss": train_loss})

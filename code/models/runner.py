@@ -385,7 +385,8 @@ class Runner(ABC):
                         if val_loss < min_val_loss:
                             min_val_loss = val_loss
                             idle_epochs = 0  # reset idle epochs
-                            best_model = model.state_dict()
+                            # best_model = model.state_dict()
+                            best_model = {k: v.clone() for k, v in model.state_dict().items()}
                             # torch.save(best_model, 'best_MLP_model.pth')
                         if idle_epochs > tolerance:
                             req_epochs = i

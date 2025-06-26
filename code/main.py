@@ -6,6 +6,7 @@ from models.runner import *
 from parse_config import parse_config
 import argparse
 from plots.plot_utils import plot_synergy_data_dist
+import secrets
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = get_available_gpu()
@@ -58,7 +59,10 @@ def setup_opts():
 def run_SynVerse(inputs, params, **kwargs):
     print(f'SYNVERSE STARTING on {device}')
 
-    seed = kwargs.get('seed')
+
+
+    # seed = kwargs.get('seed')
+    seed = secrets.randbits(128)
     start_run, end_run = kwargs.get('start_run'), kwargs.get('end_run')
 
     #load_triplets and features

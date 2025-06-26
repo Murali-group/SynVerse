@@ -6,8 +6,7 @@ from models.runner import *
 from parse_config import parse_config
 import argparse
 from plots.plot_utils import plot_synergy_data_dist
-import secrets
-
+import pickle
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = get_available_gpu()
 def parse_args():
@@ -34,8 +33,8 @@ def setup_opts():
 
     group.add_argument('--use_best_hyperparam', type=bool, default=True,
                        help="True =>Search for the file where best hyperparam is saved, if not found then exit. False => If file for best hyperparam is present then use that otherwise run with default params.")
-    group.add_argument('--seed', type=int, default=0,
-                       help="Seed value used for train test splitting. Using different seed value will result in different train and test splits.")
+    # group.add_argument('--seed', type=int, default=0,
+    #                    help="Seed value used for train test splitting. Using different seed value will result in different train and test splits.")
     group.add_argument('--feat', type=str,
                        help="Put the name of the features to use, separated by space. Applicable when you want to run just one set of features.")
     group.add_argument('--split', type=str,
@@ -62,7 +61,7 @@ def run_SynVerse(inputs, params, **kwargs):
 
 
     # seed = kwargs.get('seed')
-    seed = secrets.randbits(128)
+    seed_dict = pickle.load(open('seed.pkl', 'rb'))
     start_run, end_run = kwargs.get('start_run'), kwargs.get('end_run')
 
     #load_triplets and features
@@ -84,13 +83,14 @@ def run_SynVerse(inputs, params, **kwargs):
     # plot_synergy_data_dist(synergy_df, params.score_name, title = feat_str, out_file = f'{params.input_dir}/synergy/data_distribution_{feat_str}_{params.score_name}.pdf')
     for run_no in range(start_run, end_run):
         for split in params.splits:
+            seed = seed_dict[split['type']][run_no]
             split_type, test_frac, val_frac, params.split = split['type'], split['test_frac'], split['val_frac'], split
             split_info_str = f"/{feat_str}/k_{params.abundance}_{params.score_name}/{split_type}_{test_frac}_{val_frac}/run_{run_no}_{seed}/"
             split_file_path = params.split_dir + split_info_str
             kwargs['split_file_path'] = split_file_path
 
             #split into train test val
-            test_df, all_train_df, train_idx, val_idx = wrapper_test_train_val(copy.deepcopy(synergy_df), split_type, test_frac, val_frac, split_file_path, seed=seed+run_no,
+            test_df, all_train_df, train_idx, val_idx = wrapper_test_train_val(copy.deepcopy(synergy_df), split_type, test_frac, val_frac, split_file_path, seed=seed,
                                                                                force_run=kwargs.get('force_split'))
             test_df, all_train_df, train_idx, val_idx = remove_self_loop_from_splits( test_df, all_train_df, train_idx, val_idx)
 

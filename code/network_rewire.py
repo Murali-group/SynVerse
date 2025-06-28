@@ -614,7 +614,7 @@ def get_rewired_train_val (all_train_df, score_name, method, split_type, val_fra
     sort_paired_cols(rewired_train_df, 'source', 'target', inplace=True, relation='greater')
 
     split_type_map = {'random': 'random', 'leave_comb': 'edge', 'leave_drug': 'node', 'leave_cell_line': 'edge_type'}
-    train_idx, val_idx = split_train_test(rewired_train_df, split_type_map[split_type], val_frac, seed=0)
+    train_idx, val_idx = split_train_test(rewired_train_df, split_type_map[split_type], val_frac, seed=2352919285)
 
     check_diff(all_train_df, rewired_train_df, score_name)
 

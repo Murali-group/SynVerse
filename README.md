@@ -50,15 +50,15 @@ SynVerse is configured using a YAML file (e.g., [sample_config.yaml](https://git
 
 1. To train and test a model:
 ```
-   python main.py --config_file config_files/sample_config.yaml --train_type 'regular'
+   python main.py --config config_files/sample_config.yaml --train_type 'regular'
 ```
 2. To perform feature-shuffling-based ablation study:
 ```
-   python main.py --config_file config_files/sample_config.yaml --train_type 'shuffle'
+   python main.py --config config_files/sample_config.yaml --train_type 'shuffle'
 ```
 3. To perform network-based ablation study:
 ```
-   python main.py --config_file config_files/sample_config.yaml --train_type 'rewire'
+   python main.py --config config_files/sample_config.yaml --train_type 'rewire'
 ```
 4. To parse the output files and create plots showing RMSE and PCC score of the models:
 ```
